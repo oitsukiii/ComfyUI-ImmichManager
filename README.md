@@ -160,7 +160,7 @@ Example wiring:
 
 Stored in `<plugin>/config.json` — **auto-generated on first save**, not part of the repo and **git-ignored** (your API key will never be committed to a public repository); file permissions are `0o600` (owner read/write only). Never commit or share it.
 
-The config page has a **🗑 Reset config** button (with confirmation) that clears the Immich URL, API key and panel token in one click, restoring the fresh-install defaults.
+At the top of the config page, a **🗑 Reset config** button (with confirmation) clears the Immich URL, API key and panel token in one click, restoring the fresh-install defaults.
 
 | Field | Description |
 |---|---|
