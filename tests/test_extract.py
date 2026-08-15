@@ -20,8 +20,8 @@ def check(name, cond, extra=""):
 
 cases = [
     # (输入 originalPath, 期望 ext, 说明)
-    ("/data/library/upload/ComfyUI_01834_.png", "png", "普通 png"),
-    ("/data/library/upload/video_01.mp4", "mp4", "普通 mp4"),
+    ("/path/to/immich/library/upload/ComfyUI_01834_.png", "png", "普通 png"),
+    ("/path/to/immich/library/upload/video_01.mp4", "mp4", "普通 mp4"),
     ("C:\\Users\\x\\Pictures\\a.JPG", "jpg", "大写扩展名转小写"),
     ("/upload/2/img", "", "无扩展名（脏串：img 是路径片段）"),
     ("/dir.with.dot/file", "", "带点目录（脏串：dot 是目录名）"),

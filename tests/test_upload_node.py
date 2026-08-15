@@ -281,7 +281,7 @@ if KEY:
         client.delete_assets([asset_id])
 
     # 5.2 视频节点：真实 ComfyUI 环境（有 comfy_api）走 VideoFromComponents 全链路；
-    #      NAS 离线环境 fallback MockVideoInput 验证上传链路。
+    #      离线环境（无 ComfyUI）fallback MockVideoInput 验证上传链路。
     try:
         from comfy_api.latest import InputImpl, Types  # noqa: E402
         from fractions import Fraction
@@ -323,7 +323,7 @@ if KEY:
             os.remove(tmpv[1])
             client.delete_assets([v_id])
     else:
-        # NAS 离线：mock video 走完整上传链路（save_to 参数由 2.6 已验）
+        # 离线：mock video 走完整上传链路（save_to 参数由 2.6 已验）
         mv_i = MockVideoInput()
         out_v = node_vid.save_video(mv_i, filename_prefix="ci_p4_vid", prompt={"test": 2},
                                     extra_pnginfo={"workflow": {"nodes": [2]}})
