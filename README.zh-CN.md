@@ -1,7 +1,5 @@
 # ComfyUI-ImmichManager 🐾
 
-> **⚠️ 已归档** — 本仓库是 ComfyUI-ImmichManager 的**开发期归档**。项目已迁移至公开仓库：**[github.com/oitsukiii/ComfyUI-ImmichManager](https://github.com/oitsukiii/ComfyUI-ImmichManager)**（v1.0.0+）。此处保留完整 git 历史、设计文档与审查报告，仅作历史备查，不再继续开发。
-
 **把 ComfyUI 生成的图片/视频直接上传到你的 Immich 相册，内置资产预览与管理面板。**
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)

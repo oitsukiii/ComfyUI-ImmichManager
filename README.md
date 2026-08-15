@@ -1,7 +1,5 @@
 # ComfyUI-ImmichManager 🐾
 
-> **⚠️ ARCHIVED** — This repository is the **development archive** of ComfyUI-ImmichManager. The project has moved to its public home: **[github.com/oitsukiii/ComfyUI-ImmichManager](https://github.com/oitsukiii/ComfyUI-ImmichManager)** (v1.0.0+). This archive is kept for historical reference (full git history, design docs, audit reports); no further development happens here.
-
 **Upload ComfyUI-generated images/videos directly to your Immich library, with a built-in asset preview & management panel.**
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
