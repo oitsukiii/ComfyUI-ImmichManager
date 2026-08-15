@@ -53,6 +53,10 @@
 
 ![配置详情页面](images/config-page.png)
 
+4. **查找节点** — 在新建节点菜单搜索 "immich" 即可看到两个节点。
+
+![查找节点](images/node-search.png)
+
 ## 安装
 
 ### 1. 方式 A：ComfyUI-Manager

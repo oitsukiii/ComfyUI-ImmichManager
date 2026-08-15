@@ -53,6 +53,10 @@
 
 ![Configuration page](images/config-page.png)
 
+4. **Find the nodes** — search "immich" in the Add Node menu to see both nodes.
+
+![Find the nodes](images/node-search.png)
+
 ## Installation
 
 ### 1. Option A: ComfyUI-Manager
