@@ -1,0 +1,725 @@
+/* ComfyUI-ImmichManager 面板样式 —— 配色跟随 TPP（深灰底 + 琥珀黄 #f9a825 强调）
+   P3 主题适配（v0.6）：颜色优先引用 ComfyUI 0.30 主题变量（亮/暗自动跟随），
+   fallback 保留原值 —— ComfyUI 变量不存在时视觉完全不变。
+   琥珀黄 --immich-accent 为品牌色，固定不跟随主题。 */
+:root {
+    --immich-accent: #f9a825;
+    --immich-bg: var(--comfy-input-bg, #222222);
+    --immich-panel-bg: var(--dialog-surface, #2a2a2a);
+    --immich-border: var(--border-color, #3a3a3a);
+    --immich-text: var(--input-text, #dddddd);
+    --immich-muted: var(--descrip-text, #888888);
+    --immich-danger: var(--error-text, #f87171);
+    --immich-warn: var(--warning-background, #fbbf24);
+}
+
+#immich-panel-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: inherit;
+}
+
+#immich-panel {
+    position: relative;
+    width: min(1180px, 94vw);
+    height: min(820px, 92vh);
+    background: var(--immich-panel-bg);
+    border: 1px solid var(--border-color, #555);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+}
+
+/* 顶栏 */
+#immich-panel-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--immich-border);
+    background: var(--comfy-menu-secondary-bg, #1c1c1c);
+    flex-shrink: 0;
+}
+#immich-panel-header h2 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--fg-color, #ffffff);
+    flex: 1;
+}
+/* 顶栏按钮分组分隔线（时间线/配置/Immich 三组之间） */
+.immich-header-sep {
+    width: 1px;
+    height: 18px;
+    background: var(--immich-border, #444);
+    margin: 0 2px;
+    flex-shrink: 0;
+}
+/* 顶栏视图切换按钮（时间线/配置）：当前页仅画琥珀边框提示
+   （与选中资产图片同风格：黄边框 + 琥珀光晕，背景/文字保持朴素；按钮不做 scale） */
+#immich-panel-header .immich-btn.active {
+    border-color: var(--immich-accent);
+    box-shadow: 0 0 0 2px rgba(249, 168, 37, 0.45);
+}
+/* 选择/只看收藏按钮：高度与「小中大」缩放组对齐（26px，含边框） */
+#immich-panel-header #immich-btn-select,
+#immich-panel-header #immich-btn-favonly {
+    height: 26px;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+}
+/* 时间线导航组：切配置时「时间线+缩放+选择+只看收藏」四件套一起向右滑——
+   时间线按钮 margin 滑一小段 + h2(flex:1) 随 nav 收窄平滑推动到最终位置停住
+   （不被遮住）；缩放/选择/只看收藏 transform 滑出、在配置按钮左侧分隔线处被
+   裁剪 + 渐变羽化；nav max-width 同步收窄释放占位（transition 双向，切回反向） */
+#immich-btn-timeline {
+    transition: margin-left 0.35s ease;
+}
+#immich-timeline-nav {
+    display: inline-flex;
+    align-items: center;
+    overflow: hidden;
+    position: relative;
+    max-width: 340px;
+    /* 右/下各留 2px：active 琥珀光晕（box-shadow 外扩 2px）不被 overflow 裁掉 */
+    padding: 0 2px 2px 0;
+    transition: max-width 0.35s ease;
+}
+#immich-timeline-nav .inner {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    will-change: transform, opacity;
+    transition: transform 0.35s ease, opacity 0.35s ease;
+}
+/* 右缘羽化遮罩：滑动动画期间显示（透明→背景色渐变，模拟被分隔线遮挡的羽化过渡） */
+#immich-timeline-nav::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    width: 18px;
+    background: linear-gradient(to left, var(--comfy-menu-secondary-bg, #1c1c1c), transparent);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+    z-index: 1;
+}
+#immich-panel-header.config-mode #immich-btn-timeline {
+    margin-left: 40px;
+}
+#immich-panel-header.config-mode #immich-timeline-nav {
+    max-width: 0;
+    padding-right: 0;
+    padding-bottom: 0;
+}
+#immich-panel-header.config-mode #immich-timeline-nav .inner {
+    transform: translateX(calc(100% + 40px));
+    opacity: 0;
+}
+#immich-panel-header.config-mode #immich-timeline-nav::after {
+    opacity: 1;
+}
+.immich-btn {
+    background: var(--button-surface, #333333);
+    color: var(--immich-text);
+    border: 1px solid var(--border-color, #555);
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+}
+.immich-btn:hover { background: var(--button-hover-surface, #3f3f3f); }
+.immich-btn.primary { background: var(--immich-accent); border-color: var(--immich-accent); color: #1a1a1a; font-weight: 600; }
+.immich-btn.primary:hover { background: #ffb74d; }
+.immich-btn.danger { color: var(--immich-danger); border-color: rgba(248, 113, 113, 0.4); }
+.immich-btn.danger:hover { background: rgba(248, 113, 113, 0.12); }
+/* 清空配置按钮：白字 + 红色粗边框（区别于弹窗确认按钮的红字） */
+.immich-btn.danger-outline { color: var(--immich-text); border: 2px solid var(--immich-danger); }
+.immich-btn.danger-outline:hover { background: rgba(248, 113, 113, 0.12); }
+.immich-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* 内容区：左侧时间轴 + 右侧固定详情（需求 11） */
+#immich-panel-main {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+}
+#immich-timeline {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 16px;
+    scrollbar-width: thin;
+    min-width: 0;
+}
+#immich-detail-pane {
+    width: 340px;
+    flex-shrink: 0;
+    border-left: 1px solid var(--immich-border);
+    background: var(--immich-bg);
+    overflow-y: auto;
+    display: flex;
+    scrollbar-width: thin;
+}
+
+/* Toast 消息小窗（需求：居中靠顶显示，不再右下角） */
+#immich-toast-box {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10001;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    pointer-events: none;
+    max-width: 80vw;
+}
+.immich-toast {
+    padding: 9px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    line-height: 1.4;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    animation: immich-toast-in 0.2s ease-out;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.immich-toast.out { opacity: 0; transform: translateY(-8px); }
+@keyframes immich-toast-in {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.immich-toast.ok { background: var(--success-background, rgba(46, 125, 50, 0.92)); color: #e8f5e9; }
+.immich-toast.err { background: var(--destructive-background, rgba(211, 47, 47, 0.92)); color: #ffebee; }
+.immich-toast.warn { background: var(--warning-background, rgba(230, 150, 20, 0.92)); color: #fff8e1; }
+
+/* 时间轴：月份区块 */
+.immich-month {
+    margin-bottom: 14px;
+    border: 1px solid var(--immich-border);
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--immich-bg);
+}
+.immich-month-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 14px;
+    cursor: pointer;
+    user-select: none;
+    background: var(--comfy-menu-bg, #2b2b2b);
+}
+.immich-month-head:hover { background: var(--button-hover-surface, #333333); }
+.immich-month-title { font-weight: 600; font-size: 14px; color: var(--immich-text); }
+.immich-month-count { font-size: 12px; color: var(--immich-muted); }
+.immich-month-arrow { margin-left: auto; color: var(--immich-muted); font-size: 12px; }
+.immich-month.is-current .immich-month-title { color: var(--immich-accent); }
+
+/* 小组间隔块（需求 8：本期组内按 15m/30m/1h/1d 分块） */
+.immich-interval { margin-bottom: 10px; }
+.immich-interval-head {
+    padding: 4px 14px 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--immich-muted);
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+}
+
+/* 三挡缩放按钮组 */
+.immich-zoom-group {
+    display: inline-flex;
+    gap: 2px;
+    margin-right: 4px;
+    background: var(--comfy-menu-bg, #2a2a2a);
+    border: 1px solid var(--immich-border);
+    border-radius: 6px;
+    padding: 2px;
+}
+.immich-zoom-btn {
+    background: transparent;
+    border: none;
+    color: var(--immich-muted);
+    padding: 3px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background 0.15s, color 0.15s;
+}
+.immich-zoom-btn:hover { color: var(--immich-text); background: var(--button-hover-surface, #3a3a3a); }
+.immich-zoom-btn.active { background: var(--immich-accent); color: #1a1a1a; font-weight: 600; }
+
+/* 说明：「只看收藏」active 样式与「选择」统一，走顶栏通用规则
+   #immich-panel-header .immich-btn.active（琥珀边框 + 光晕），不单独定义 */
+
+/* ── ComfyUI 工具栏按钮：TPP 面板同款样式（琥珀描边 + 浅琥珀底）
+   min-height 32px 对齐 ComfyUI 标准按钮（Run）高度，避免偏矮不协调 */
+#immich-toolbar-btn {
+    margin: 0 2px;
+    padding: 4px 10px;
+    min-height: 32px;
+    font-size: 13px;
+    cursor: pointer;
+    color: #f9a825;
+    border: 1px solid #f9a825;
+    border-radius: 4px;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(249, 168, 37, 0.08);
+    box-sizing: border-box;
+}
+#immich-toolbar-btn:hover { background: rgba(249, 168, 37, 0.2); color: #fff; }
+#immich-toolbar-btn.active { background: rgba(249, 168, 37, 0.35); color: #fff; }
+
+/* 批量操作栏（v0.6 选择模式）：timeline 上方，进入选择模式才显示；整排靠右 */
+#immich-bulkbar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--immich-border);
+    background: var(--comfy-menu-secondary-bg, #1c1c1c);
+    flex-shrink: 0;
+    flex-wrap: wrap;
+}
+/* 配置操作栏（配置视图时显示，复用批量操作栏样式）：顶栏下方横条 */
+#immich-config-bar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--immich-border);
+    background: var(--comfy-menu-secondary-bg, #1c1c1c);
+    flex-shrink: 0;
+    flex-wrap: wrap;
+}
+#immich-config-bar .immich-btn { padding: 5px 10px; font-size: 12px; }
+#immich-bulk-count {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--immich-accent);
+    margin-right: 4px;
+}
+/* 「选择模式」标签（老李需求 2026-08-16：固定在栏最左侧左对齐，普通白色标题样式） */
+.immich-bulk-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+    margin-right: auto; /* 左对齐：吃掉剩余空间，把 count+按钮组推到右端 */
+}
+#immich-bulkbar .immich-btn { padding: 5px 10px; font-size: 12px; }
+
+/* Toast 上的操作按钮（v0.6：如"去回收站"） */
+.immich-toast-action {
+    margin-left: 8px;
+    padding: 2px 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--button-surface-contrast, #1a1a1a);
+    background: var(--button-surface, #fff);
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    vertical-align: middle;
+}
+.immich-toast-action:hover { background: #ffe0b2; }
+
+/* 自定义确认弹窗（v0.6）：替代原生 confirm，Esc 归弹窗不误关面板 */
+.immich-confirm-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10002;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.immich-confirm-box {
+    min-width: 320px;
+    max-width: 440px;
+    background: var(--dialog-surface, #2a2a2a);
+    border: 1px solid var(--border-color, #555);
+    border-radius: 10px;
+    padding: 18px 20px 14px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+}
+.immich-confirm-msg {
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--immich-text);
+    white-space: pre-line;
+    margin-bottom: 16px;
+}
+.immich-confirm-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+.immich-confirm-actions .immich-btn { min-width: 76px; }
+
+/* 面板令牌"阅后即焚"弹窗 */
+.immich-token-box { max-width: 520px; }
+.immich-token-title { font-size: 14px; font-weight: 600; color: var(--immich-text); margin-bottom: 10px; }
+.immich-token-value {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    word-break: break-all;
+    user-select: text;
+    background: var(--immich-bg);
+    border: 1px dashed var(--immich-accent, #f9a825);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    color: var(--immich-text);
+}
+
+/* 勾选框（v0.6 选择模式）：默认隐藏，选择模式显示。
+   位置在格式角标下方（左上角 top:4 是角标，勾选框下移避免重叠）；
+   选择模式下格式/收藏标签保持显示（老李反馈：删文件需看类型/收藏状态） */
+.immich-cell-check {
+    position: absolute;
+    top: 24px;
+    left: 4px;
+    z-index: 3;
+    width: 18px;
+    height: 18px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.9);
+    background: rgba(0, 0, 0, 0.45);
+    color: transparent;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    pointer-events: auto;
+}
+#immich-panel-overlay.select-mode .immich-cell-check { display: flex; }
+/* 选中态：琥珀边框 + 勾选框实心 */
+.immich-cell.selected {
+    border-color: var(--immich-accent);
+    box-shadow: 0 0 0 2px rgba(249, 168, 37, 0.45);
+    transform: scale(1.02);
+}
+.immich-cell.selected .immich-cell-check {
+    background: var(--immich-accent);
+    border-color: var(--immich-accent);
+    color: #1a1a1a;
+}
+
+/* 格式角标（右上角） */
+.immich-cell-badge {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    padding: 1px 5px;
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1.4;
+    color: #1a1a1a;
+    background: var(--immich-accent);
+    border-radius: 3px;
+    opacity: 0.9;
+    text-transform: uppercase;
+    pointer-events: none;
+}
+.immich-cell.is-video .immich-cell-badge { background: #4fc3f7; }
+
+/* 视频详情播放器 */
+#immich-detail-video {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    background: #000;
+}
+
+/* 网格：列宽随三挡变化（分辨率 + 显示大小联动，切大挡拉原图才不糊） */
+.immich-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+    gap: 8px;
+    padding: 12px;
+}
+/* 小挡：格子小、一屏多列，thumbnail(250px) 足够清晰 */
+#immich-panel[data-zoom="thumbnail"] .immich-grid {
+    grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+    gap: 5px;
+    padding: 10px;
+}
+#immich-panel[data-zoom="thumbnail"] .immich-cell-date { display: none; }
+#immich-panel[data-zoom="thumbnail"] .immich-cell-badge { font-size: 8px; padding: 0 3px; }
+/* 大挡：格子大、一屏少列，original 原图无损显示 */
+#immich-panel[data-zoom="original"] .immich-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+}
+#immich-panel[data-zoom="original"] .immich-cell-date { font-size: 11px; }
+#immich-panel[data-zoom="original"] .immich-cell-badge { font-size: 10px; }
+.immich-cell {
+    position: relative;
+    aspect-ratio: 1;
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--comfy-input-bg, #202020);
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: border-color 0.15s, transform 0.1s;
+}
+.immich-cell:hover { border-color: var(--immich-accent); transform: scale(1.02); }
+.immich-cell img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.immich-cell .immich-cell-date {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 2px 6px;
+    font-size: 10px;
+    color: #fff;
+    background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+.immich-cell:hover .immich-cell-date { opacity: 1; }
+/* 爱心收藏角标（需求 2.5：hover 出现空心 ♡，点击收藏变实心 ♥）
+   P2-2：无灰色圆圈背景；SVG 同一 path，填充/空心尺寸完全一致 */
+.immich-cell .immich-cell-fav {
+    position: absolute;
+    top: 3px;
+    right: 5px;
+    padding: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s, transform 0.1s;
+    z-index: 2;
+}
+.immich-cell .immich-cell-fav svg { display: block; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8)); }
+.immich-cell:hover .immich-cell-fav { opacity: 1; }
+.immich-cell .immich-cell-fav:hover { transform: scale(1.15); }
+/* P3：只给空心爱心 hover 加描边，已填充（fav）的不描边 */
+.immich-cell:not(.fav) .immich-cell-fav:hover svg { stroke: #ff6b81; }
+.immich-cell.fav .immich-cell-fav { opacity: 1; }
+/* 详情栏收藏按钮填充样式 */
+#immich-btn-fav.active { background: rgba(255, 77, 109, 0.18); border-color: #ff4d6d; color: #ff6b81; }
+.immich-cell .immich-cell-skeleton {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--immich-muted);
+    font-size: 11px;
+    background: var(--comfy-menu-secondary-bg, #242424);
+}
+
+/* 右侧详情 pane */
+#immich-detail {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+#immich-detail-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--immich-border);
+    background: var(--comfy-menu-secondary-bg, #1c1c1c);
+    font-size: 13px;
+    color: var(--immich-muted);
+    flex-shrink: 0;
+}
+#immich-detail-bar .immich-btn { padding: 2px 8px; font-size: 12px; }
+/* 详情空态占位（需求 2.1：默认展示详情页） */
+.immich-detail-empty {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: var(--immich-muted);
+    font-size: 13px;
+    line-height: 1.9;
+    padding: 20px;
+}
+#immich-detail-img {
+    width: 100%;
+    aspect-ratio: 1;
+    flex-shrink: 0;
+    background: var(--comfy-input-bg, #1a1a1a);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+#immich-detail-img img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+/* 图片全屏按钮（需求 2.2/2.5：右下角，仿视频播放器控制条样式；
+   视频不显示——原生 controls 自带全屏） */
+#immich-detail-img { position: relative; }
+.immich-detail-fs-btn {
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.55);
+    border: none;
+    border-radius: 50%;
+    color: #fff;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s, background 0.15s;
+}
+#immich-detail-img:hover .immich-detail-fs-btn { opacity: 1; }
+.immich-detail-fs-btn:hover { background: rgba(0, 0, 0, 0.8); }
+.immich-detail-fs-btn svg { display: block; }
+#immich-detail-info {
+    flex: 1;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 0;
+    overflow-y: auto;
+}
+.immich-detail-row { font-size: 13px; color: var(--immich-text); word-break: break-all; }
+.immich-detail-row .k { color: var(--immich-muted); margin-right: 6px; }
+.immich-detail-actions { margin-top: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+#immich-detail-desc {
+    width: 100%;
+    min-height: 60px;
+    resize: vertical;
+    background: var(--immich-bg);
+    color: var(--immich-text);
+    border: 1px solid var(--immich-border);
+    border-radius: 6px;
+    padding: 8px;
+    font-size: 13px;
+    font-family: inherit;
+}
+
+/* 配置页 */
+.immich-config-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 18px;
+    max-width: 760px;
+    margin: 0 auto;
+}
+.immich-group {
+    border: 1px solid var(--immich-border);
+    border-radius: 8px;
+    padding: 10px 14px 14px;
+}
+.immich-group-title {
+    margin: 0 0 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--immich-accent, #f9a825);
+    border-bottom: 1px solid var(--immich-border);
+    padding-bottom: 6px;
+}
+.immich-group .immich-field + .immich-field { margin-top: 10px; }
+.immich-field { display: flex; flex-direction: column; gap: 4px; }
+/* 字段排版：标题（粗、正常字号）→ 说明（小字、弱化）→ 输入控件 */
+.immich-field-title { font-size: 13px; font-weight: 600; color: var(--immich-text); }
+.immich-field-desc { font-size: 11px; color: var(--immich-muted); line-height: 1.45; }
+.immich-field-warn {
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--immich-accent, #f9a825);
+    background: rgba(249, 168, 37, 0.08);
+    border: 1px solid rgba(249, 168, 37, 0.35);
+    border-radius: 6px;
+    padding: 6px 10px;
+}
+.immich-field label.immich-field-title { font-size: 13px; font-weight: 600; color: var(--immich-text); }
+.immich-field input, .immich-field select {
+    background: var(--immich-bg);
+    color: var(--immich-text);
+    border: 1px solid var(--immich-border);
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-size: 13px;
+    font-family: inherit;
+}
+.immich-field input:focus, .immich-field select:focus { outline: none; border-color: var(--immich-accent); }
+.immich-field .hint { font-size: 11px; color: var(--immich-muted); }
+/* 🔒 面板令牌按钮行 */
+.immich-panel-token-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
+.immich-panel-token-row .immich-btn { min-height: 32px; }
+/* ☑ 记住令牌到本机（局域网令牌输入区） */
+.immich-remember-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--immich-text);
+    cursor: pointer;
+    user-select: none;
+}
+.immich-remember-row input[type="checkbox"] { accent-color: var(--immich-accent, #f9a825); width: 14px; height: 14px; }
+.immich-config-actions { display: flex; gap: 10px; justify-content: center; margin-top: 18px; }
+
+/* 工具栏按钮 */
+#immich-toolbar-btn {
+    margin-left: 4px;
+}
+#immich-toolbar-btn.active { background: rgba(249, 168, 37, 0.2); border-color: var(--immich-accent); }
+
+/* 空态/加载 */
+.immich-empty { text-align: center; color: var(--immich-muted); padding: 40px 0; font-size: 14px; }
+.immich-empty-sub { text-align: center; color: var(--immich-muted); padding: 0 0 24px; font-size: 13px; }
+.immich-loading { text-align: center; color: var(--immich-muted); padding: 30px 0; }
+.immich-loading::before {
+    content: "";
+    display: inline-block;
+    width: 22px;
+    height: 22px;
+    margin-right: 10px;
+    vertical-align: -5px;
+    border: 2px solid var(--immich-border);
+    border-top-color: var(--immich-accent);
+    border-radius: 50%;
+    animation: immich-spin 0.8s linear infinite;
+}
+@keyframes immich-spin { to { transform: rotate(360deg); } }

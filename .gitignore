@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# 本插件运行时配置（含 api_key，绝不提交）
+config.json
+
+# 测试脚本（可能含本地测试专用 key）
+/tests/*.local.py
+*.local.py
+
+# OS / 编辑器
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
