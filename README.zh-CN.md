@@ -59,7 +59,7 @@
 
 ```bash
 cd ComfyUI/custom_nodes
-git clone <仓库地址> ComfyUI-ImmichManager
+git clone https://github.com/oitsukiii/ComfyUI-ImmichManager.git ComfyUI-ImmichManager
 ```
 
 重启 ComfyUI。顶部工具栏出现面板按钮（🖼️ Immich）。

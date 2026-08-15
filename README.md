@@ -59,7 +59,7 @@ Search for `ComfyUI-ImmichManager` in ComfyUI-Manager and install it, then resta
 
 ```bash
 cd ComfyUI/custom_nodes
-git clone <repository-url> ComfyUI-ImmichManager
+git clone https://github.com/oitsukiii/ComfyUI-ImmichManager.git ComfyUI-ImmichManager
 ```
 
 Restart ComfyUI. The panel button appears in the top toolbar (🖼️ Immich).
