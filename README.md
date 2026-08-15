@@ -15,13 +15,13 @@
 
 ## Table of Contents
 
-- [1️⃣ Features](#1️⃣-features)
-- [2️⃣ Screenshots](#2️⃣-screenshots)
-- [3️⃣ Installation](#3️⃣-installation)
-- [4️⃣ Quick Start](#4️⃣-quick-start)
-- [5️⃣ Usage](#5️⃣-usage)
-- [6️⃣ Configuration](#6️⃣-configuration)
-- [7️⃣ Security](#7️⃣-security)
+- [Features](#features)
+- [Screenshots](#screenshots)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Usage](#usage)
+- [Configuration](#configuration)
+- [Security](#security)
 - [FAQ](#faq)
 - [Development](#development)
 - [Contributing](#contributing)
@@ -30,7 +30,7 @@
 
 ---
 
-## 1️⃣ Features
+## Features
 
 - **🖼️ `Immich Save Image` node** — upload generated images (PNG) with the current workflow embedded as metadata; drag the image back from Immich to restore the workflow.
 - **🎬 `Immich Save Video` node** — accepts the official ComfyUI `VIDEO` type (`Create Video` / `Load Video` / …), encodes to MP4 (H.264) with workflow metadata, and shows an in-node video preview.
@@ -39,13 +39,17 @@
 - **🌐 i18n** — English & Simplified Chinese; **follows your system language by default after install** (switchable in the config page, with an option to return to auto).
 - **🎨 Theme-aware** — follows the ComfyUI light/dark theme (falls back gracefully to the original colors).
 
-## 2️⃣ Screenshots
+## Screenshots
 
-![Immich Manager timeline](images/timeline.png)
+1. **Asset timeline page** — browse your library, lazy-loaded thumbnails, details & batch actions.
 
-![Config page](images/config-page.png)
+![Asset timeline page](images/timeline.png)
 
-## 3️⃣ Installation
+2. **Configuration page** — connection test, panel token, language settings.
+
+![Configuration page](images/config-page.png)
+
+## Installation
 
 ### 1. Option A: ComfyUI-Manager
 
@@ -77,7 +81,7 @@ python -m pip install requests pillow aiohttp
 
 and restart ComfyUI. The `[ComfyUI-ImmichManager]` log prefix always reports the dependency check result.
 
-## 4️⃣ Quick Start
+## Quick Start
 
 1. Create an Immich API Key (Immich web → Administration → Settings → API Keys).
 2. Restart ComfyUI, click **🖼️ Immich** in the toolbar → **⚙️ Configure**.
@@ -85,7 +89,7 @@ and restart ComfyUI. The `[ComfyUI-ImmichManager]` log prefix always reports the
 4. Click **Test Connection** to verify (shows the Immich version).
 5. Browse assets in the timeline; add `🖼️ Immich Save Image` / `🎬 Immich Save Video` to your workflow to upload.
 
-## 5️⃣ Usage
+## Usage
 
 Both nodes take their connection settings (base URL / API key / default album) from the panel config — no connection inputs on the node itself.
 
@@ -144,7 +148,7 @@ Example wiring:
 - **❤️ Show Favorites** filter: shows only assets favorited in Immich (un-favoriting hides them immediately).
 - 🌐 **Open Immich** button jumps to the Immich web UI.
 
-## 6️⃣ Configuration
+## Configuration
 
 Stored in `<plugin>/config.json` — **auto-generated on first save**, not part of the repo and **git-ignored** (your API key will never be committed to a public repository); file permissions are `0o600` (owner read/write only). Never commit or share it.
 
@@ -160,7 +164,7 @@ The config page has a **🗑 Reset config** button (with confirmation) that clea
 | `timeline_interval` | Grouping interval inside the current period: `15m` / `30m` / `1h` / `1d` (default `1h`). |
 | `page_size` | Pagination size (min 1, max 1000). |
 
-## 7️⃣ Security
+## Security
 
 This section starts from the **panel access token** you actually see in the 🔒 Security group of the config page, and explains it step by step.
 

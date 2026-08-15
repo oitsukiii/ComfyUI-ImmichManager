@@ -15,13 +15,13 @@
 
 ## 目录
 
-- [1️⃣ 功能特性](#1️⃣-功能特性)
-- [2️⃣ 截图](#2️⃣-截图)
-- [3️⃣ 安装](#3️⃣-安装)
-- [4️⃣ 快速开始](#4️⃣-快速开始)
-- [5️⃣ 使用说明](#5️⃣-使用说明)
-- [6️⃣ 配置项](#6️⃣-配置项)
-- [7️⃣ 安全模型](#7️⃣-安全模型)
+- [功能特性](#功能特性)
+- [截图](#截图)
+- [安装](#安装)
+- [快速开始](#快速开始)
+- [使用说明](#使用说明)
+- [配置项](#配置项)
+- [安全模型](#安全模型)
 - [FAQ](#faq)
 - [开发](#开发)
 - [贡献](#贡献)
@@ -30,7 +30,7 @@
 
 ---
 
-## 1️⃣ 功能特性
+## 功能特性
 
 - **🖼️ `Immich Save Image` 上传节点** — 生成图（PNG）带当前工作流 metadata 上传；从 Immich 下载后拖回画布即可恢复工作流。
 - **🎬 `Immich Save Video` 上传节点** — 接受官方 ComfyUI `VIDEO` 类型（`Create Video` / `Load Video` 等），编码为 MP4（H.264）+ 工作流 metadata，节点自带视频预览。
@@ -39,13 +39,17 @@
 - **🌐 多语言** — 英文与简体中文，**安装后默认跟随系统语言**（配置页可切换，也可恢复自动跟随）。
 - **🎨 主题适配** — 跟随 ComfyUI 亮/暗主题（找不到主题变量时优雅回退到原色）。
 
-## 2️⃣ 截图
+## 截图
 
-![Immich Manager 时间轴](images/timeline.png)
+1. **资产时间线页面** — 浏览图库，缩略图懒加载、详情与批量操作。
 
-![配置页](images/config-page.png)
+![资产时间线页面](images/timeline.png)
 
-## 3️⃣ 安装
+2. **配置详情页面** — 连接测试、面板令牌、语言设置。
+
+![配置详情页面](images/config-page.png)
+
+## 安装
 
 ### 1. 方式 A：ComfyUI-Manager
 
@@ -78,7 +82,7 @@ python -m pip install requests pillow aiohttp
 
 然后重启 ComfyUI。`[ComfyUI-ImmichManager]` 日志前缀会明确报告依赖检查结果。
 
-## 4️⃣ 快速开始
+## 快速开始
 
 1. 在 Immich 创建 API Key（Immich 网页 → 右上角头像 → 账号设置 → API密钥）。
 2. 安装好本插件后重启 ComfyUI，点击工具栏 **🖼️ Immich** → **⚙️ 配置**。
@@ -87,7 +91,7 @@ python -m pip install requests pillow aiohttp
 5. 在时间轴浏览并管理 Immich 资产。
 6. 在工作流里添加 `🖼️ Immich Save Image` / `🎬 Immich Save Video` 节点即可上传。
 
-## 5️⃣ 使用说明
+## 使用说明
 
 两个上传节点的连接配置（地址 / API Key / 默认相册）统一走面板配置，节点上不再有连接类输入。
 
@@ -147,7 +151,7 @@ python -m pip install requests pillow aiohttp
 - **❤️ 只看收藏**过滤：仅显示 Immich 中已收藏的资产（取消收藏后立即从列表消失）。
 - 🔗 **打开 Immich** 按钮跳转 Immich 网页。
 
-## 6️⃣ 配置项
+## 配置项
 
 配置保存在插件目录下的 `config.json`——**首次保存配置时自动生成**，不在仓库里、已被 `.gitignore` 排除（你的 API Key 绝不会被 `git` 提交进公开仓库）；文件权限 `0o600`（仅属主可读写）。请勿手动把它提交或分享。
 
@@ -163,7 +167,7 @@ python -m pip install requests pillow aiohttp
 | `timeline_interval` | 本期大组内的小组间隔：`15m` / `30m` / `1h` / `1d`（默认 `1h`）。                                       |
 | `page_size`         | 分页大小（下界 1，上限 1000）。                                                                    |
 
-## 7️⃣ 安全模型
+## 安全模型
 
 下面从你在**配置页 🔒 安全分组**里实际看到的面板访问令牌讲起，按使用顺序说明。
 
