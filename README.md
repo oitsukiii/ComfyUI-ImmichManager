@@ -41,11 +41,15 @@
 
 ## Screenshots
 
-1. **Asset timeline page** — browse your library, lazy-loaded thumbnails, details & batch actions.
+1. **Entry point** — the Immich button in the ComfyUI toolbar (marked in the screenshot).
+
+![Entry point](images/entry-point.png)
+
+2. **Asset timeline page** — browse your library, lazy-loaded thumbnails, details & batch actions.
 
 ![Asset timeline page](images/timeline.png)
 
-2. **Configuration page** — connection test, panel token, language settings.
+3. **Configuration page** — connection test, panel token, language settings.
 
 ![Configuration page](images/config-page.png)
 
