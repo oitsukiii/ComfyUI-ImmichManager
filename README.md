@@ -270,6 +270,6 @@ Please follow the existing code style (Chinese comments in code, module docstrin
 
 ## Acknowledgements
 
-- Built with the assistance of **DeepSeek V4 Flash** and **DeepSeek V4 Pro** for design, implementation and code review.
+- Developed with a **vibe coding** workflow — built with the assistance of **DeepSeek V4 Flash** and **DeepSeek V4 Pro** for design, implementation and code review.
 - Thanks to [ComfyUI](https://github.com/comfyanonymous/ComfyUI) for its rich node ecosystem and stable extension mechanism, which make custom node development a pleasure.
 - Thanks to [Immich](https://github.com/immich-app/immich) for its comprehensive REST API — the album, timeline, trash and other capabilities of this plugin are built on its excellent design.
