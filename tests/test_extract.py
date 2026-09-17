@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """_extract_ext 边界测试：originalPath → 扩展名提取。
 
-覆盖审小爪 P2-1：带点目录、无扩展名文件、脏串不产出假 ext。
+覆盖代码审查 P2-1：带点目录、无扩展名文件、脏串不产出假 ext。
 """
 import os
 import sys

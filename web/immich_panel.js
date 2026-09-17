@@ -41,10 +41,10 @@
   // 用户勾选「记住令牌到本机」后存 localStorage（跨会话持久化，需主动选择）。
   var LS_TOKEN = "immich_panel_token";
   var token = sessionStorage.getItem(LS_TOKEN) || localStorage.getItem(LS_TOKEN) || "";
-  // 详情页状态记忆（sessionStorage）：开关状态 + 选中资产（老李需求 2026-08-16）
+  // 详情页状态记忆（sessionStorage）：开关状态 + 选中资产（用户需求 2026-08-16）
   var LS_DETAIL_OPEN = "immich_detail_open";   // "1" 详情开着 / "0" 用户主动关闭
   var LS_DETAIL_ASSET = "immich_detail_asset"; // 上次选中的资产 id
-  // 时间轴状态记忆（sessionStorage，老李需求 2026-08-16）：滚动位置 + 往期月份展开态
+  // 时间轴状态记忆（sessionStorage，用户需求 2026-08-16）：滚动位置 + 往期月份展开态
   var LS_TIMELINE_SCROLL = "immich_timeline_scroll";     // scrollTop（px）
   var LS_TIMELINE_EXPANDED = "immich_timeline_expanded"; // JSON 数组：展开的月份 key（"2026-8"）+ 本期 "current"
 
@@ -200,7 +200,7 @@
       };
       t.appendChild(btn);
     }
-    // P3（审小爪）：toast 堆叠上限 5 条，超出移除最旧
+    // P3（代码审查）：toast 堆叠上限 5 条，超出移除最旧
     while (box.children.length > 5) box.firstChild.remove();
     if (cls === "err") console.error("[ComfyUI-ImmichManager]", text);
     setTimeout(function () {
@@ -379,7 +379,7 @@
       updateFavOnlyButton();
       refreshAll();
     };
-    // 批量操作栏（v0.6：选择模式下的批量收藏/删除；老李需求 2026-08-16：
+    // 批量操作栏（v0.6：选择模式下的批量收藏/删除；用户需求 2026-08-16：
     // 「取消选择」清空选中保留选择模式，原「取消」改「✕」退出选择模式）
     document.getElementById("immich-btn-bulk-all").onclick = bulkSelectAll;
     document.getElementById("immich-btn-bulk-fav").onclick = bulkFavorite;
@@ -404,7 +404,7 @@
     overlay.addEventListener("mousedown", function (e) {
       if (e.target === overlay) closePanel();
     });
-    // 时间轴滚动位置记忆（防抖保存，老李需求 2026-08-16）——ensureSkeleton 只执行一次
+    // 时间轴滚动位置记忆（防抖保存，用户需求 2026-08-16）——ensureSkeleton 只执行一次
     var tlEl = document.getElementById("immich-timeline");
     if (tlEl) tlEl.addEventListener("scroll", scheduleSaveTimelineScroll);
   }
@@ -451,8 +451,8 @@
     state.selectMode = true;
     state.selectedIds = {};
     state.shiftAnchorCell = null; // 进入选择模式清 shift 锚
-    // 进入选择模式前快照详情状态（退出时还原，老李需求 2026-08-16）
-    // 存 id 而非对象引用：批量删除后引用会指向已删资产（P2，审小爪 2026-08-16）
+    // 进入选择模式前快照详情状态（退出时还原，用户需求 2026-08-16）
+    // 存 id 而非对象引用：批量删除后引用会指向已删资产（P2，代码审查 2026-08-16）
     var pane = document.getElementById("immich-detail-pane");
     state.detailBeforeSelect = {
       visible: !!pane && pane.style.display !== "none",
@@ -518,7 +518,7 @@
     updateSelectUI();
   }
 
-  // 同步时间轴每个 cell 的选中态（老李需求 2026-08-16）：
+  // 同步时间轴每个 cell 的选中态（用户需求 2026-08-16）：
   // 选择模式 → selectedIds 勾选的；普通模式 → 详情当前资产（黄框，无复选框）
   function syncCellSelectedState() {
     document.querySelectorAll("#immich-timeline .immich-cell").forEach(function (c) {
@@ -539,7 +539,7 @@
     var selBtn = document.getElementById("immich-btn-select");
     if (selBtn) {
       selBtn.classList.toggle("active", state.selectMode);
-      // 老李 2026-08-16：进入选择模式后标题栏按钮保持「✅ 选择」文本，只用黄色边框高亮；
+      // 用户 2026-08-16：进入选择模式后标题栏按钮保持「✅ 选择」文本，只用黄色边框高亮；
       // ✕ 退出只在批量操作栏（bulkbar）里
       selBtn.textContent = t("btn.select");
       selBtn.title = state.selectMode ? t("btn.select.title.active") : t("btn.select.title");
@@ -558,7 +558,7 @@
     syncCellSelectedState();
   }
 
-  // 取消选择：清空当前选中，但保留在选择模式（老李需求 2026-08-16）
+  // 取消选择：清空当前选中，但保留在选择模式（用户需求 2026-08-16）
   function clearSelection() {
     if (!state.selectMode) return;
     state.selectedIds = {};
@@ -566,7 +566,7 @@
   }
 
   // 选中所有资产判断：当前时间轴已渲染的全部 cell（全选/逐点都算；折叠月份无 DOM 不参与）。
-  // 集合相等判断（审小爪 P2 2026-08-16）：数量相等 + 逐 cell 比对 data-cell-id，
+  // 集合相等判断（代码审查 P2 2026-08-16）：数量相等 + 逐 cell 比对 data-cell-id，
   // 防「数量巧合相等」误判——折叠月份移除 cell 时 selectedIds 有残留（既有设计），
   // 若只比数量，展开/折叠组合可能让选中数恰好等于可见数，误弹全选警告。
   function isAllAssetsSelected() {
@@ -585,8 +585,8 @@
   function bulkFavorite() {
     var ids = Object.keys(state.selectedIds);
     if (!ids.length) return;
-    // 全选二级确认（老李需求 2026-08-16）：选中所有资产时提示，防误操作。
-    // 收藏非破坏性，确认按钮用 primary（琥珀）区分删除的 danger（审小爪 P3）
+    // 全选二级确认（用户需求 2026-08-16）：选中所有资产时提示，防误操作。
+    // 收藏非破坏性，确认按钮用 primary（琥珀）区分删除的 danger（代码审查 P3）
     if (isAllAssetsSelected()) {
       confirmDialog(t("bulk.all.confirm.fav", { n: ids.length }), t("btn.bulk.fav"), "primary").then(function (confirmed) {
         if (confirmed) doBulkFavorite(ids);
@@ -628,7 +628,7 @@
   }
 
   // 批量删除：二次确认（破坏性动词 + 数量 + 可恢复），删除进回收站
-  // 全选时替换为全选警告（老李需求 2026-08-16）
+  // 全选时替换为全选警告（用户需求 2026-08-16）
   function bulkDelete() {
     var ids = Object.keys(state.selectedIds);
     if (!ids.length) return;
@@ -665,7 +665,7 @@
 
   function closePanel() {
     viewToken++; // 关面板：在跑的异步链作废，避免迟到回调操作隐藏面板
-    // P2（审小爪）：关面板前清理详情内容——视频 loop 会后台无限循环播放，
+    // P2（代码审查）：关面板前清理详情内容——视频 loop 会后台无限循环播放，
     // blob 不回收；复用 closeDetail 的 abort+pause+revoke
     closeDetail();
     // 关面板：丢弃选择模式快照（不还原详情，下次打开按 sessionStorage 记忆还原）
@@ -749,7 +749,7 @@
         var merged = [];
         results.forEach(function (r) { merged = merged.concat(r.assets || []); });
 
-        // P1 修复（审小爪）：跨界桶拆分——periodStart 落在上月中间时，
+        // P1 修复（代码审查）：跨界桶拆分——periodStart 落在上月中间时，
         // 上月 1 号~periodStart-1 的资产会被本期 filter 掉，但桶已不在 pastBuckets，
         // 导致"既不在本期也不在往期"彻底不可见。把溢出资产按月份重组为往期折叠块。
         // 需求 2.6：favOnly 开启时，本期与溢出都只保留收藏项。
@@ -785,7 +785,7 @@
           timeline.appendChild(sec);
         });
 
-        // 异步展开月份（pastBuckets）完成前不还原滚动位置（P2-1 审小爪 2026-08-16）
+        // 异步展开月份（pastBuckets）完成前不还原滚动位置（P2-1 代码审查 2026-08-16）
         var restorePromises = [];
         pastBuckets.forEach(function (b) {
           var sec = renderMonth(b);
@@ -794,7 +794,7 @@
         });
         // 时间线渲染完成后还原详情状态（选中资产在 assetsById 里则恢复，否则占位/保持关闭）
         restoreDetailState();
-        // 滚动位置还原（审小爪 P2-1 2026-08-16）：等所有异步展开月份加载完再设 scrollTop，
+        // 滚动位置还原（代码审查 P2-1 2026-08-16）：等所有异步展开月份加载完再设 scrollTop，
         // 否则内容未撑开时被浏览器 clamp 到旧高度；溢出月份同步展开已含在 Promise 里
         Promise.all(restorePromises).then(function () {
           if (token !== viewToken) return; // 视图已切走（如配置页），放弃还原
@@ -818,11 +818,11 @@
   }
 
   // 本期大组：组内按 timeline_interval 分块（15m/30m/1h/1d）。
-  // head 可点击折叠/展开（P2-1 审小爪：原版只有 ▼ 无交互）。
+  // head 可点击折叠/展开（P2-1 代码审查：原版只有 ▼ 无交互）。
   function renderPeriodSection(rangeKey, periodStart, inPeriod) {
     var sec = document.createElement("div");
     sec.className = "immich-month is-current";
-    // 本期默认展开；记忆里 "current" = 用户折叠过 → 初始折叠（老李需求 2026-08-16）
+    // 本期默认展开；记忆里 "current" = 用户折叠过 → 初始折叠（用户需求 2026-08-16）
     sec._expanded = getExpandedMonths().indexOf("current") < 0;
     sec._assets = inPeriod;
 
@@ -949,10 +949,10 @@
     sec.appendChild(grid);
 
     var tb = sec._bucket && sec._bucket.timeBucket;
-    // 返回 Promise：renderTimeline 等所有异步展开完成后再还原滚动位置（审小爪 P2-1 2026-08-16，
+    // 返回 Promise：renderTimeline 等所有异步展开完成后再还原滚动位置（代码审查 P2-1 2026-08-16，
     // 否则内容未撑开时 scrollTop 被 clamp 到旧高度，fetch 完成内容变高后回不到记忆位置）
     return api("GET", "/bucket?timeBucket=" + encodeURIComponent(tb) + "&order=desc").then(function (assets) {
-      // P1-1a（审小爪）：加载期间用户已收起 → 不渲染，避免"箭头 ▶ 但内容弹回"
+      // P1-1a（代码审查）：加载期间用户已收起 → 不渲染，避免"箭头 ▶ 但内容弹回"
       if (!sec._expanded) return;
       sec._assets = assets;
       showMonthAssets(sec, assets);
@@ -969,7 +969,7 @@
     if (arrow) arrow.textContent = "▶";
     setMonthExpanded(sec._mk, false); // 往期月份折叠态记忆
     // 移除整个月内主体（含所有天分组/空提示），不能只删第一个 .immich-grid
-    // P1-1b/1c（审小爪）：统一清 body + 加载占位 + empty，防止竞态残留
+    // P1-1b/1c（代码审查）：统一清 body + 加载占位 + empty，防止竞态残留
     var body = sec.querySelector(".immich-month-body");
     if (body) body.remove();
     var empty = sec.querySelector(".immich-empty");
@@ -986,7 +986,7 @@
   // 往期月份展开：第一层=年月（月份折叠头），第二层=天（月内按天分组，固定间隔，
   // 不跟随面板 timeline_interval 参数——需求 2.4）。天分组只显示标题，不额外加框。
   function showMonthAssets(sec, assets) {
-    // 移除旧内容：body（天分组）/ 加载占位 grid / empty（P1-1b 审小爪：
+    // 移除旧内容：body（天分组）/ 加载占位 grid / empty（P1-1b 代码审查：
     // 竞态残留时旧 body 必须整体清掉，不能只删第一个 .immich-grid）
     var oldBody = sec.querySelector(".immich-month-body");
     if (oldBody) oldBody.remove();
@@ -1075,10 +1075,10 @@
       '<span class="immich-cell-badge">' + esc(assetBadge(asset)) + "</span>" +
       '<div class="immich-cell-date">' + fmtDate(asset.fileCreatedAt || asset.createdAt) + "</div>";
     // v0.6：选择模式下点击缩略图 = 切换勾选（不进详情）；普通模式 = 打开详情
-    // v0.6 老李需求 2026-08-16：shift 范围多选（普通模式自动进入选择状态）
-    // 资源管理器直觉（审小爪 P2-2 2026-08-16）：普通模式先点 A 再看 C 之前 shift 点 C
+    // v0.6 用户需求 2026-08-16：shift 范围多选（普通模式自动进入选择状态）
+    // 资源管理器直觉（代码审查 P2-2 2026-08-16）：普通模式先点 A 再看 C 之前 shift 点 C
     // → 范围起点 = 进入选择模式前最后普通点击的 cell（A），即 [A..C]
-    // 老李 2026-08-16：去掉 ctrl/meta 多选（ctrl+点选不再进入选择模式）
+    // 用户 2026-08-16：去掉 ctrl/meta 多选（ctrl+点选不再进入选择模式）
     cell.onclick = function (e) {
       if (e.shiftKey) {
         if (!state.selectMode) {
@@ -1114,7 +1114,7 @@
           heart.innerHTML = heartIcon(next);
           heart.title = next ? t("fav.title.remove") : t("fav.title.add");
         }
-        // 当前详情 pane 若正是该资产，同步按钮状态+颜色（老李 UI 一致性反馈）
+        // 当前详情 pane 若正是该资产，同步按钮状态+颜色（用户 UI 一致性反馈）
         if (state.currentAsset && state.currentAsset.id === asset.id) {
           var b = document.getElementById("immich-btn-fav");
           if (b) {
@@ -1312,7 +1312,7 @@
       "</div>";
     document.getElementById("immich-btn-detail-close").onclick = userCloseDetail;
     state.currentAsset = null;
-    syncCellSelectedState(); // 占位（无选中资产）→ 取消时间轴选中态黄框（审小爪 P3 2026-08-16）
+    syncCellSelectedState(); // 占位（无选中资产）→ 取消时间轴选中态黄框（代码审查 P3 2026-08-16）
     // 记忆详情状态：开着但未选中资产
     sessionStorage.setItem(LS_DETAIL_OPEN, "1");
     sessionStorage.removeItem(LS_DETAIL_ASSET);
@@ -1327,7 +1327,7 @@
 
   // 还原详情状态（打开面板/切回时间线/刷新后）：
   // 记忆为关闭 → 保持隐藏；记忆为开着且有选中资产 → 恢复资产详情（本期 assetsById
-  // 未命中时单查兜底，覆盖往期/溢出资产，P1 审小爪 2026-08-16）；
+  // 未命中时单查兜底，覆盖往期/溢出资产，P1 代码审查 2026-08-16）；
   // 其他（开着但无/找不到资产，或首次无记忆）→ 显示占位（默认开启）
   function restoreDetailState() {
     var pane = document.getElementById("immich-detail-pane");
@@ -1362,7 +1362,7 @@
     });
   }
 
-  // ─────────────── 时间轴状态记忆（老李需求 2026-08-16） ───────────────
+  // ─────────────── 时间轴状态记忆（用户需求 2026-08-16） ───────────────
   // 滚动位置 + 往期月份展开/折叠态，sessionStorage 持久化，重开面板/切页还原
 
   // 月份统一展开 key：tb "2026-08-01" / "2026-8-01" → "2026-8"（无前导零，10-12 月原样）
@@ -1573,10 +1573,6 @@
       }
       // 默认相册：连接成功后可下拉选择 Immich 相册
       fillAlbumSelect(cfg.default_album || "");
-      // 🌐 网络代理：仅「自定义代理」模式下代理地址可编辑（其它模式置灰但保留已填值）
-      var proxySel = document.getElementById("cfg-proxy-mode");
-      if (proxySel) proxySel.onchange = syncProxyInput;
-      syncProxyInput();
       // 🔒 安全分组：面板令牌状态区（生成/显示/重新生成/清除）
       renderPanelTokenRow();
     }).catch(function (e) {
@@ -1621,17 +1617,6 @@
     });
   }
 
-  // 🌐 网络代理：代理地址输入框只在「自定义代理」模式下可编辑
-  // （置灰 ≠ 丢弃：切回 custom 时已填地址仍在）
-  function syncProxyInput() {
-    var sel = document.getElementById("cfg-proxy-mode");
-    var inp = document.getElementById("cfg-proxy-url");
-    if (!sel || !inp) return;
-    var custom = sel.value === "custom";
-    inp.disabled = !custom;
-    inp.style.opacity = custom ? "1" : "0.5";
-  }
-
   // 表单是否有未保存的更改（用于测试连接前拦截）
   function hasUnsavedChanges() {
     var cfg = state.config || {};
@@ -1639,7 +1624,7 @@
     if (val("cfg-album") !== (cfg.default_album || "")) return true;
     if (val("cfg-range") !== (cfg.timeline_range || "today")) return true;
     if (val("cfg-interval") !== (cfg.timeline_interval || "1h")) return true;
-    // 代理：模式 + 地址（地址框置灰时 val() 仍返回其值，故置灰也算草稿）
+    // 代理：模式 + 地址（地址框在所有模式下都可编辑，清空即"清除已存地址"）
     if (val("cfg-proxy-mode") !== (cfg.proxy_mode || "off")) return true;
     if (val("cfg-proxy-url").trim() !== (cfg.proxy_url || "")) return true;
     // API Key 不回显明文，填了就算未保存；面板令牌走按钮即时生效（不算草稿）
@@ -1712,7 +1697,8 @@
       timeline_range: val("cfg-range"),
       timeline_interval: val("cfg-interval"),
     };
-    // 🌐 网络代理：custom 必须带地址；off/env 时不回传地址（空串=不改动，保留已填值）
+    // 🌐 网络代理：custom 必须带地址；地址留空 = 清除已存地址（后端语义，
+    // off/env 下清空输入框保存即清除休眠值——修代码审查发现的 P2-1 的"清不掉"死结）
     var proxyMode = val("cfg-proxy-mode") || "off";
     var proxyUrl = val("cfg-proxy-url").trim();
     if (proxyMode === "custom" && !proxyUrl) {
@@ -1720,7 +1706,7 @@
       return;
     }
     payload.proxy_mode = proxyMode;
-    if (proxyUrl) payload.proxy_url = proxyUrl;
+    payload.proxy_url = proxyUrl;
     var ak = val("cfg-api-key");
     if (ak) payload.api_key = ak;
 
@@ -1879,11 +1865,11 @@
     return el ? el.value : "";
   }
 
-  // ─────────────── 节点 DESCRIPTION 语言跟随（老李 2026-08-16）───────────────
+  // ─────────────── 节点 DESCRIPTION 语言跟随（用户 2026-08-16）───────────────
   // 节点悬停文本跟随面板语言设置（localStorage "immich_lang"：auto/zh/en），
   // 而不是 ComfyUI 自身的 Locale。
   //
-  // ⚠️ HACK 标注（审小爪 2026-08-16 复审）：ComfyUI 0.30 Vue 前端 tooltip 显示
+  // ⚠️ HACK 标注（代码审查 2026-08-16 复审）：ComfyUI 0.30 Vue 前端 tooltip 显示
   // 来源是 Pinia nodeDefStore 的 nodeDefsByName[type].description（GraphView
   // onIdle: showTooltip(def?.description)），不再读 LiteGraph 类/节点实例。
   // 当前无公开 API 可改 store（IIFE 的 window.app compat 层不暴露 nodeDefs），

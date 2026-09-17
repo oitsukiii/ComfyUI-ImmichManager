@@ -184,10 +184,14 @@ def resolve_proxy_settings(mode, url) -> tuple[str, str]:
     """把 (proxy_mode, proxy_url) 归一化成客户端可直接使用的组合。
 
     - mode 不在白名单 → 降级 "off"
-    - mode=custom 但地址为空/非法 → 降级 "off"（地址原样保留，便于面板显示与修改）
-    - off/env → 地址原样保留（不参与语义，也不清空，方便用户切回来）
+    - mode=custom 但地址为空/非法 → 降级 "off" 且**丢弃该地址**（代码审查 P2-1）：
+      非法地址留在配置里，前端会把它回显在输入框里，用户既看不懂也清不掉，
+      之后每次保存都会被 normalize_proxy_url 判非法 → 400 卡死。
+      在源头丢弃，面板重进就是空的，用户重新填一次即可。
+    - off/env → 合法地址原样保留（休眠值：不参与语义，但保存下来便于切回 custom）；
+      非法地址同样丢弃（同上，避免回显脏值）
 
-    用于两处：config.json 被手工编辑时的兜底、以及 ImmichClient 构造时对入参的兜底，
+    用于 config.json 被手工编辑时的兜底、以及 ImmichClient 构造时对入参的兜底，
     保证客户端永远不会拿着"custom 但没有合法地址"的脏组合去发请求。
     """
     mode = mode if mode in ALLOWED_PROXY_MODES else "off"
@@ -196,8 +200,15 @@ def resolve_proxy_settings(mode, url) -> tuple[str, str]:
         try:
             return ("custom", normalize_proxy_url(url))
         except ValueError:
-            return ("off", url)
-    return (mode, url)
+            return ("off", "")
+    # off/env 下的地址只是休眠值：合法则保留（便于切回 custom），非法则丢弃
+    # ——否则面板会回显脏值，用户一保存就被 400 挡住（P2-1 同类死结）
+    if url:
+        try:
+            return (mode, normalize_proxy_url(url))
+        except ValueError:
+            return (mode, "")
+    return (mode, "")
 
 
 def mask_credentials(url: str) -> str:
@@ -285,11 +296,11 @@ class ConfigManager:
                             f"proxy_mode 必须是 {sorted(ALLOWED_PROXY_MODES)} 之一"
                         )
                 if k == "proxy_url":
-                    # 空串 = 不改动（mode 为 off/env 时前端回传空属正常）；
-                    # 非空则校验，非法直接抛错
-                    if not isinstance(v, str) or not v.strip():
+                    # None = 不改动（update 开头已跳过）；"" / 空白 = 清除已存地址
+                    # （用户在面板里清空输入框并保存）；非空则校验，非法直接抛错
+                    if not isinstance(v, str):
                         continue
-                    v = normalize_proxy_url(v)
+                    v = normalize_proxy_url(v) if v.strip() else ""
                 self._config[k] = v
             self._save()
             return dict(self._config)

@@ -170,7 +170,7 @@ At the top of the config page, a **🗑 Reset config** button (with confirmation
 | `timeline_interval` | Grouping interval inside the current period: `15m` / `30m` / `1h` / `1d` (default `1h`). |
 | `page_size` | Pagination size (min 1, max 1000). |
 | `proxy_mode` | Network proxy mode: `off` (default) / `custom` / `env`. See below. |
-| `proxy_url` | Proxy address for `proxy_mode=custom`, e.g. `http://127.0.0.1:7897` (Clash / mihomo Mixed Port). **http/https only; username/password not supported.** |
+| `proxy_url` | Proxy address for `proxy_mode=custom`, e.g. `http://127.0.0.1:7897` (Clash / mihomo Mixed Port). **http/https only; username/password not supported.** Outside `custom` mode it is kept as a standby value; **saving an empty field clears it.** |
 
 ### 🌐 Network proxy (`proxy_mode` / `proxy_url`)
 

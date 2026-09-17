@@ -307,7 +307,7 @@ class ImmichSaveImage:
     CATEGORY = "image"
     # 悬停文本语言跟随面板设置（自动/中文/英文）：web/immich_panel.js 的
     # applyNodeLang() 会按 localStorage("immich_lang") 覆盖 LiteGraph 类
-    # DESCRIPTION 与已存在节点的 description。此处中文为默认（老李定稿 2026-08-16）。
+    # DESCRIPTION 与已存在节点的 description。此处中文为默认（用户定稿 2026-08-16）。
     DESCRIPTION = (
         "[ComfyUI-ImmichManager] 将图片预览并上传到 Immich。"
         "默认保存为PNG，内含工作流metadata。更多设置在配置面板。"

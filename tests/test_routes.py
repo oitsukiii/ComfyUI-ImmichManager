@@ -572,13 +572,14 @@ async def main():
                 r = await client.put("/api/immich_plus/config", json={"proxy_url": bad}, headers=auth_hdr)
                 check(f"非法 proxy_url 400（{bad[:28]}）", r.status == 400)
 
-            # off 模式回传空地址 → 200（前端常态，不能报错）
+            # off 模式回传空地址 → 200 且清除（清空输入框 = 清除语义，不能报错）
             r = await client.put(
                 "/api/immich_plus/config",
                 json={"proxy_mode": "off", "proxy_url": ""},
                 headers=auth_hdr,
             )
-            check("off + 空地址 200（不改动）", r.status == 200)
+            check("off + 空地址 200（清除语义）",
+                  r.status == 200 and (await r.json()).get("proxy_url") == "")
 
             # 合法保存
             r = await client.put(
@@ -590,15 +591,26 @@ async def main():
             check("合法代理保存成功", r.status == 200 and cd.get("proxy_mode") == "custom"
                   and cd.get("proxy_url") == "http://127.0.0.1:7897", f"-> {cd.get('proxy_url')!r}")
 
-            # 空地址不改动已存值（切回 off 时前端会回传空）
-            await client.put("/api/immich_plus/config", json={"proxy_mode": "off", "proxy_url": ""}, headers=auth_hdr)
+            # 切回 off 但不带 proxy_url 键（未改地址）→ 保留休眠值，便于切回 custom
+            await client.put("/api/immich_plus/config", json={"proxy_mode": "off"}, headers=auth_hdr)
             r = await client.get("/api/immich_plus/config", headers=auth_hdr)
             cd = await r.json()
-            check("切回 off 保留已填地址", cd.get("proxy_mode") == "off"
+            check("切回 off（不带地址键）保留休眠值", cd.get("proxy_mode") == "off"
                   and cd.get("proxy_url") == "http://127.0.0.1:7897", f"-> {cd}")
+
+            # 显式空地址 → 清除休眠值（面板"清空输入框"路径）
+            r = await client.put("/api/immich_plus/config",
+                                 json={"proxy_mode": "off", "proxy_url": ""}, headers=auth_hdr)
+            check("显式空地址清除休眠值",
+                  r.status == 200 and (await r.json()).get("proxy_url") == "")
+
+            # 恢复 custom 供后续 health 用例使用
+            await client.put("/api/immich_plus/config",
+                             json={"proxy_mode": "custom", "proxy_url": "http://127.0.0.1:7897"}, headers=auth_hdr)
 
             # 客户端指纹包含代理字段（改代理 → _get_client 重建 Session，无需重启 ComfyUI）
             cfg = config_mod.get_config()
+            cfg.update(proxy_mode="off")
             sig_off = server_routes._config_signature(cfg)
             cfg.update(proxy_mode="custom", proxy_url="http://127.0.0.1:7897")
             sig_custom = server_routes._config_signature(cfg)
@@ -616,6 +628,38 @@ async def main():
             r = await client.get("/api/immich_plus/health", headers=auth_hdr)
             hd = await r.json()
             check("off 模式 health 不带 proxy_url", hd.get("stage") == "connect" and "proxy_url" not in hd, f"-> {hd}")
+        finally:
+            await client.close()
+
+    # ---- 14. 代码审查 P2-1 回归：config.json 手工编辑出「custom + 非法地址」 ----
+    # 期望：载入即丢弃非法地址（面板不再回显脏值），off 模式保存不再被 400 卡死
+    with tempfile.TemporaryDirectory() as tmp:
+        dirty = {
+            "base_url": "http://127.0.0.1:9999/api",
+            "api_key": "k",
+            "panel_token": "tok123",
+            "proxy_mode": "custom",
+            "proxy_url": "socks5://127.0.0.1:1080",
+        }
+        with open(os.path.join(tmp, "config.json"), "w", encoding="utf-8") as fh:
+            json.dump(dirty, fh)
+        app, _ = build_app(tmp)
+        client = TestClient(TestServer(app))
+        await client.start_server()
+        try:
+            auth_hdr = {"Authorization": "Bearer tok123"}
+            r = await client.get("/api/immich_plus/config", headers=auth_hdr)
+            cd = await r.json()
+            check("脏地址不进面板（载入即丢弃）",
+                  cd.get("proxy_mode") == "off" and cd.get("proxy_url") == "", f"-> {cd}")
+            r = await client.put("/api/immich_plus/config",
+                                 json={"proxy_mode": "off", "proxy_url": ""}, headers=auth_hdr)
+            check("脏配置下保存 200（不再 400 卡死）", r.status == 200)
+            # 反向确认：用户当场填错地址仍要立刻报错（不能静默吞掉）
+            r = await client.put("/api/immich_plus/config",
+                                 json={"proxy_mode": "off", "proxy_url": "socks5://127.0.0.1:1080"},
+                                 headers=auth_hdr)
+            check("当场填非法地址仍 400（可当场改）", r.status == 400)
         finally:
             await client.close()
 

@@ -173,7 +173,7 @@ python -m pip install requests pillow aiohttp
 | `timeline_interval` | 本期大组内的小组间隔：`15m` / `30m` / `1h` / `1d`（默认 `1h`）。                                       |
 | `page_size`         | 分页大小（下界 1，上限 1000）。                                                                    |
 | `proxy_mode`        | 网络代理模式：`off` 不使用代理（**默认**）/ `custom` 自定义代理 / `env` 跟随环境变量。详见下节。                              |
-| `proxy_url`         | `proxy_mode=custom` 时的代理地址，如 `http://127.0.0.1:7897`（Clash / mihomo 的 Mixed Port）。**仅支持 http/https，不支持用户名密码。** |
+| `proxy_url`         | `proxy_mode=custom` 时的代理地址，如 `http://127.0.0.1:7897`（Clash / mihomo 的 Mixed Port）。**仅支持 http/https，不支持用户名密码**；非 custom 模式下作为休眠值保留，**留空保存即清除**。 |
 
 ### 🌐 网络代理（`proxy_mode` / `proxy_url`）
 

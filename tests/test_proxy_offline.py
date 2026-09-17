@@ -2,7 +2,7 @@
 """P6 自测：代理配置对 ImmichClient 的实际行为（离线，不触网）。
 
 用本机临时 HTTP server 冒充 Immich / 冒充代理，并把 HTTP_PROXY 指向"死代理"，
-复现老李 Windows 上那次真实故障（Clash 没开、启动脚本却设了 HTTP_PROXY=127.0.0.1:7897）：
+复现用户 Windows 上那次真实故障（Clash 没开、启动脚本却设了 HTTP_PROXY=127.0.0.1:7897）：
 
 1. off（默认）      → 忽略环境变量，局域网直连成功（本次修复点）
 2. env              → 被环境变量劫持，请求失败（旧行为，向后兼容）

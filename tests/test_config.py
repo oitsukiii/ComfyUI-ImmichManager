@@ -77,7 +77,7 @@ for bad in ["file:///etc/passwd", "ftp://x", "javascript://x", "//nohost", "127.
         check(f"base_url 拒绝 {bad!r}", False)
     except ValueError:
         check(f"base_url 拒绝 {bad!r}", True)
-# IP 混淆/危险地址拒绝（SSRF 加固，审小爪 P2-1 第二轮）
+# IP 混淆/危险地址拒绝（SSRF 加固，代码审查 P2-1 第二轮）
 for bad in [
     "http://2130706433:2283/api",          # 十进制 = 127.0.0.1
     "http://0x7f000001:2283/api",          # 十六进制 = 127.0.0.1
@@ -98,7 +98,7 @@ for bad in [
         check(f"base_url 拒绝混淆 {bad!r}", False)
     except ValueError:
         check(f"base_url 拒绝混淆 {bad!r}", True)
-# 合法 hex 主机名/域名不被误伤（审小爪 P2-1 第二轮）
+# 合法 hex 主机名/域名不被误伤（代码审查 P2-1 第二轮）
 for good in [
     "http://cafe:2283/api",
     "http://deadbeef:2283/api",
@@ -154,7 +154,7 @@ with tempfile.TemporaryDirectory() as tmp:
 for good, want in (
     ("http://127.0.0.1:7897", "http://127.0.0.1:7897"),
     ("https://proxy.lan:8080/", "https://proxy.lan:8080"),
-    ("  http://192.168.2.50:7890  ", "http://192.168.2.50:7890"),
+    ("  http://172.16.5.9:7890  ", "http://172.16.5.9:7890"),
     ("http://proxy.internal", "http://proxy.internal"),
 ):
     try:
@@ -196,9 +196,14 @@ with tempfile.TemporaryDirectory() as tmp:
     cm6.update(proxy_mode="custom", proxy_url="http://127.0.0.1:7897")
     check("update 保存合法代理", cm6.get("proxy_mode") == "custom" and cm6.get("proxy_url") == "http://127.0.0.1:7897")
     cm6.update(proxy_url="")
-    check("空 proxy_url 不改动已存地址", cm6.get("proxy_url") == "http://127.0.0.1:7897")
+    check("空 proxy_url = 清除已存地址", cm6.get("proxy_url") == "")
+    cm6.update(proxy_url="http://127.0.0.1:7897")
     cm6.update(proxy_mode="off")
     check("切回 off 保留已填地址（便于切回）", cm6.get("proxy_url") == "http://127.0.0.1:7897")
+    cm6.update(proxy_url="   ")
+    check("纯空白 proxy_url 也 = 清除", cm6.get("proxy_url") == "")
+    cm6.update(proxy_url="http://127.0.0.1:7897")
+    check("proxy_url=None 不改动", cm6.update(proxy_url=None) and cm6.get("proxy_url") == "http://127.0.0.1:7897")
     try:
         cm6.update(proxy_url="socks5://127.0.0.1:1080")
         check("update 拒绝非法 proxy_url", False)
@@ -206,11 +211,12 @@ with tempfile.TemporaryDirectory() as tmp:
         check("update 拒绝非法 proxy_url", True)
     check("非法 proxy_url 未覆盖原值", cm6.get("proxy_url") == "http://127.0.0.1:7897")
 
-# resolve_proxy_settings：脏组合一律降级 off
+# resolve_proxy_settings：脏组合一律降级 off（custom+非法地址时丢弃地址，修代码审查发现的 P2-1）
 check("resolve: custom+空 → off", resolve_proxy_settings("custom", "") == ("off", ""))
-check("resolve: custom+非法 → off（地址保留）", resolve_proxy_settings("custom", "socks5://x:1") == ("off", "socks5://x:1"))
+check("resolve: custom+非法 → off 且丢弃地址", resolve_proxy_settings("custom", "socks5://x:1") == ("off", ""))
 check("resolve: custom+合法 → custom", resolve_proxy_settings("custom", "http://127.0.0.1:7897") == ("custom", "http://127.0.0.1:7897"))
 check("resolve: env 保持 env", resolve_proxy_settings("env", "")[0] == "env")
+check("resolve: env 保留休眠地址", resolve_proxy_settings("env", "http://127.0.0.1:7897")[1] == "http://127.0.0.1:7897")
 check("resolve: 非法 mode → off", resolve_proxy_settings("bogus", "http://a:1")[0] == "off")
 check("resolve: 非字符串地址不炸", resolve_proxy_settings("custom", None) == ("off", ""))
 check("resolve: 覆盖全部白名单 mode", ALLOWED_PROXY_MODES == {"off", "custom", "env"})
@@ -226,6 +232,19 @@ with tempfile.TemporaryDirectory() as tmp:
         json.dump({"proxy_mode": "custom", "proxy_url": "http://127.0.0.1:7897"}, fh)
     cm8 = _CM(path5)
     check("合法代理组合载入保留", cm8.get("proxy_mode") == "custom")
+    # 代码审查 P2-1 回归：手工编辑出非法地址 → 载入即丢弃（面板不再回显，也不会每次保存 400）
+    with open(path5, "w", encoding="utf-8") as fh:
+        json.dump({"proxy_mode": "custom", "proxy_url": "socks5://127.0.0.1:1080"}, fh)
+    cm9 = _CM(path5)
+    check("非法地址载入即丢弃（不留卡死源）", cm9.get("proxy_mode") == "off" and cm9.get("proxy_url") == "")
+    with open(path5, "w", encoding="utf-8") as fh:
+        json.dump({"proxy_mode": "custom", "proxy_url": "not a url"}, fh)
+    check("乱串地址载入即丢弃", _CM(path5).get("proxy_url") == "")
+    # 休眠地址（off 模式）是非法的 → 同样丢弃，且 off + 空保存不会抛错
+    with open(path5, "w", encoding="utf-8") as fh:
+        json.dump({"proxy_mode": "off", "proxy_url": "junk"}, fh)
+    cm10 = _CM(path5)
+    check("off 模式下的非法休眠地址被丢弃", cm10.get("proxy_mode") == "off" and cm10.get("proxy_url") == "")
 
 # 凭据遮罩 + 环境变量检测
 check("mask_credentials 遮罩 userinfo", mask_credentials("http://u:p@h:1") == "http://***@h:1")

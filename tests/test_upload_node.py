@@ -41,7 +41,7 @@ def check(name, cond, extra=""):
     print(f"[{'PASS' if cond else 'FAIL'}] {name} {extra}")
 
 
-# ---------- 0. 节点 DESCRIPTION（老李定稿 2026-08-16，中英双语） ----------
+# ---------- 0. 节点 DESCRIPTION（用户定稿 2026-08-16，中英双语） ----------
 check("图片节点 DESCRIPTION 含项目名", "ComfyUI-ImmichManager" in ImmichSaveImage.DESCRIPTION)
 check("图片节点 DESCRIPTION 中文", "将图片预览并上传" in ImmichSaveImage.DESCRIPTION
       and "PNG" in ImmichSaveImage.DESCRIPTION)

@@ -256,10 +256,12 @@ def setup_routes(server) -> None:
                     return _error(f"proxy_mode 必须是 {sorted(ALLOWED_PROXY_MODES)} 之一")
                 updates[k] = v
             elif k == "proxy_url":
-                # 空串 = 不改动（off/env 模式下前端回传空属正常，且保留已填地址便于切回）
+                # ""/空白 = 清除已存地址（用户在面板清空输入框并保存）；
+                # 非空则校验（任何模式下都校验：地址写错要当场报错，而不是静默吞掉）
                 if not isinstance(v, str):
                     return _error("proxy_url 必须是字符串")
                 if not v.strip():
+                    updates[k] = ""
                     continue
                 try:
                     updates[k] = normalize_proxy_url(v)
