@@ -64,12 +64,19 @@ class ImmichError(Exception):
 
 
 class ImmichClient:
-    def __init__(self, base_url: str, api_key: str, timeout: int = DEFAULT_TIMEOUT):
+    def __init__(
+        self,
+        base_url: str,
+        api_key: str,
+        timeout: int = DEFAULT_TIMEOUT,
+        proxy_mode: str = "off",
+        proxy_url: str = "",
+    ):
         # SSRF 第二道防线：即使绕过配置层，客户端也拒绝非 http/https base_url
         try:
-            from .config import normalize_base_url
+            from .config import normalize_base_url, resolve_proxy_settings
         except ImportError:  # noqa: BLE001 — 直接脚本导入（测试）
-            from config import normalize_base_url
+            from config import normalize_base_url, resolve_proxy_settings
 
         try:
             self.base_url = normalize_base_url(base_url or "")
@@ -77,7 +84,21 @@ class ImmichClient:
             raise ImmichError(f"非法的 base_url: {exc}") from exc
         self.api_key = api_key or ""
         self.timeout = timeout
+        # 代理策略（面板「🌐 网络代理」）：
+        # - off（默认）：trust_env=False → 忽略 HTTP_PROXY/HTTPS_PROXY/ALL_PROXY，
+        #   局域网 Immich 直连。防止"启动脚本设了代理、代理又没运行"时
+        #   局域网请求被劫持到死代理（WinError 10061 / ProxyError）。
+        # - custom：显式走用户配置的代理地址；同样关掉 trust_env，避免环境变量二次劫持。
+        # - env：trust_env=True → 沿用启动 ComfyUI 时的环境变量（旧行为，向后兼容）。
+        self.proxy_mode, self.proxy_url = resolve_proxy_settings(proxy_mode, proxy_url)
         self.session = requests.Session()
+        if self.proxy_mode == "custom":
+            self.session.trust_env = False
+            self.session.proxies.update({"http": self.proxy_url, "https": self.proxy_url})
+        elif self.proxy_mode == "env":
+            self.session.trust_env = True
+        else:
+            self.session.trust_env = False
         if self.api_key:
             self.session.headers.update({"x-api-key": self.api_key})
         self.session.headers.update({"Accept": "application/json"})
@@ -95,7 +116,9 @@ class ImmichClient:
         try:
             resp = self.session.request(method, self._url(path), **kwargs)
         except requests.RequestException as exc:
-            raise ImmichError(f"Immich 连接失败: {exc}") from exc
+            # 走自定义代理时把代理地址带进报错，便于区分"代理挂了"和"Immich 挂了"
+            hint = f"（当前经代理 {self.proxy_url}）" if self.proxy_mode == "custom" else ""
+            raise ImmichError(f"Immich 连接失败{hint}: {exc}") from exc
         if resp.status_code == 304:
             return resp
         if resp.status_code >= 300:

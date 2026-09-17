@@ -541,6 +541,84 @@ async def main():
         finally:
             await client.close()
 
+    # ---- 13. 代理配置（P6）：PUT 校验 / 脏组合拒绝 / 客户端指纹重建 / health 带代理上下文 ----
+    with tempfile.TemporaryDirectory() as tmp:
+        fc = FakeClient(version_error=server_routes.ImmichError("Immich 连接失败: boom", None))
+        app, fake = build_app(tmp, fc)
+        client = TestClient(TestServer(app))
+        await client.start_server()
+        try:
+            auth_hdr = {"Authorization": "Bearer tok123"}
+            await client.put(
+                "/api/immich_plus/config",
+                json={"base_url": "http://127.0.0.1:9999/api", "api_key": "k", "panel_token": "tok123"},
+            )
+
+            # GET /config 默认 off（修复前是"被动跟随环境变量"）
+            r = await client.get("/api/immich_plus/config", headers=auth_hdr)
+            cd = await r.json()
+            check("代理默认 off", cd.get("proxy_mode") == "off" and cd.get("proxy_url") == "", f"-> {cd.get('proxy_mode')!r}")
+
+            # 只切 custom 不填地址 → 400
+            r = await client.put("/api/immich_plus/config", json={"proxy_mode": "custom"}, headers=auth_hdr)
+            check("custom 缺地址 400", r.status == 400)
+
+            # 非法 mode → 400
+            r = await client.put("/api/immich_plus/config", json={"proxy_mode": "bogus"}, headers=auth_hdr)
+            check("非法 proxy_mode 400", r.status == 400)
+
+            # 非法代理地址 → 400
+            for bad in ("socks5://127.0.0.1:1080", "http://user:pass@127.0.0.1:7897", "http://127.0.0.1:7897/x"):
+                r = await client.put("/api/immich_plus/config", json={"proxy_url": bad}, headers=auth_hdr)
+                check(f"非法 proxy_url 400（{bad[:28]}）", r.status == 400)
+
+            # off 模式回传空地址 → 200（前端常态，不能报错）
+            r = await client.put(
+                "/api/immich_plus/config",
+                json={"proxy_mode": "off", "proxy_url": ""},
+                headers=auth_hdr,
+            )
+            check("off + 空地址 200（不改动）", r.status == 200)
+
+            # 合法保存
+            r = await client.put(
+                "/api/immich_plus/config",
+                json={"proxy_mode": "custom", "proxy_url": "http://127.0.0.1:7897"},
+                headers=auth_hdr,
+            )
+            cd = await r.json()
+            check("合法代理保存成功", r.status == 200 and cd.get("proxy_mode") == "custom"
+                  and cd.get("proxy_url") == "http://127.0.0.1:7897", f"-> {cd.get('proxy_url')!r}")
+
+            # 空地址不改动已存值（切回 off 时前端会回传空）
+            await client.put("/api/immich_plus/config", json={"proxy_mode": "off", "proxy_url": ""}, headers=auth_hdr)
+            r = await client.get("/api/immich_plus/config", headers=auth_hdr)
+            cd = await r.json()
+            check("切回 off 保留已填地址", cd.get("proxy_mode") == "off"
+                  and cd.get("proxy_url") == "http://127.0.0.1:7897", f"-> {cd}")
+
+            # 客户端指纹包含代理字段（改代理 → _get_client 重建 Session，无需重启 ComfyUI）
+            cfg = config_mod.get_config()
+            sig_off = server_routes._config_signature(cfg)
+            cfg.update(proxy_mode="custom", proxy_url="http://127.0.0.1:7897")
+            sig_custom = server_routes._config_signature(cfg)
+            check("代理变化进入客户端指纹", sig_off != sig_custom, f"-> {sig_off} vs {sig_custom}")
+
+            # custom 模式 health 的连接失败要带上 proxy_url（前端提示"经代理 xxx"）
+            fake._version_error = server_routes.ImmichError("Immich 连接失败（当前经代理 x）: boom", None)
+            r = await client.get("/api/immich_plus/health", headers=auth_hdr)
+            hd = await r.json()
+            check("custom 模式 health connect 带 proxy_url",
+                  hd.get("stage") == "connect" and hd.get("proxy_url") == "http://127.0.0.1:7897", f"-> {hd}")
+
+            # off 模式 health 不带 proxy_url（避免误导）
+            cfg.update(proxy_mode="off")
+            r = await client.get("/api/immich_plus/health", headers=auth_hdr)
+            hd = await r.json()
+            check("off 模式 health 不带 proxy_url", hd.get("stage") == "connect" and "proxy_url" not in hd, f"-> {hd}")
+        finally:
+            await client.close()
+
     # 未污染真实 config.json
     check("测试未污染真实 config.json", not os.path.exists(os.path.join(REPO_ROOT, "config.json")))
 

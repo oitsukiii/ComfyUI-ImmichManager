@@ -21,11 +21,13 @@ from aiohttp import web
 # 兼容包内导入（ComfyUI 加载）与直接脚本导入（测试）
 try:
     from .config import (
+        ALLOWED_PROXY_MODES,
         ALLOWED_TIMELINE_INTERVALS,
         ALLOWED_TIMELINE_RANGES,
         ConfigManager,
         get_config as _get_shared_config,
         normalize_base_url,
+        normalize_proxy_url,
         parse_bool,
         sanitize_order,
     )
@@ -33,11 +35,13 @@ try:
     from .upload_node import job_manager
 except ImportError:  # noqa: BLE001 — 直接 python3 运行（测试/调试）
     from config import (
+        ALLOWED_PROXY_MODES,
         ALLOWED_TIMELINE_INTERVALS,
         ALLOWED_TIMELINE_RANGES,
         ConfigManager,
         get_config as _get_shared_config,
         normalize_base_url,
+        normalize_proxy_url,
         parse_bool,
         sanitize_order,
     )
@@ -84,14 +88,19 @@ _client_lock = threading.Lock()
 
 
 def _config_signature(config: ConfigManager) -> tuple:
-    """客户端缓存的配置指纹：base_url + api_key 变则重建 Session。"""
-    return (config.get("base_url", ""), config.get("api_key", ""))
+    """客户端缓存的配置指纹：base_url + api_key + 代理配置变则重建 Session。"""
+    return (
+        config.get("base_url", ""),
+        config.get("api_key", ""),
+        config.get("proxy_mode", "off"),
+        config.get("proxy_url", ""),
+    )
 
 
 def _get_client(config: ConfigManager) -> ImmichClient:
     """获取（必要时重建）Immich 客户端。
 
-    面板保存配置后 base_url/api_key 变化，这里按指纹检测并重建，
+    面板保存配置后 base_url/api_key/代理配置变化，这里按指纹检测并重建，
     旧 Session 主动 close 释放连接池——保证配置变更即时生效、不泄漏连接。
     """
     sig = _config_signature(config)
@@ -101,6 +110,8 @@ def _get_client(config: ConfigManager) -> ImmichClient:
             _client_cache["client"] = ImmichClient(
                 base_url=config.get("base_url", ""),
                 api_key=config.get("api_key", ""),
+                proxy_mode=config.get("proxy_mode", "off"),
+                proxy_url=config.get("proxy_url", ""),
             )
             _client_cache["sig"] = sig
             if old is not None:
@@ -200,6 +211,7 @@ def setup_routes(server) -> None:
         allowed = {
             "base_url", "api_key", "panel_token", "default_album",
             "page_size",
+            "proxy_mode", "proxy_url",
             "timeline_range", "timeline_interval",
         }
         updates = {}
@@ -239,11 +251,34 @@ def setup_routes(server) -> None:
                 if not isinstance(v, str) or v not in ALLOWED_TIMELINE_INTERVALS:
                     return _error(f"timeline_interval 必须是 {sorted(ALLOWED_TIMELINE_INTERVALS)} 之一")
                 updates[k] = v
+            elif k == "proxy_mode":
+                if not isinstance(v, str) or v not in ALLOWED_PROXY_MODES:
+                    return _error(f"proxy_mode 必须是 {sorted(ALLOWED_PROXY_MODES)} 之一")
+                updates[k] = v
+            elif k == "proxy_url":
+                # 空串 = 不改动（off/env 模式下前端回传空属正常，且保留已填地址便于切回）
+                if not isinstance(v, str):
+                    return _error("proxy_url 必须是字符串")
+                if not v.strip():
+                    continue
+                try:
+                    updates[k] = normalize_proxy_url(v)
+                except ValueError as exc:
+                    return _error(str(exc))
             else:
                 updates[k] = v
         if not updates:
             return web.json_response(config.public_config())
-        config.update(**updates)
+        # custom 模式必须带地址：按"本次改动合并后的最终态"校验，
+        # 避免只切模式不填地址（或只清地址不切模式）留下脏配置
+        eff_mode = updates.get("proxy_mode", config.get("proxy_mode", "off"))
+        eff_url = updates.get("proxy_url", config.get("proxy_url", ""))
+        if eff_mode == "custom" and not eff_url:
+            return _error("选择自定义代理时必须填写 proxy_url")
+        try:
+            config.update(**updates)
+        except ValueError as exc:  # 兜底：ConfigManager 的二次校验（正常不会走到）
+            return _error(str(exc))
         result = config.public_config()
         # 自动生成面板令牌：连接配置好后（api_key 已配置）仍无 token → 生成并一次性下发明文。
         # 已有 token 或本次请求显式带了 panel_token 时保持不动（不触发）。
@@ -308,6 +343,12 @@ def setup_routes(server) -> None:
         if not _check_auth(request, config):
             return _unauthorized()
         client = _get_client(config)
+        # 自定义代理时把代理地址带回前端：connect 失败要能区分"代理挂了"和"Immich 挂了"
+        _proxy_field = (
+            {"proxy_url": config.get("proxy_url", "")}
+            if config.get("proxy_mode", "off") == "custom" and config.get("proxy_url", "")
+            else {}
+        )
         if not config.get("api_key", ""):
             return web.json_response(
                 {"ok": False, "stage": "config", "error": "未配置 Immich API key"}, status=200
@@ -318,11 +359,11 @@ def setup_routes(server) -> None:
         except ImmichError as exc:
             if exc.status_code is None:
                 return web.json_response(
-                    {"ok": False, "stage": "connect", "error": "请检查地址/端口/网络"},
+                    {"ok": False, "stage": "connect", "error": "请检查地址/端口/网络", **_proxy_field},
                     status=200,
                 )
             return web.json_response(
-                {"ok": False, "stage": "connect", "error": f"服务响应异常 (HTTP {exc.status_code})"},
+                {"ok": False, "stage": "connect", "error": f"服务响应异常 (HTTP {exc.status_code})", **_proxy_field},
                 status=200,
             )
         # 2. API key 有效性 + 资产统计：buckets（需鉴权）
@@ -336,7 +377,7 @@ def setup_routes(server) -> None:
                 )
             if exc.status_code is None:
                 return web.json_response(
-                    {"ok": False, "stage": "connect", "error": "请检查地址/端口/网络"},
+                    {"ok": False, "stage": "connect", "error": "请检查地址/端口/网络", **_proxy_field},
                     status=200,
                 )
             return web.json_response(

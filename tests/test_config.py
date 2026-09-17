@@ -130,6 +130,122 @@ with tempfile.TemporaryDirectory() as tmp:
     cm4 = ConfigManager(path3)
     check("坏 base_url 回退默认", cm4.get("base_url") == "http://127.0.0.1:2283/api")
 
+# --- 5c. 代理配置（proxy_mode / proxy_url，P6） ---
+from config import (  # noqa: E402
+    ALLOWED_PROXY_MODES,
+    ConfigManager as _CM,
+    detect_env_proxy,
+    mask_credentials,
+    normalize_proxy_url,
+    resolve_proxy_settings,
+)
+
+# 默认值：不使用代理（修复"启动脚本设了 HTTP_PROXY、代理又没运行"导致局域网请求被劫持）
+with tempfile.TemporaryDirectory() as tmp:
+    cm5 = _CM(os.path.join(tmp, "c.json"))
+    check("proxy_mode 默认 off", cm5.get("proxy_mode") == "off")
+    check("proxy_url 默认空", cm5.get("proxy_url") == "")
+    pub = cm5.public_config()
+    check("public_config 带 proxy_mode/proxy_url", pub.get("proxy_mode") == "off" and pub.get("proxy_url") == "")
+    check("public_config 带 proxy_env 字段", "proxy_env" in pub)
+    check("public_config 不回传 api_key 明文", "api_key" not in pub and pub.get("api_key_configured") is False)
+
+# 合法代理地址
+for good, want in (
+    ("http://127.0.0.1:7897", "http://127.0.0.1:7897"),
+    ("https://proxy.lan:8080/", "https://proxy.lan:8080"),
+    ("  http://192.168.2.50:7890  ", "http://192.168.2.50:7890"),
+    ("http://proxy.internal", "http://proxy.internal"),
+):
+    try:
+        check(f"proxy_url 接受 {good!r}", normalize_proxy_url(good) == want)
+    except ValueError as exc:
+        check(f"proxy_url 接受 {good!r}", False, f"抛错 {exc}")
+
+# 非法代理地址（协议/凭据/路径/危险 IP/混淆字面量/类型）
+for bad, label in (
+    ("", "空串"),
+    ("   ", "空白串"),
+    (None, "None"),
+    ("socks5://127.0.0.1:1080", "socks5 协议（无 PySocks 依赖）"),
+    ("ftp://127.0.0.1:21", "ftp 协议"),
+    ("127.0.0.1:7897", "缺协议"),
+    ("http://", "缺主机"),
+    ("http://user:pass@127.0.0.1:7897", "带用户名密码"),
+    ("http://127.0.0.1:7897/proxy", "带路径"),
+    ("http://127.0.0.1:7897?a=b", "带参数"),
+    ("http://169.254.169.254:80", "link-local（云 metadata）"),
+    ("http://0.0.0.0:7897", "未指定地址"),
+    ("http://0x7f000001:7897", "IP 混淆字面量"),
+):
+    try:
+        normalize_proxy_url(bad)
+        check(f"proxy_url 拒绝 {label}", False)
+    except ValueError:
+        check(f"proxy_url 拒绝 {label}", True)
+
+# update()：非法 mode / 非法地址抛错；空地址=不改动
+with tempfile.TemporaryDirectory() as tmp:
+    cm6 = _CM(os.path.join(tmp, "c.json"))
+    try:
+        cm6.update(proxy_mode="bogus")
+        check("update 拒绝非法 proxy_mode", False)
+    except ValueError:
+        check("update 拒绝非法 proxy_mode", True)
+    check("非法 proxy_mode 未落盘", cm6.get("proxy_mode") == "off")
+    cm6.update(proxy_mode="custom", proxy_url="http://127.0.0.1:7897")
+    check("update 保存合法代理", cm6.get("proxy_mode") == "custom" and cm6.get("proxy_url") == "http://127.0.0.1:7897")
+    cm6.update(proxy_url="")
+    check("空 proxy_url 不改动已存地址", cm6.get("proxy_url") == "http://127.0.0.1:7897")
+    cm6.update(proxy_mode="off")
+    check("切回 off 保留已填地址（便于切回）", cm6.get("proxy_url") == "http://127.0.0.1:7897")
+    try:
+        cm6.update(proxy_url="socks5://127.0.0.1:1080")
+        check("update 拒绝非法 proxy_url", False)
+    except ValueError:
+        check("update 拒绝非法 proxy_url", True)
+    check("非法 proxy_url 未覆盖原值", cm6.get("proxy_url") == "http://127.0.0.1:7897")
+
+# resolve_proxy_settings：脏组合一律降级 off
+check("resolve: custom+空 → off", resolve_proxy_settings("custom", "") == ("off", ""))
+check("resolve: custom+非法 → off（地址保留）", resolve_proxy_settings("custom", "socks5://x:1") == ("off", "socks5://x:1"))
+check("resolve: custom+合法 → custom", resolve_proxy_settings("custom", "http://127.0.0.1:7897") == ("custom", "http://127.0.0.1:7897"))
+check("resolve: env 保持 env", resolve_proxy_settings("env", "")[0] == "env")
+check("resolve: 非法 mode → off", resolve_proxy_settings("bogus", "http://a:1")[0] == "off")
+check("resolve: 非字符串地址不炸", resolve_proxy_settings("custom", None) == ("off", ""))
+check("resolve: 覆盖全部白名单 mode", ALLOWED_PROXY_MODES == {"off", "custom", "env"})
+
+# config.json 被手工编辑成 custom 但没地址 → 载入时降级 off
+with tempfile.TemporaryDirectory() as tmp:
+    path5 = os.path.join(tmp, "c.json")
+    with open(path5, "w", encoding="utf-8") as fh:
+        json.dump({"proxy_mode": "custom", "proxy_url": ""}, fh)
+    cm7 = _CM(path5)
+    check("脏代理组合载入降级 off", cm7.get("proxy_mode") == "off")
+    with open(path5, "w", encoding="utf-8") as fh:
+        json.dump({"proxy_mode": "custom", "proxy_url": "http://127.0.0.1:7897"}, fh)
+    cm8 = _CM(path5)
+    check("合法代理组合载入保留", cm8.get("proxy_mode") == "custom")
+
+# 凭据遮罩 + 环境变量检测
+check("mask_credentials 遮罩 userinfo", mask_credentials("http://u:p@h:1") == "http://***@h:1")
+check("mask_credentials 无凭据原样", mask_credentials("http://127.0.0.1:7897") == "http://127.0.0.1:7897")
+_saved_proxy = {k: os.environ.get(k) for k in ("HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy", "ALL_PROXY", "all_proxy")}
+try:
+    for k in _saved_proxy:
+        os.environ.pop(k, None)
+    check("detect_env_proxy 无变量返回空", detect_env_proxy() == "")
+    os.environ["HTTP_PROXY"] = "http://127.0.0.1:7897"
+    check("detect_env_proxy 读到变量", detect_env_proxy() == "http://127.0.0.1:7897")
+    os.environ["HTTP_PROXY"] = "http://u:secret@127.0.0.1:7897"
+    check("detect_env_proxy 遮罩凭据", "secret" not in detect_env_proxy() and detect_env_proxy() == "http://***@127.0.0.1:7897")
+finally:
+    for k, v in _saved_proxy.items():
+        if v is None:
+            os.environ.pop(k, None)
+        else:
+            os.environ[k] = v
+
 # --- 5b. 共享单例（节点与路由同实例） ---
 # ⚠️ 先把单例指到临时路径，避免测试 update 污染真实 config.json
 import config as config_mod  # noqa: E402

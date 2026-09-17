@@ -158,7 +158,12 @@ def _build_client(base_url: str | None = None, api_key: str | None = None) -> Im
             "Immich 未配置：请在 Immich 面板配置页填写 base_url "
             "（如 http://192.168.1.50:2283/api）与 api_key"
         )
-    return ImmichClient(base_url=base_url, api_key=api_key)
+    return ImmichClient(
+        base_url=base_url,
+        api_key=api_key,
+        proxy_mode=_CONFIG.get("proxy_mode", "off"),
+        proxy_url=_CONFIG.get("proxy_url", ""),
+    )
 
 
 def _upload_single(client: ImmichClient, data: bytes, filename: str, mime: str) -> dict:

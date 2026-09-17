@@ -17,6 +17,12 @@ DEFAULT_CONFIG = {
     "base_url": "http://127.0.0.1:2283/api",
     "api_key": "",
     "panel_token": "",
+    # 网络代理（面板「🌐 网络代理」分组）：
+    # off    = 不使用代理（默认）：忽略 HTTP_PROXY/HTTPS_PROXY/ALL_PROXY，局域网直连
+    # custom = 自定义代理：所有 Immich 请求走 proxy_url
+    # env    = 跟随环境变量：沿用启动 ComfyUI 时的 HTTP_PROXY 等（旧行为，向后兼容）
+    "proxy_mode": "off",
+    "proxy_url": "",
     "default_album": "",
     "page_size": 100,
     "timeline_range": "today",      # 大组间隔：today / 3d / 7d（本期范围，需求 8/10）
@@ -30,6 +36,12 @@ ALLOWED_TIMELINE_INTERVALS = {"15m", "30m", "1h", "1d"}
 _FALSEY_API_KEY = {"", "true", "false", "none", "null", "0"}
 
 ALLOWED_ORDERS = {"asc", "desc"}
+
+# 代理模式白名单：off 不使用 / custom 自定义地址 / env 跟随环境变量
+ALLOWED_PROXY_MODES = {"off", "custom", "env"}
+# 代理协议白名单：只支持 http/https。
+# （socks5 需要额外的 PySocks 依赖，本插件不带，故直接拒绝而不是运行时才炸）
+ALLOWED_PROXY_SCHEMES = {"http", "https"}
 
 
 def sanitize_order(value: str, default: str = "desc") -> str:
@@ -122,6 +134,91 @@ def normalize_base_url(value: str) -> str:
     return value.rstrip("/")
 
 
+def normalize_proxy_url(value: str) -> str:
+    """校验并归一化代理地址（proxy_mode=custom）。
+
+    规则（与 base_url 同一套 SSRF 纪律）：
+    - 仅允许 http/https：Clash / mihomo 的 Mixed Port 就是 http 代理，可直接填；
+      socks5 需要额外的 PySocks 依赖，本插件不带，故明确拒绝
+    - 必须有 host；拒绝 userinfo（凭据不落 config.json 明文、不进日志）
+    - 拒绝 path/query/fragment（代理地址形如 http://127.0.0.1:7897）
+    - IPv4 做地址分类检查：拒绝 link-local（云 metadata）/未指定/组播/保留地址；
+      拒绝非标准点分十进制的混淆字面量（0x7f000001、0177.1 之类）
+    - 允许 loopback（Clash 默认 127.0.0.1）与私网（局域网内的代理）
+
+    返回归一化后的 URL（去尾部斜杠）；非法输入抛 ValueError。
+    """
+    if not isinstance(value, str):
+        raise ValueError("proxy_url 必须是字符串")
+    value = value.strip()
+    if not value:
+        raise ValueError("proxy_url 不能为空")
+    parsed = urlparse(value)
+    if parsed.scheme not in ALLOWED_PROXY_SCHEMES:
+        raise ValueError("proxy_url 仅支持 http/https 代理（Clash 的 Mixed Port 可直接填）")
+    if parsed.username or parsed.password:
+        raise ValueError("proxy_url 不允许包含用户名/密码")
+    host = parsed.hostname
+    if not host:
+        raise ValueError("proxy_url 缺少主机地址")
+    if ":" in host:
+        raise ValueError("proxy_url 暂不支持 IPv6 地址，请使用 IPv4 或域名")
+    if parsed.path not in ("", "/") or parsed.query or parsed.fragment:
+        raise ValueError("proxy_url 不应带路径或参数，形如 http://127.0.0.1:7897")
+
+    try:
+        ip = ipaddress.IPv4Address(host)
+    except ipaddress.AddressValueError:
+        if _looks_like_ip_mix(host):
+            raise ValueError("proxy_url 的 IP 地址请使用标准点分十进制")
+        ip = None  # 域名
+
+    if ip is not None:
+        if ip.is_link_local or ip.is_unspecified or ip.is_multicast or ip.is_reserved:
+            raise ValueError("proxy_url 不允许 link-local/未指定/组播/保留地址")
+
+    return value.rstrip("/")
+
+
+def resolve_proxy_settings(mode, url) -> tuple[str, str]:
+    """把 (proxy_mode, proxy_url) 归一化成客户端可直接使用的组合。
+
+    - mode 不在白名单 → 降级 "off"
+    - mode=custom 但地址为空/非法 → 降级 "off"（地址原样保留，便于面板显示与修改）
+    - off/env → 地址原样保留（不参与语义，也不清空，方便用户切回来）
+
+    用于两处：config.json 被手工编辑时的兜底、以及 ImmichClient 构造时对入参的兜底，
+    保证客户端永远不会拿着"custom 但没有合法地址"的脏组合去发请求。
+    """
+    mode = mode if mode in ALLOWED_PROXY_MODES else "off"
+    url = url.strip() if isinstance(url, str) else ""
+    if mode == "custom":
+        try:
+            return ("custom", normalize_proxy_url(url))
+        except ValueError:
+            return ("off", url)
+    return (mode, url)
+
+
+def mask_credentials(url: str) -> str:
+    """遮罩 URL 里的 userinfo（user:pass@）——回传前端/写日志一律先过这里。"""
+    return re.sub(r"//[^/@]*@", "//***@", url or "")
+
+
+def detect_env_proxy() -> str:
+    """检测当前进程环境里的代理变量（HTTP_PROXY/HTTPS_PROXY/ALL_PROXY，大小写皆可）。
+
+    仅用于面板提示（"环境里检测到 xxx，当前模式=不使用代理 → 已忽略"）。
+    回传前遮罩 userinfo，避免把带凭据的代理串送到前端。
+    """
+    for key in ("HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy",
+                "ALL_PROXY", "all_proxy"):
+        value = os.environ.get(key, "")
+        if value:
+            return mask_credentials(value)
+    return ""
+
+
 class ConfigManager:
     """config.json 读写（线程安全）。"""
 
@@ -147,6 +244,10 @@ class ConfigManager:
             merged["base_url"] = normalize_base_url(merged.get("base_url", ""))
         except ValueError:
             merged["base_url"] = DEFAULT_CONFIG["base_url"]
+        # 防御：非法代理组合（custom 但没地址 / 非法 mode）降级为不使用代理
+        merged["proxy_mode"], merged["proxy_url"] = resolve_proxy_settings(
+            merged.get("proxy_mode", "off"), merged.get("proxy_url", "")
+        )
         return merged
 
     def _save(self) -> None:
@@ -178,6 +279,17 @@ class ConfigManager:
                 if k == "base_url":
                     # SSRF 防线：协议白名单 + host 校验（非法输入直接抛错）
                     v = normalize_base_url(v)
+                if k == "proxy_mode":
+                    if v not in ALLOWED_PROXY_MODES:
+                        raise ValueError(
+                            f"proxy_mode 必须是 {sorted(ALLOWED_PROXY_MODES)} 之一"
+                        )
+                if k == "proxy_url":
+                    # 空串 = 不改动（mode 为 off/env 时前端回传空属正常）；
+                    # 非空则校验，非法直接抛错
+                    if not isinstance(v, str) or not v.strip():
+                        continue
+                    v = normalize_proxy_url(v)
                 self._config[k] = v
             self._save()
             return dict(self._config)
@@ -227,6 +339,8 @@ class ConfigManager:
             cfg = dict(self._config)
         cfg["api_key_configured"] = bool(cfg.pop("api_key", ""))
         cfg["panel_token_configured"] = bool(cfg.pop("panel_token", ""))
+        # 进程环境里检测到的代理（已遮罩凭据）：仅供面板提示，非用户配置
+        cfg["proxy_env"] = detect_env_proxy()
         return cfg
 
 

@@ -33,7 +33,7 @@
 - **🖼️ `Immich Save Image` node** — upload generated images (PNG) with the current workflow embedded as metadata; drag the image back from Immich to restore the workflow.
 - **🎬 `Immich Save Video` node** — accepts the official ComfyUI `VIDEO` type (`Create Video` / `Load Video` / …), encodes to MP4 (H.264) with workflow metadata, and shows an in-node video preview.
 - **🗂️ Asset panel** — toolbar button opens a single-page panel: monthly timeline (foldable), lazy-loaded thumbnails, detail pane with favorite / delete / description, **selection mode with batch favorite / move-to-trash**, favorites-only filter, and per-session state persistence.
-- **⚙️ Config page** — base URL, API key, panel token, default album, timeline grouping, language; saves instantly.
+- **⚙️ Config page** — base URL, API key, panel token, default album, timeline grouping, language, and **🌐 network proxy (no proxy / custom / follow env vars, no-proxy by default)**; saves instantly.
 - **🌐 i18n** — English & Simplified Chinese; **follows your system language by default after install** (switchable in the config page, with an option to return to auto).
 - **🎨 Theme-aware** — follows the ComfyUI light/dark theme (falls back gracefully to the original colors).
 
@@ -169,6 +169,29 @@ At the top of the config page, a **🗑 Reset config** button (with confirmation
 | `timeline_range` | "Current period" of the timeline: `today` / `3d` / `7d` (default `today`); older assets collapse into past periods. |
 | `timeline_interval` | Grouping interval inside the current period: `15m` / `30m` / `1h` / `1d` (default `1h`). |
 | `page_size` | Pagination size (min 1, max 1000). |
+| `proxy_mode` | Network proxy mode: `off` (default) / `custom` / `env`. See below. |
+| `proxy_url` | Proxy address for `proxy_mode=custom`, e.g. `http://127.0.0.1:7897` (Clash / mihomo Mixed Port). **http/https only; username/password not supported.** |
+
+### 🌐 Network proxy (`proxy_mode` / `proxy_url`)
+
+The **🌐 Network proxy** group in the config page controls **how this plugin reaches Immich over the network**:
+
+| Mode | Meaning | When to use |
+| --- | --- | --- |
+| `off` **No proxy (default)** | Ignores `HTTP_PROXY` / `HTTPS_PROXY` / `ALL_PROXY` in the process environment; LAN connections stay **direct** | Almost always, especially when Immich runs on a NAS / LAN |
+| `custom` Custom proxy | All Immich requests explicitly go through the proxy address you fill in (environment variables are still ignored, so nothing can hijack it twice) | Immich is remote and must be reached through a proxy |
+| `env` Follow environment variables | Keeps using the proxy env vars of the ComfyUI process (**legacy behaviour**) | You always relied on `HTTP_PROXY` to reach Immich |
+
+> 💡 **Why is "No proxy" the default?**
+> Many ComfyUI launch scripts set `HTTP_PROXY=http://127.0.0.1:7897` (Clash's default port) for ComfyUI-Manager. Python's `requests` **honours those variables unconditionally**, so even requests to a **LAN** Immich were pushed through the proxy — and if Clash is not running, uploads fail with
+> `ProxyError ... [WinError 10061] No connection could be made because the target machine actively refused it`.
+> With `off`, Immich is reached directly, **so a stopped proxy client can never break the LAN path**, while ComfyUI-Manager and other plugins still use the env vars.
+>
+> Upgrading from an older version: if you could only reach Immich **through** a proxy, switch to "Follow environment variables" or "Custom proxy" and fill in the address.
+
+Proxy address validation follows the same discipline as `base_url`: http/https only, host required, **no username/password** (credentials are never written to `config.json`), no path/query, and link-local / reserved addresses plus IP-obfuscation literals are rejected.
+
+When a proxy variable is detected in the process environment, the config page shows a hint (`proxy_env`, **always credential-masked**) so you can tell why an env var seems to have no effect.
 
 ## Security
 
@@ -238,6 +261,9 @@ A: Yes. Images (PNG) and videos (MP4) carry the current `prompt` / `workflow` me
 
 **Q: Can deleted assets be recovered?**
 A: Deletes always go to the Immich trash (tested on v2.x); restore from the Immich web UI. The plugin does not offer "empty trash".
+
+**Q: Upload fails with `ProxyError ... [WinError 10061] No connection could be made...` or cannot reach a LAN Immich?**
+A: Your ComfyUI process environment carries proxy variables (typically `HTTP_PROXY=http://127.0.0.1:7897`, set by your launch script for ComfyUI-Manager) while that proxy client is not running — so requests to a **LAN** Immich get pushed through it too. Set **🌐 Network proxy → No proxy** in the config page (the default; takes effect right after saving) to go direct. If you really reach Immich through a proxy, pick "Custom proxy" and fill in the address, or "Follow environment variables". The config page shows the detected env var as a hint.
 
 ## Development
 

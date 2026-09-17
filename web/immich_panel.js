@@ -1455,6 +1455,7 @@
     api("GET", "/config").then(function (cfg) {
       if (token !== viewToken) return;
       state.config = cfg;
+      var pm = cfg.proxy_mode || "off"; // 代理模式（off/custom/env）
       body.innerHTML =
         '<div class="immich-config-grid">' +
         // 🔗 连接配置
@@ -1474,6 +1475,25 @@
         '      <label class="immich-field-title">' + t("cfg.album.label") + "</label>" +
         '      <span class="immich-field-desc" id="cfg-album-desc">' + t("cfg.album.desc") + "</span>" +
         '      <input id="cfg-album" value="' + esc(cfg.default_album || "") + '" placeholder="' + t("cfg.album.placeholder") + '">' +
+        "    </div>" +
+        "  </div>" +
+        // 🌐 网络代理
+        '  <div class="immich-group" style="grid-column:1/-1">' +
+        '    <h3 class="immich-group-title">' + t("cfg.group.network") + "</h3>" +
+        '    <div class="immich-field">' +
+        '      <label class="immich-field-title">' + t("cfg.proxy.mode.label") + "</label>" +
+        '      <span class="immich-field-desc">' + t("cfg.proxy.mode.desc") + "</span>" +
+        (cfg.proxy_env ? '      <span class="immich-field-desc">' + esc(t("cfg.proxy.env.detected", { proxy: cfg.proxy_env })) + "</span>" : "") +
+        '      <select id="cfg-proxy-mode">' +
+        '        <option value="off"' + (pm === "off" ? " selected" : "") + ">" + t("cfg.proxy.mode.off") + "</option>" +
+        '        <option value="custom"' + (pm === "custom" ? " selected" : "") + ">" + t("cfg.proxy.mode.custom") + "</option>" +
+        '        <option value="env"' + (pm === "env" ? " selected" : "") + ">" + t("cfg.proxy.mode.env") + "</option>" +
+        "      </select>" +
+        "    </div>" +
+        '    <div class="immich-field">' +
+        '      <label class="immich-field-title">' + t("cfg.proxy.url.label") + "</label>" +
+        '      <span class="immich-field-desc">' + t("cfg.proxy.url.desc") + "</span>" +
+        '      <input id="cfg-proxy-url" value="' + esc(cfg.proxy_url || "") + '" placeholder="http://127.0.0.1:7897">' +
         "    </div>" +
         "  </div>" +
         // 📦 时间线配置
@@ -1553,6 +1573,10 @@
       }
       // 默认相册：连接成功后可下拉选择 Immich 相册
       fillAlbumSelect(cfg.default_album || "");
+      // 🌐 网络代理：仅「自定义代理」模式下代理地址可编辑（其它模式置灰但保留已填值）
+      var proxySel = document.getElementById("cfg-proxy-mode");
+      if (proxySel) proxySel.onchange = syncProxyInput;
+      syncProxyInput();
       // 🔒 安全分组：面板令牌状态区（生成/显示/重新生成/清除）
       renderPanelTokenRow();
     }).catch(function (e) {
@@ -1597,6 +1621,17 @@
     });
   }
 
+  // 🌐 网络代理：代理地址输入框只在「自定义代理」模式下可编辑
+  // （置灰 ≠ 丢弃：切回 custom 时已填地址仍在）
+  function syncProxyInput() {
+    var sel = document.getElementById("cfg-proxy-mode");
+    var inp = document.getElementById("cfg-proxy-url");
+    if (!sel || !inp) return;
+    var custom = sel.value === "custom";
+    inp.disabled = !custom;
+    inp.style.opacity = custom ? "1" : "0.5";
+  }
+
   // 表单是否有未保存的更改（用于测试连接前拦截）
   function hasUnsavedChanges() {
     var cfg = state.config || {};
@@ -1604,6 +1639,9 @@
     if (val("cfg-album") !== (cfg.default_album || "")) return true;
     if (val("cfg-range") !== (cfg.timeline_range || "today")) return true;
     if (val("cfg-interval") !== (cfg.timeline_interval || "1h")) return true;
+    // 代理：模式 + 地址（地址框置灰时 val() 仍返回其值，故置灰也算草稿）
+    if (val("cfg-proxy-mode") !== (cfg.proxy_mode || "off")) return true;
+    if (val("cfg-proxy-url").trim() !== (cfg.proxy_url || "")) return true;
     // API Key 不回显明文，填了就算未保存；面板令牌走按钮即时生效（不算草稿）
     if (val("cfg-api-key")) return true;
     return false;
@@ -1650,8 +1688,14 @@
         showStatus(t("cfg.test.ok", { v: v, b: d.buckets_count || 0, n: d.assets_count || 0 }), "ok");
       } else {
         // 按后端 stage 给具体提示：connect=地址不可达 / auth=API Key 无效
-        var k = d.stage === "connect" ? "cfg.test.fail.connect" : (d.stage === "auth" ? "cfg.test.fail.auth" : "cfg.test.fail");
-        showStatus(t(k, { msg: d.error || "" }), "err");
+        // connect 且带了 proxy_url（自定义代理）时，明确点出"经代理"，便于排查代理没启动
+        var key = d.stage === "connect" ? "cfg.test.fail.connect" : (d.stage === "auth" ? "cfg.test.fail.auth" : "cfg.test.fail");
+        var params = { msg: d.error || "" };
+        if (d.stage === "connect" && d.proxy_url) {
+          key = "cfg.test.fail.connect.proxy";
+          params.proxy = d.proxy_url;
+        }
+        showStatus(t(key, params), "err");
       }
     }).catch(function (e) {
       showStatus(t("cfg.test.fail", { msg: e.message }), "err");
@@ -1668,6 +1712,15 @@
       timeline_range: val("cfg-range"),
       timeline_interval: val("cfg-interval"),
     };
+    // 🌐 网络代理：custom 必须带地址；off/env 时不回传地址（空串=不改动，保留已填值）
+    var proxyMode = val("cfg-proxy-mode") || "off";
+    var proxyUrl = val("cfg-proxy-url").trim();
+    if (proxyMode === "custom" && !proxyUrl) {
+      showStatus(t("cfg.proxy.url.required"), "warn");
+      return;
+    }
+    payload.proxy_mode = proxyMode;
+    if (proxyUrl) payload.proxy_url = proxyUrl;
     var ak = val("cfg-api-key");
     if (ak) payload.api_key = ak;
 
