@@ -1537,7 +1537,7 @@
         '      <span class="immich-field-desc">' + t("cfg.lang.desc") + "</span>" +
         '      <select id="cfg-lang">' +
         I18N.langs().map(function (l) {
-          var label = l === "auto" ? t("cfg.lang.auto") : (l === "zh" ? "中文" : "English");
+          var label = l === "auto" ? t("cfg.lang.auto") : (l === "zh" ? t("cfg.lang.zh") : t("cfg.lang.en"));
           return '<option value="' + l + '"' + (I18N.getLangSetting() === l ? " selected" : "") + ">" + label + "</option>";
         }).join("") +
         "      </select>" +

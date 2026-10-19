@@ -41,17 +41,21 @@ def check(name, cond, extra=""):
     print(f"[{'PASS' if cond else 'FAIL'}] {name} {extra}")
 
 
-# ---------- 0. 节点 DESCRIPTION（用户定稿 2026-08-16，中英双语） ----------
+# ---------- 0. 节点 DESCRIPTION（默认英文，中文走 DESCRIPTION_ZH） ----------
+# 默认必须是英文：ComfyUI 的节点注册表面向国际用户，面板语言选中文时由
+# applyNodeLang() 覆盖成中文。
 check("图片节点 DESCRIPTION 含项目名", "ComfyUI-ImmichManager" in ImmichSaveImage.DESCRIPTION)
-check("图片节点 DESCRIPTION 中文", "将图片预览并上传" in ImmichSaveImage.DESCRIPTION
+check("图片节点 DESCRIPTION 默认英文", "Preview the image and upload it to Immich" in ImmichSaveImage.DESCRIPTION
       and "PNG" in ImmichSaveImage.DESCRIPTION)
-check("图片节点 DESCRIPTION_EN 英文", "Preview the image and upload it to Immich" in ImmichSaveImage.DESCRIPTION_EN
-      and "PNG" in ImmichSaveImage.DESCRIPTION_EN)
+check("图片节点 DESCRIPTION 无中文", "将图片预览并上传" not in ImmichSaveImage.DESCRIPTION)
+check("图片节点 DESCRIPTION_ZH 中文", "将图片预览并上传" in ImmichSaveImage.DESCRIPTION_ZH
+      and "PNG" in ImmichSaveImage.DESCRIPTION_ZH)
 check("视频节点 DESCRIPTION 含项目名", "ComfyUI-ImmichManager" in ImmichSaveVideo.DESCRIPTION)
-check("视频节点 DESCRIPTION 中文", "将视频预览并上传" in ImmichSaveVideo.DESCRIPTION
+check("视频节点 DESCRIPTION 默认英文", "Preview the video and upload it to Immich" in ImmichSaveVideo.DESCRIPTION
       and "MP4" in ImmichSaveVideo.DESCRIPTION)
-check("视频节点 DESCRIPTION_EN 英文", "Preview the video and upload it to Immich" in ImmichSaveVideo.DESCRIPTION_EN
-      and "MP4" in ImmichSaveVideo.DESCRIPTION_EN)
+check("视频节点 DESCRIPTION 无中文", "将视频预览并上传" not in ImmichSaveVideo.DESCRIPTION)
+check("视频节点 DESCRIPTION_ZH 中文", "将视频预览并上传" in ImmichSaveVideo.DESCRIPTION_ZH
+      and "MP4" in ImmichSaveVideo.DESCRIPTION_ZH)
 
 
 # ---------- 1. 离线：PNG encode + metadata ----------

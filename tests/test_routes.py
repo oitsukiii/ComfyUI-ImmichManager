@@ -663,6 +663,47 @@ async def main():
         finally:
             await client.close()
 
+    # ---- 15. 敏感操作守卫（_sensitive_denied）----
+    # 背景：默认安装没有 panel_token，_check_auth 会放行所有人。若不额外限制，
+    # 局域网任何设备都能 PUT /config 把 base_url 改成自己的服务器，下一次上传
+    # 就把用户的 Immich API key 发过去（ComfyUI-Manager PR #3174 的审查意见）。
+    with tempfile.TemporaryDirectory() as tmp:
+        cfg = config_mod.ConfigManager(os.path.join(tmp, "config.json"))
+
+        def sreq(remote, headers=None):
+            return types.SimpleNamespace(remote=remote, headers=headers or {})
+
+        # 无令牌：只有本机放行
+        server_routes._TRUST_LOCALHOST = True
+        check("守卫：本机 127.0.0.1 放行（无令牌）",
+              server_routes._sensitive_denied(sreq("127.0.0.1"), cfg) is None)
+        check("守卫：本机 ::1 放行（无令牌）",
+              server_routes._sensitive_denied(sreq("::1"), cfg) is None)
+        check("守卫：局域网无令牌拒绝",
+              server_routes._sensitive_denied(sreq("192.168.1.50"), cfg) is not None)
+        check("守卫：公网无令牌拒绝",
+              server_routes._sensitive_denied(sreq("1.2.3.4"), cfg) is not None)
+        check("守卫：无来源信息拒绝",
+              server_routes._sensitive_denied(sreq(None), cfg) is not None)
+
+        # 有令牌：远程持牌者视为管理员
+        cfg.update(panel_token="admin-tok")
+        check("守卫：局域网 + 正确令牌放行",
+              server_routes._sensitive_denied(
+                  sreq("192.168.1.50", {"Authorization": "Bearer admin-tok"}), cfg) is None)
+        check("守卫：局域网 + 错误令牌拒绝",
+              server_routes._sensitive_denied(
+                  sreq("192.168.1.50", {"Authorization": "Bearer wrong"}), cfg) is not None)
+
+        # ⚠️ 关键回归：关掉 _TRUST_LOCALHOST 后本机仍要能改配置，
+        # 否则管理员会把自己锁在门外（守卫只问"来源是不是本机"）。
+        server_routes._TRUST_LOCALHOST = False
+        check("守卫：关闭本机信任后本机仍放行（不锁死自己）",
+              server_routes._sensitive_denied(sreq("127.0.0.1"), cfg) is None)
+        check("守卫：关闭本机信任后局域网无令牌仍拒绝",
+              server_routes._sensitive_denied(sreq("192.168.1.50"), cfg) is not None)
+        server_routes._TRUST_LOCALHOST = True  # 恢复生产默认
+
     # 未污染真实 config.json
     check("测试未污染真实 config.json", not os.path.exists(os.path.join(REPO_ROOT, "config.json")))
 

@@ -307,15 +307,16 @@ class ImmichSaveImage:
     CATEGORY = "image"
     # 悬停文本语言跟随面板设置（自动/中文/英文）：web/immich_panel.js 的
     # applyNodeLang() 会按 localStorage("immich_lang") 覆盖 LiteGraph 类
-    # DESCRIPTION 与已存在节点的 description。此处中文为默认（用户定稿 2026-08-16）。
+    # DESCRIPTION 与已存在节点的 description。
+    # ⚠️ 默认必须是英文：ComfyUI 注册表面向国际用户，中文只在面板语言选中文时替换。
     DESCRIPTION = (
-        "[ComfyUI-ImmichManager] 将图片预览并上传到 Immich。"
-        "默认保存为PNG，内含工作流metadata。更多设置在配置面板。"
-    )
-    DESCRIPTION_EN = (
         "[ComfyUI-ImmichManager] Preview the image and upload it to Immich. "
         "Saves as PNG by default, with workflow metadata embedded. "
         "More settings in the config panel."
+    )
+    DESCRIPTION_ZH = (
+        "[ComfyUI-ImmichManager] 将图片预览并上传到 Immich。"
+        "默认保存为PNG，内含工作流metadata。更多设置在配置面板。"
     )
 
     def save_images(self, images, filename_prefix="ComfyUI", prompt=None, extra_pnginfo=None):
@@ -409,13 +410,13 @@ class ImmichSaveVideo:
     OUTPUT_NODE = True
     CATEGORY = "video"
     DESCRIPTION = (
-        "[ComfyUI-ImmichManager] 将视频预览并上传到 Immich。"
-        "默认保存为MP4，内含工作流metadata。更多设置在配置面板。"
-    )
-    DESCRIPTION_EN = (
         "[ComfyUI-ImmichManager] Preview the video and upload it to Immich. "
         "Saves as MP4 by default, with workflow metadata embedded. "
         "More settings in the config panel."
+    )
+    DESCRIPTION_ZH = (
+        "[ComfyUI-ImmichManager] 将视频预览并上传到 Immich。"
+        "默认保存为MP4，内含工作流metadata。更多设置在配置面板。"
     )
 
     def save_video(self, video, filename_prefix="ComfyUI", prompt=None, extra_pnginfo=None):

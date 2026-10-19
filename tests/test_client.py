@@ -15,8 +15,10 @@ from immich_client import ImmichClient, ImmichError  # noqa: E402
 KEY = os.environ.get("IMMICH_TEST_KEY", "")
 BASE = os.environ.get("IMMICH_TEST_BASE", "http://127.0.0.1:2283/api")
 if not KEY:
-    print("需要环境变量 IMMICH_TEST_KEY")
-    sys.exit(1)
+    # 这是需要真实 Immich 的集成测试；缺环境变量时跳过，
+    # 不要 sys.exit —— 那会让整个 pytest 进程报 INTERNALERROR。
+    import pytest
+    pytest.skip("需要环境变量 IMMICH_TEST_KEY（集成测试）", allow_module_level=True)
 
 client = ImmichClient(BASE, KEY)
 results = []

