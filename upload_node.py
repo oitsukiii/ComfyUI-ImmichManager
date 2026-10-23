@@ -300,8 +300,10 @@ class ImmichSaveImage:
             },
         }
 
-    RETURN_TYPES = ()
-    RETURN_NAMES = ()
+    # 输出：把收到的批次原样透传，方便继续往下游连
+    # （本节点同时是 OUTPUT_NODE，所以既能在预览里看结果，也能接着接线）
+    RETURN_TYPES = ("IMAGE",)
+    RETURN_NAMES = ("images",)
     FUNCTION = "save_images"
     OUTPUT_NODE = True
     CATEGORY = "image"
@@ -356,7 +358,7 @@ class ImmichSaveImage:
         if errors:
             raise RuntimeError("Immich 上传失败：" + "；".join(errors))
 
-        return {"ui": {"images": ui_entries}}
+        return {"ui": {"images": ui_entries}, "result": (images,)}
 
 
 # ============================================================
@@ -405,7 +407,10 @@ class ImmichSaveVideo:
             },
         }
 
-    RETURN_TYPES = ()
+    # 输出：把收到的 VIDEO 原样透传，方便继续往下游连
+    # （本节点同时是 OUTPUT_NODE，所以既能在预览里看结果，也能接着接线）
+    RETURN_TYPES = ("VIDEO",)
+    RETURN_NAMES = ("video",)
     FUNCTION = "save_video"
     OUTPUT_NODE = True
     CATEGORY = "video"
@@ -476,4 +481,5 @@ class ImmichSaveVideo:
 
         # 预览：官方 PreviewVideo 同款返回（images + animated），0.30 前端据此渲染 <video>；
         # ui.videos 键前端不识别（旧写法导致节点无预览）
-        return {"ui": {"images": [ui_entry], "animated": [True]}}
+        # result：把 VIDEO 原样透传（与 RETURN_TYPES/RETURN_NAMES 对应）
+        return {"ui": {"images": [ui_entry], "animated": [True]}, "result": (video,)}

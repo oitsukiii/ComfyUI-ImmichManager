@@ -149,6 +149,16 @@ check("视频节点 INPUT_TYPES 契约（video+filename_prefix）",
       set(ipt.keys()) == {"video", "filename_prefix"}, f"-> {set(ipt.keys())}")
 check("视频节点无 images/fps 旧输入", "images" not in ipt and "fps" not in ipt)
 
+# 输出契约（2026-10-23）：两个节点都要有单路透传输出，方便继续串联下游
+check("图片节点有 IMAGE 输出",
+      ImmichSaveImage.RETURN_TYPES == ("IMAGE",) and ImmichSaveImage.RETURN_NAMES == ("images",),
+      f"-> {ImmichSaveImage.RETURN_TYPES} / {ImmichSaveImage.RETURN_NAMES}")
+check("视频节点有 VIDEO 输出",
+      ImmichSaveVideo.RETURN_TYPES == ("VIDEO",) and ImmichSaveVideo.RETURN_NAMES == ("video",),
+      f"-> {ImmichSaveVideo.RETURN_TYPES} / {ImmichSaveVideo.RETURN_NAMES}")
+check("两个节点仍是 OUTPUT_NODE（预览照旧）",
+      ImmichSaveImage.OUTPUT_NODE is True and ImmichSaveVideo.OUTPUT_NODE is True)
+
 # 未配置连接时上传应报清晰错误
 import config as config_mod  # noqa: E402
 
@@ -272,7 +282,11 @@ if KEY:
     fake_workflow = {"nodes": [{"id": 1, "type": "ImmichSaveImage", "inputs": {}}]}
     out = node_img.save_images(t, filename_prefix="ci_p4_img", prompt={"test": 1}, extra_pnginfo={"workflow": fake_workflow})
     check("图片节点返回 ui.images", "images" in out.get("ui", {}), f"-> {out.get('ui')}")
-    check("图片节点无 result 输出", "result" not in out, f"-> {list(out.keys())}")
+    # 2026-10-23：改为透传输出（原断言「无 result」已过时）
+    res = out.get("result")
+    check("图片节点 result 透传原批次",
+          isinstance(res, tuple) and len(res) == 1 and res[0] is t,
+          f"-> {type(res).__name__} len={len(res) if isinstance(res, tuple) else '?'}")
     img_entries = out.get("ui", {}).get("images", [])
     asset_id = img_entries[0].get("asset_id") if img_entries else None
     check("图片上传返回 asset_id", bool(asset_id), f"-> {asset_id}")
@@ -305,6 +319,10 @@ if KEY:
                                     extra_pnginfo={"workflow": fake_video_workflow})
         check("真实 VIDEO 节点返回 ui.images+animated", "images" in out_v.get("ui", {})
               and out_v.get("ui", {}).get("animated") == [True], f"-> {out_v.get('ui')}")
+        check("真实 VIDEO 节点 result 透传原对象",
+              isinstance(out_v.get("result"), tuple) and len(out_v["result"]) == 1
+              and out_v["result"][0] is real_video,
+              f"-> {type(out_v.get('result')).__name__}")
         vid_entries = out_v.get("ui", {}).get("images", [])
         v_id = vid_entries[0].get("asset_id") if vid_entries else None
         check("真实 VIDEO 上传返回 asset_id", bool(v_id), f"-> {v_id}")
@@ -333,6 +351,10 @@ if KEY:
                                     extra_pnginfo={"workflow": {"nodes": [2]}})
         check("离线 mock 视频节点返回 ui.images+animated", "images" in out_v.get("ui", {})
               and out_v.get("ui", {}).get("animated") == [True], f"-> {out_v.get('ui')}")
+        check("离线 mock 视频节点 result 透传原对象",
+              isinstance(out_v.get("result"), tuple) and len(out_v["result"]) == 1
+              and out_v["result"][0] is fake_video,
+              f"-> {type(out_v.get('result')).__name__}")
         vid_entries = out_v.get("ui", {}).get("images", [])
         v_id = vid_entries[0].get("asset_id") if vid_entries else None
         check("离线 mock 上传返回 asset_id", bool(v_id), f"-> {v_id}")
