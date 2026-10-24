@@ -6,17 +6,40 @@
   "use strict";
 
   // ── 轻量 i18n（v0.6 P3）──────────────────────────────
-  // 优先用独立 web/i18n.js 的 window.ImmichI18n；若加载顺序问题（ComfyUI 扩展
-  // js 加载时序不可控）导致未定义，退回最小 fallback（en，原样返回 key）。
+  // 词典在独立的 web/i18n.js 里，导出到 window.ImmichI18n。
+  //
+  // ⚠️ 不能在加载时就把 window.ImmichI18n 抓下来当成本地变量：
+  // ComfyUI 用 glob 加载 WEB_DIRECTORY 下的 js（server.py 里没有排序），
+  // 两个文件的先后顺序取决于文件系统的返回顺序，不可控。
+  // 一旦 immich_panel.js 先执行，window.ImmichI18n 还是 undefined，
+  // 抓下来的就是下面的 fallback —— 表现为整个面板显示 "cfg.base_url.label"
+  // 这种原始 key（2026-10-24 实际出现过）。
+  //
+  // ⇒ 改成每次调用时现取，加载顺序就无所谓了。
   // 语言切换入口：配置页「语言」下拉 → setLang() → localStorage("immich_lang")。
-  var I18N = window.ImmichI18n || {
-    t: function (key) { return key; },
-    setLang: function () {},
-    getLang: function () { return "en"; },
-    getLangSetting: function () { return "auto"; },
-    langs: function () { return ["auto", "en", "zh"]; },
+  var I18N = {
+    t: function (key, params) {
+      var i = window.ImmichI18n;
+      return i ? i.t(key, params) : key;
+    },
+    setLang: function (l) {
+      var i = window.ImmichI18n;
+      return i ? i.setLang(l) : undefined;
+    },
+    getLang: function () {
+      var i = window.ImmichI18n;
+      return i ? i.getLang() : "en";
+    },
+    getLangSetting: function () {
+      var i = window.ImmichI18n;
+      return i ? i.getLangSetting() : "auto";
+    },
+    langs: function () {
+      var i = window.ImmichI18n;
+      return i ? i.langs() : ["auto", "en", "zh"];
+    },
   };
-  var t = I18N.t;
+  var t = function (key, params) { return I18N.t(key, params); };
   function setLang(l) { I18N.setLang(l); }
 
   // ComfyUI 的 WEB_DIRECTORY 机制只自动加载 .js 扩展，.css 不会自动注入，
