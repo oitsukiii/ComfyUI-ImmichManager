@@ -1,8 +1,8 @@
 // 🐾 ComfyUI-ImmichManager 轻量 i18n（v0.6 P3）
 // 用法：window.ImmichI18n.t("btn.select") → 当前语言文案；{n}/{msg} 为占位符，
 // 调用时传参数：t("bulk.count", { n: 5 })。
-// 语言检测：localStorage("immich_lang") → 无记录/"auto" 时跟随 navigator.language
-// （安装后默认跟随系统/浏览器语言）→ en 兜底。
+// Language: localStorage("immich_lang") → "en" by default; "auto" follows navigator.language, but only when chosen explicitly.
+// A fresh install starts in English; "Follow system" is opt-in.
 // 节点名（🖼️ Immich Save Image / 🎬 ImmichSaveVideo）保持英文，不做翻译。
 (function () {
   "use strict";
@@ -379,13 +379,16 @@
   };
 
   function getLangSetting() {
-    // 返回语言设置："auto"（跟随系统） | "en" | "zh"。
-    // localStorage 无记录 / 禁用 / 存了非法值 → "auto"（安装后默认跟随系统）。
+    // Returns "auto" | "en" | "zh".
+    // No stored value / storage disabled / invalid value -> "en": a fresh install
+    // is English. Following the system language is still available, but it is an
+    // explicit choice ("auto"), never the default — the node registry and the
+    // panel are read by an international audience.
     try {
       var s = localStorage.getItem(LANG_KEY);
-      if (s === "en" || s === "zh") return s;
-    } catch (e) { /* localStorage 可能禁用 */ }
-    return AUTO;
+      if (s === AUTO || s === "en" || s === "zh") return s;
+    } catch (e) { /* localStorage may be unavailable */ }
+    return "en";
   }
 
   function detectLang() {
