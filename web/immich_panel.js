@@ -32,7 +32,10 @@
     },
     getLangSetting: function () {
       var i = window.ImmichI18n;
-      return i ? i.getLangSetting() : "auto";
+      // Before i18n.js has loaded, report the same default it would: English.
+      // Returning "auto" here made the very first paint follow the browser
+      // language, which is exactly what the default-English change avoids.
+      return i ? i.getLangSetting() : "en";
     },
     langs: function () {
       var i = window.ImmichI18n;
