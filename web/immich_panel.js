@@ -86,6 +86,8 @@
     pickMode: false,     // 选择面板模式（由选图节点打开）
     pickSelected: "",    // 选择面板里当前高亮的资产 id
     onPick: null,        // 选中资产的回调
+    sortOrder: "desc",   // 排序：最新优先 / 最早优先
+    groupBy: "time",     // 分组：time / album / person / none
     conditions: [],      // 条件筛选（空 = 走时间轴分桶）
     cfLists: null,       // 相册/人脸/标签下拉数据
     cfListsPromise: null,
@@ -357,6 +359,82 @@
 
   // ─────────────── 面板骨架 ───────────────
 
+  // Lucide 图标（内联 SVG，UnoCSS 的 icon-[...] 在运行时注入没有对应 CSS）
+  var IC = {
+    funnelPlus: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.354 3H3a1 1 0 0 0-.742 1.67l7.225 7.989A2 2 0 0 1 10 14v6a1 1 0 0 0 .553.895l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .517-1.341l1.218-1.348"/><path d="M16 6h6"/><path d="M19 3v6"/></svg>',
+    sort: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 16 4 4 4-4"/><path d="M7 20V4"/><path d="M11 4h10"/><path d="M11 8h7"/><path d="M11 12h4"/></svg>',
+    ruler: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v-3"/><path d="M14 15v-3"/><path d="M18 15v-3"/><path d="M2 8V4"/><path d="M22 6H2"/><path d="M22 8V4"/><path d="M6 15v-3"/><rect x="2" y="12" width="20" height="8" rx="2"/></svg>',
+    checkCheck: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 7 17l-5-5"/><path d="m22 10-7.5 7.5L13 16"/></svg>',
+    group: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M3 12h18"/><path d="M3 18h18"/></svg>',
+  };
+
+  // 顶栏的三个下拉菜单：排序 / 缩放 / 分组
+  function buildToolMenus() {
+    var SORTS = [{ k: "desc", t: "最新优先" }, { k: "asc", t: "最早优先" }];
+    var GROUPS = [
+      { k: "time", t: "按时间" },
+      { k: "album", t: "按相册" },
+      { k: "person", t: "按人物" },
+      { k: "none", t: "不分组" },
+    ];
+    var ZOOMS = ZOOM_LEVELS.map(function (z) { return { k: z.key, t: t(z.labelKey) }; });
+
+    function fill(menuId, items, current, onPick) {
+      var el = document.getElementById(menuId);
+      if (!el) return;
+      el.innerHTML = "";
+      items.forEach(function (it) {
+        var row = document.createElement("div");
+        row.textContent = it.t;
+        if (it.k === current) row.className = "on";
+        if (it.disabled) row.className = "disabled";
+        row.onclick = function () {
+          if (it.disabled) return;
+          el.classList.remove("open");
+          onPick(it.k);
+        };
+        el.appendChild(row);
+      });
+    }
+
+    fill("immich-sort-menu", SORTS, state.sortOrder || "desc", function (k) {
+      state.sortOrder = k; renderTimeline();
+    });
+    fill("immich-zoom-menu", ZOOMS, state.zoomSize, function (k) {
+      state.zoomSize = k;
+      try { sessionStorage.setItem("immich_zoom", k); } catch (e) {}
+      var p = document.getElementById("immich-panel");
+      if (p) p.setAttribute("data-zoom", k);
+      buildToolMenus();
+    });
+    fill("immich-group-menu", GROUPS, state.groupBy || "time", function (k) {
+      state.groupBy = k; renderTimeline();
+    });
+
+    [[ "immich-sort-btn", "immich-sort-menu" ],
+     [ "immich-zoom-btn", "immich-zoom-menu" ],
+     [ "immich-group-btn", "immich-group-menu" ]].forEach(function (pair) {
+      var btn = document.getElementById( pair[0] );
+      var menu = document.getElementById( pair[1] );
+      if (!btn || !menu) return;
+      btn.onclick = function (e) {
+        e.stopPropagation();
+        var open = menu.classList.contains("open");
+        document.querySelectorAll(".immich-menu").forEach(function (m) { m.classList.remove("open"); });
+        if (!open) menu.classList.add("open");
+      };
+    });
+    if (!window.__immichMenuCloser) {
+      window.__immichMenuCloser = true;
+      document.addEventListener("click", function () {
+        document.querySelectorAll(".immich-menu").forEach(function (m) { m.classList.remove("open"); });
+      });
+    }
+    // 有条件时漏斗图标高亮
+    var cf = document.getElementById("immich-cf-add");
+    if (cf) cf.classList.toggle("active", !!(state.conditions && state.conditions.length));
+  }
+
   function ensureSkeleton() {
     if (document.getElementById("immich-panel-overlay")) return;
     var overlay = document.createElement("div");
@@ -365,21 +443,27 @@
       '<div id="immich-panel" data-zoom="' + esc(state.zoomSize) + '">' +
       '  <div id="immich-panel-header">' +
       '    <h2>🖼️ ' + t("title.panel") + "</h2>" +
-      '    <button class="immich-btn" id="immich-btn-timeline" title="' + t("btn.timeline.title") + '">' + t("btn.timeline") + "</button>" +
       '    <div id="immich-timeline-nav">' +
       '      <div class="inner">' +
-      '        <div class="immich-zoom-group timeline-only" title="' + t("title.zoom") + '">' +
-      ZOOM_LEVELS.map(function (z) {
-        return '<button class="immich-btn immich-zoom-btn" data-zoom="' + z.key + '" title="' + t("zoom.level.title", { label: t(z.labelKey) }) + '">' + t(z.labelKey) + "</button>";
-      }).join("") +
+      '        <div class="immich-tools timeline-only">' +
+      '          <div class="immich-menu-wrap">' +
+      '            <button class="immich-btn immich-icon-btn" id="immich-cf-add" title="筛选条件">' + IC.funnelPlus + "</button>" +
+      "          </div>" +
+      '          <div class="immich-menu-wrap">' +
+      '            <button class="immich-btn immich-icon-btn" id="immich-sort-btn" title="排序">' + IC.sort + "</button>" +
+      '            <div class="immich-menu" id="immich-sort-menu"></div>' +
+      "          </div>" +
+      '          <div class="immich-menu-wrap">' +
+      '            <button class="immich-btn immich-icon-btn" id="immich-zoom-btn" title="' + t("title.zoom") + '">' + IC.ruler + "</button>" +
+      '            <div class="immich-menu" id="immich-zoom-menu"></div>' +
+      "          </div>" +
+      '          <div class="immich-menu-wrap">' +
+      '            <button class="immich-btn immich-icon-btn" id="immich-group-btn" title="分组">' + IC.group + "</button>" +
+      '            <div class="immich-menu" id="immich-group-menu"></div>' +
+      "          </div>" +
+      '          <button class="immich-btn immich-icon-btn" id="immich-btn-select" title="' + t("btn.select.title") + '">' + IC.checkCheck + "</button>" +
       "        </div>" +
-      '        <button class="immich-btn timeline-only" id="immich-btn-select" title="' + t("btn.select.title") + '">' + t("btn.select") + "</button>" +
       "      </div>" +
-      "    </div>" +
-      '    <span class="immich-header-sep"></span>' +
-      '    <div class="immich-cf-bar timeline-only">' +
-      '      <button class="immich-btn" id="immich-cf-add" title="添加筛选条件">+ 条件</button>' +
-      '      <span id="immich-cf-chips"></span>' +
       "    </div>" +
       '    <span class="immich-header-sep"></span>' +
       '    <button class="immich-btn" id="immich-btn-open" title="' + t("btn.open.title") + '">' + t("btn.open") + "</button>" +
@@ -407,10 +491,7 @@
     document.body.appendChild(overlay);
 
     document.getElementById("immich-btn-close").onclick = closePanel;
-    document.getElementById("immich-btn-timeline").onclick = function () {
-      exitSelectMode();
-      renderTimeline();
-    };
+    buildToolMenus();
     var cfAdd = document.getElementById("immich-cf-add");
     if (cfAdd) cfAdd.onclick = openConditionEditor;
     document.getElementById("immich-btn-select").onclick = function () {
@@ -465,7 +546,7 @@
     var overlay = document.getElementById("immich-panel-overlay");
     if (!overlay) return;
     var isConfig = mode === "config";
-    var tl = document.getElementById("immich-btn-timeline");
+    var tl = null;   // 「时间线」按钮已移除
     var cfg = document.getElementById("immich-btn-config");
     if (tl) tl.classList.toggle("active", !isConfig);
     if (cfg) cfg.classList.toggle("active", isConfig);
@@ -757,6 +838,26 @@
 
   // 渲染时间轴视图：拉桶列表 → 分桶渲染 → 还原滚动/展开记忆。
   // viewToken 用于废弃过期异步结果（快速切换视图时旧请求不覆盖新 DOM）。
+  // 图标按钮与下拉菜单
+  (function iconStyle() {
+    if (document.getElementById("immich-icon-css")) return;
+    var el = document.createElement("style");
+    el.id = "immich-icon-css";
+    el.textContent =
+      '.immich-tools{display:flex;align-items:center;gap:6px}' +
+      '.immich-icon-btn{display:inline-flex;align-items:center;justify-content:center;padding:6px 8px;line-height:1}' +
+      '.immich-icon-btn.active{color:#f9a825;border-color:#f9a825}' +
+      '.immich-menu-wrap{position:relative}' +
+      '.immich-menu{display:none;position:absolute;top:calc(100% + 4px);right:0;z-index:200;min-width:130px;' +
+      'background:#1b1e24;border:1px solid #3a3f4a;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.5);overflow:hidden}' +
+      '.immich-menu.open{display:block}' +
+      '.immich-menu div{padding:8px 12px;cursor:pointer;font-size:13px;white-space:nowrap}' +
+      '.immich-menu div:hover{background:#2a3038}' +
+      '.immich-menu div.on{color:#f9a825}' +
+      '.immich-menu div.disabled{opacity:.4;cursor:default}';
+    (document.head || document.documentElement).appendChild(el);
+  })();
+
   // ─────────────── 条件筛选 ───────────────
   (function cfStyle() {
     if (document.getElementById("immich-cf-css")) return;
@@ -855,6 +956,9 @@
   }
 
   function renderConditionChips() {
+    // 顶栏不再显示条件胶囊，条件只通过漏斗图标高亮体现；这里只刷新图标状态
+    var cf = document.getElementById("immich-cf-add");
+    if (cf) cf.classList.toggle("active", !!(state.conditions && state.conditions.length));
     var host = document.getElementById("immich-cf-chips");
     if (!host) return;
     host.innerHTML = "";
@@ -991,7 +1095,7 @@
   function renderFiltered(timeline) {
     var pages = [];
     function fetchPage(p) {
-      return api("GET", "/search?" + cfQuery(state.conditions, "desc", p, 100)).then(function (d) {
+      return api("GET", "/search?" + cfQuery(state.conditions, state.sortOrder || "desc", p, 100)).then(function (d) {
         pages = pages.concat(d.items || []);
         if ((d.nextPage && pages.length < 500)) return fetchPage(Number(d.nextPage));
       });
@@ -1010,7 +1114,31 @@
         (byMonth[key] = byMonth[key] || []).push(a);
       });
       timeline.innerHTML = "";
-      Object.keys(byMonth).sort().reverse().forEach(function (key) {
+
+      // 不分组：一个平铺网格
+      if ((state.groupBy || "time") === "none") {
+        var flat = document.createElement("div");
+        flat.className = "immich-grid";
+        pages.forEach(function (a) {
+          state.assetsById[a.id] = a;
+          flat.appendChild(renderCell(a));
+        });
+        timeline.appendChild(flat);
+        lazyLoad(flat);
+        restoreTimelineScroll();
+        return;
+      }
+      if (state.groupBy === "album" || state.groupBy === "person") {
+        // Immich 的 search 结果不返回所属相册/人物，前端无法据此分组
+        var warn = document.createElement("div");
+        warn.className = "immich-empty";
+        warn.textContent = "按" + (state.groupBy === "album" ? "相册" : "人物") + "分组暂不支持（Immich 搜索结果不带该信息），已按时间分组";
+        timeline.appendChild(warn);
+      }
+
+      Object.keys(byMonth).sort(function (a, b) {
+        return state.sortOrder === "asc" ? a.localeCompare(b) : b.localeCompare(a);
+      }).forEach(function (key) {
         var sec = document.createElement("div");
         sec.className = "immich-month";
         var head = document.createElement("div");
@@ -1068,7 +1196,7 @@
       if (token !== viewToken) return;
       state.config = cfg;
       timeline.innerHTML = '<div class="immich-loading">' + t("loading.timeline") + "</div>";
-      return api("GET", "/buckets?order=desc");
+      return api("GET", "/buckets?order=" + (state.sortOrder || "desc"));
     }).then(function (buckets) {
       if (token !== viewToken) return;
       state.buckets = Array.isArray(buckets) ? buckets : [];
