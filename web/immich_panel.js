@@ -2202,24 +2202,14 @@
                  "margin-left:6px;border-radius:50%;border:1px solid currentColor;opacity:.55;" +
                  "font-size:10px;line-height:1;cursor:help;vertical-align:middle";
 
-  // 行结构：标题由对话框渲染（放进 name，左侧统一对齐），
-  // 我们只返回控件格；感叹号放在控件之前 —— 视觉上紧跟标题。
-  var HINT_CSS = "display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;" +
-                 "margin-right:8px;border-radius:50%;border:1px solid currentColor;opacity:.55;" +
-                 "font-size:10px;line-height:1;cursor:help;vertical-align:middle";
+  // 行结构：标题由对话框渲染（name），我们只返回控件格。
+  // 提示文字直接打出来、放在控件下方，用弱化颜色区分（替代原来的感叹号）。
+  var HINT_TEXT = "max-width:520px;margin-top:5px;font-size:11px;line-height:1.5;" +
+                  "color:#8a8f98;opacity:.9";
 
   function wideRow(kind, label, setter, value, options, hint) {
-    var wrap = document.createElement("div");
-    wrap.style.cssText = "display:flex;align-items:center;justify-content:flex-end";
-
-    if (hint) {
-      var bang = document.createElement("span");
-      bang.textContent = "!";
-      bang.style.cssText = HINT_CSS;
-      bang.title = hint;
-      bang.setAttribute("aria-label", hint);
-      wrap.appendChild(bang);
-    }
+    var col = document.createElement("div");
+    col.style.cssText = "display:flex;flex-direction:column;align-items:flex-start";
 
     var el;
     if (kind === "combo") {
@@ -2240,11 +2230,18 @@
       el.addEventListener("change", function () { setter(el.value); });
       el.addEventListener("blur", function () { setter(el.value); });
     }
-    wrap.appendChild(el);
-    return wrap;
+    col.appendChild(el);
+
+    if (hint) {
+      var note = document.createElement("div");
+      note.textContent = hint;
+      note.style.cssText = HINT_TEXT;
+      note.setAttribute("data-immich-hint", "1");
+      col.appendChild(note);
+    }
+    return col;
   }
 
-  // 只返回按钮容器（同上：名称列由外层渲染）
   function buttonRow(name, buttons) {
     var wrap = document.createElement("div");
     buttons.forEach(function (b) {
