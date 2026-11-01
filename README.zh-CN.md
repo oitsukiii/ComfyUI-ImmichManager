@@ -63,7 +63,7 @@
 
 ![Immich 设置分组](images/settings-immich.png)
 
-**找节点** —— 在「添加节点」菜单里搜 immich。
+**找节点** —— 在「添加节点」菜单里搜 immich，三个节点都会出现：从库里取图、存图进库、存视频进库。
 
 ![找节点](images/node-search.png)
 

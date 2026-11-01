@@ -63,7 +63,7 @@
 
 ![Immich settings group](images/settings-immich.png)
 
-**Finding the nodes** — search "immich" in the Add Node menu.
+**Finding the nodes** — search "immich" in the Add Node menu to get all three: pick an asset out of the library, or save an image or a video into it.
 
 ![Find the nodes](images/node-search.png)
 
