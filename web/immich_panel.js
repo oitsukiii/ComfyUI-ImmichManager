@@ -2184,9 +2184,18 @@
 
   // 反馈层统一：设置页也走面板自己的 toast（showStatus），不再各写一套。
   // 保留 setStatus 的名字与签名，20 处调用点一行不用改。
+  // 通知统一走 ComfyUI 默认 toast（右上角，官方样式）；不可用时退回页内提示
   function setStatus(msg, isErr) {
-    try { showStatus(msg || "", isErr ? "err" : "ok"); }
-    catch (e) { console.log("[Immich]", msg); }
+    var text = msg || "";
+    try {
+      var t = window.app && window.app.extensionManager && window.app.extensionManager.toast;
+      if (t && typeof t.add === "function") {
+        t.add({ severity: isErr ? "error" : "success", summary: text, life: isErr ? 6000 : 3000 });
+        return;
+      }
+    } catch (e) {}
+    try { showStatus(text, isErr ? "err" : "ok"); }
+    catch (e2) { console.log("[Immich]", text); }
   }
 
   function mkTd(content) {
