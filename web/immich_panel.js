@@ -2256,15 +2256,15 @@
 
   // 顺序对齐老配置页：连接 → 相册 → 网络 → 资源 → 安全 → 其他
   var CONFIG_SETTINGS = [
-    { key: "base_url", id: "immich.baseUrl", name: "Immich 地址", kind: "text", cat: ["Immich", "连接", "服务"] },
-    { key: "api_key", id: "immich.apiKey", name: "API Key（留空不修改）", kind: "password", cat: ["Immich", "连接", "凭据"] },
-    { key: "default_album", id: "immich.defaultAlbum", name: "上传到相册", kind: "combo", cat: ["Immich", "相册", "目标"], dynamic: "albums" },
-    { key: "proxy_mode", id: "immich.proxyMode", name: "网络代理模式", kind: "combo", cat: ["Immich", "网络", "模式"], options: ["off", "custom", "env"] },
-    { key: "proxy_url", id: "immich.proxyUrl", name: "代理地址（custom 必填）", kind: "text", cat: ["Immich", "网络", "地址"] },
-    { key: "timeline_range", id: "immich.timelineRange", name: "时间轴大组间隔", kind: "combo", cat: ["Immich", "资源", "时间轴"], options: ["today", "3d", "7d"] },
-    { key: "timeline_interval", id: "immich.timelineInterval", name: "时间轴小组间隔", kind: "combo", cat: ["Immich", "资源", "时间轴"], options: ["15m", "30m", "1h", "1d"] },
-    { key: "page_size", id: "immich.pageSize", name: "每页数量", kind: "number", cat: ["Immich", "资源", "分页"] },
-    { key: "__lang", id: "immich.lang", name: "面板语言（刷新后生效）", kind: "combo", cat: ["Immich", "其他", "语言"], options: ["en", "zh", "auto"], local: true },
+    { key: "base_url", id: "immich.baseUrl", name: "Immich 地址", kind: "text", cat: ["Immich", "1 连接", "连接设置", "服务"] },
+    { key: "api_key", id: "immich.apiKey", name: "API Key（留空不修改）", kind: "password", cat: ["Immich", "1 连接", "连接设置", "凭据"] },
+    { key: "default_album", id: "immich.defaultAlbum", name: "上传到相册", kind: "combo", cat: ["Immich", "4 相册配置", "相册设置", "目标"], dynamic: "albums" },
+    { key: "proxy_mode", id: "immich.proxyMode", name: "网络代理模式", kind: "combo", cat: ["Immich", "3 网络", "网络设置", "模式"], options: ["off", "custom", "env"] },
+    { key: "proxy_url", id: "immich.proxyUrl", name: "代理地址（custom 必填）", kind: "text", cat: ["Immich", "3 网络", "网络设置", "地址"] },
+    { key: "timeline_range", id: "immich.timelineRange", name: "时间轴大组间隔", kind: "combo", cat: ["Immich", "5 资源", "资源设置", "时间轴"], options: ["today", "3d", "7d"] },
+    { key: "timeline_interval", id: "immich.timelineInterval", name: "时间轴小组间隔", kind: "combo", cat: ["Immich", "5 资源", "资源设置", "时间轴"], options: ["15m", "30m", "1h", "1d"] },
+    { key: "page_size", id: "immich.pageSize", name: "每页数量", kind: "number", cat: ["Immich", "5 资源", "资源设置", "分页"] },
+    { key: "__lang", id: "immich.lang", name: "面板语言（刷新后生效）", kind: "combo", cat: ["Immich", "6 前端面板配置", "面板设置", "语言"], options: ["en", "zh", "auto"], local: true },
   ];
 
   function testConnection() {
@@ -2302,7 +2302,7 @@
 
       // 状态行：所有操作的反馈都写在这里
       st.addSetting({
-        id: "immich.status", name: "状态", category: ["Immich", "连接", "状态"],
+        id: "immich.status", name: "状态", category: ["Immich", "1 连接", "连接设置", "状态"],
         type: function (name) {
           var span = document.createElement("span");
           span.textContent = "—";
@@ -2343,14 +2343,14 @@
 
       // 测试连接（连接组）
       st.addSetting({
-        id: "immich.test", name: "测试连接", category: ["Immich", "连接", "诊断"],
+        id: "immich.test", name: "测试连接", category: ["Immich", "1 连接", "连接设置", "诊断"],
         type: function (name) { return buttonRow(name, [{ text: "测试连接", onClick: testConnection }]); },
         defaultValue: "",
       });
 
       // 安全：令牌（显示 / 重新生成 / 清空）
       st.addSetting({
-        id: "immich.token", name: "面板令牌", category: ["Immich", "安全", "令牌"],
+        id: "immich.token", name: "面板令牌", category: ["Immich", "2 安全", "安全设置", "令牌"],
         type: function (name) {
           return buttonRow(name, [
             { text: "显示", onClick: showToken },
@@ -2376,7 +2376,7 @@
       st.addSetting({
         id: "immich.entryMode",
         name: "入口位置（sidebar = 左侧栏 / toolbar = 顶部按钮，刷新后生效）",
-        category: ["Immich", "面板", "入口"],
+        category: ["Immich", "6 前端面板配置", "面板设置", "入口"],
         tooltip: "切换 Immich 素材面板的入口位置。修改后请手动刷新页面生效。",
         type: "combo",
         defaultValue: ENTRY_MODE_DEFAULT,
