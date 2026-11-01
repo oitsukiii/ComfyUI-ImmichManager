@@ -96,13 +96,9 @@ async function openPicker(node) {
   mask.innerHTML = `
     <div class="immich-pick-win">
       <div class="immich-pick-filters">
-        <label>相册<select class="f-album"></select></label>
-        <label>类型<select class="f-type">
-          <option value="">全部</option><option value="IMAGE">图片</option><option value="VIDEO">视频</option>
-        </select></label>
-        <label>排序<select class="f-order">
-          <option value="desc">最新优先</option><option value="asc">最早优先</option>
-        </select></label>
+        <label>相册<span class="f-album"></span></label>
+        <label>类型<span class="f-type"></span></label>
+        <label>排序<span class="f-order"></span></label>
         <span class="immich-pick-chips"></span>
         <button class="immich-pick-btn immich-pick-close">关闭</button>
       </div>
@@ -117,32 +113,61 @@ async function openPicker(node) {
     </div>`;
   document.body.appendChild(mask);
 
-  const selAlbum = mask.querySelector(".f-album");
-  const selType = mask.querySelector(".f-type");
-  const selOrder = mask.querySelector(".f-order");
+  const hostAlbum = mask.querySelector(".f-album");
+  const hostType = mask.querySelector(".f-type");
+  const hostOrder = mask.querySelector(".f-order");
   const chips = mask.querySelector(".immich-pick-chips");
   const body = mask.querySelector(".immich-pick-body");
   const info = mask.querySelector(".immich-pick-info");
   const prev = mask.querySelector(".immich-pick-prev");
   const next = mask.querySelector(".immich-pick-next");
 
-  // 与上次打开保持一致的筛选状态
-  selType.value = filterState.type || "";
-  selOrder.value = filterState.order || "desc";
-
   const selectedId = getWidget(node, "asset_id") || "";
   let page = 1;
   let nextPage = null;
+  let albums = [];
+  const state = { albumId: "", type: "", order: "desc" };
+  // 筛选项的「显示文案 ↔ 实际值」映射：面板的自绘下拉只接受字符串
+  const ALBUM_LABELS = () => albums.map((a) => `${a.albumName}（${a.assetCount ?? "?"}）`);
+  const TYPE_LABELS = ["全部", "图片", "视频"];
+  const TYPE_VALUES = ["", "IMAGE", "VIDEO"];
+  const ORDER_LABELS = ["最新优先", "最早优先"];
+  const ORDER_VALUES = ["desc", "asc"];
 
   const close = () => mask.remove();
   mask.querySelector(".immich-pick-close").onclick = close;
   mask.addEventListener("click", (e) => { if (e.target === mask) close(); });
 
   function syncState() {
-    filterState.albumId = selAlbum.value;
-    filterState.type = selType.value;
-    filterState.order = selOrder.value;
+    filterState.albumId = state.albumId;
+    filterState.type = state.type;
+    filterState.order = state.order;
     filterState.page = page;
+  }
+
+  // 用面板同款自绘下拉重建三个控件（值变化 → 更新状态 → 重画 + 重查）
+  function renderFilters() {
+    const DD = window.__immichUI && window.__immichUI.dropdown;
+    if (!DD) return;
+    hostAlbum.innerHTML = ""; hostType.innerHTML = ""; hostOrder.innerHTML = "";
+
+    const aLabels = ALBUM_LABELS();
+    const aIdx = Math.max(0, albums.findIndex((a) => a.id === state.albumId));
+    state.albumId = albums[aIdx] ? albums[aIdx].id : "";
+    hostAlbum.appendChild(DD(aLabels, aLabels[aIdx], (v) => {
+      const i = aLabels.indexOf(v);
+      if (i >= 0 && albums[i]) { state.albumId = albums[i].id; onChange(); }
+    }));
+
+    hostType.appendChild(DD(TYPE_LABELS, TYPE_LABELS[Math.max(0, TYPE_VALUES.indexOf(state.type))], (v) => {
+      const i = TYPE_LABELS.indexOf(v);
+      if (i >= 0) { state.type = TYPE_VALUES[i]; onChange(); }
+    }));
+
+    hostOrder.appendChild(DD(ORDER_LABELS, ORDER_LABELS[Math.max(0, ORDER_VALUES.indexOf(state.order))], (v) => {
+      const i = ORDER_LABELS.indexOf(v);
+      if (i >= 0) { state.order = ORDER_VALUES[i]; onChange(); }
+    }));
   }
 
   // 已生效的筛选条件，每个带 ×
@@ -159,19 +184,19 @@ async function openPicker(node) {
       c.appendChild(x);
       chips.appendChild(c);
     };
-    const alb = selAlbum.options[selAlbum.selectedIndex];
-    if (alb) add("相册: " + alb.textContent, () => { selAlbum.selectedIndex = 0; onChange(); });
-    if (selType.value) {
-      add("类型: " + (selType.value === "IMAGE" ? "图片" : "视频"),
-          () => { selType.value = ""; onChange(); });
+    const alb = albums.find((a) => a.id === state.albumId);
+    if (alb) add("相册: " + alb.albumName, () => { state.albumId = albums[0] ? albums[0].id : ""; onChange(); });
+    if (state.type) {
+      add("类型: " + (state.type === "IMAGE" ? "图片" : "视频"), () => { state.type = ""; onChange(); });
     }
-    if (selOrder.value !== "desc") {
-      add("排序: 最早优先", () => { selOrder.value = "desc"; onChange(); });
+    if (state.order !== "desc") {
+      add("排序: 最早优先", () => { state.order = "desc"; onChange(); });
     }
   }
 
   function onChange() {
     syncState();
+    renderFilters();
     renderChips();
     loadPage(1);
   }
@@ -180,9 +205,9 @@ async function openPicker(node) {
     body.innerHTML = "";
     info.textContent = "加载中…";
     try {
-      const q = [`page=${p}`, "size=24", `order=${selOrder.value}`];
-      if (selType.value) q.push(`type=${selType.value}`);
-      const d = await getJSON(`/albums/${selAlbum.value}/assets?${q.join("&")}`);
+      const q = [`page=${p}`, "size=24", `order=${state.order || "desc"}`];
+      if (state.type) q.push(`type=${state.type}`);
+      const d = await getJSON(`/albums/${state.albumId}/assets?${q.join("&")}`);
       page = d.page || p;
       nextPage = d.nextPage || null;
       syncState();
@@ -211,20 +236,13 @@ async function openPicker(node) {
   }
 
   try {
-    const albums = await getJSON("/albums");
-    selAlbum.innerHTML = "";
-    for (const a of albums) {
-      const o = document.createElement("option");
-      o.value = a.id;
-      o.textContent = `${a.albumName}（${a.assetCount ?? "?"}）`;
-      selAlbum.appendChild(o);
-    }
+    albums = await getJSON("/albums");
     if (!albums.length) { info.textContent = "Immich 里还没有相册"; return; }
     const remembered = filterState.albumId;
-    selAlbum.value = (remembered && albums.some((a) => a.id === remembered)) ? remembered : albums[0].id;
-    selAlbum.onchange = onChange;
-    selType.onchange = onChange;
-    selOrder.onchange = onChange;
+    state.albumId = (remembered && albums.some((a) => a.id === remembered)) ? remembered : albums[0].id;
+    state.type = filterState.type || "";
+    state.order = filterState.order || "desc";
+    renderFilters();
     renderChips();
     loadPage(filterState.page || 1);
   } catch (e) {
