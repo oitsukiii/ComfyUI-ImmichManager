@@ -83,6 +83,8 @@
     zoomSize: "preview",// 三挡缩放：thumbnail / preview / original（sessionStorage 持久化）
     videoAbort: null,   // 视频下载 AbortController（关闭详情时中止大视频下载）
     favOnly: false,     // "仅显示收藏"开关（需求 2.6）
+    pickMode: false,     // 选择面板模式（由选图节点打开）
+    onPick: null,        // 选中资产的回调
     selectMode: false,  // 批量选择模式（v0.6：勾选多个资产批量收藏/删除）
     selectedIds: {},    // 选中资产 id 集合 {id: true}（对象查重 O(1)）
     detailBeforeSelect: null, // 进入选择模式前详情状态快照（退出时还原）
@@ -321,6 +323,25 @@
     observer.observe(document.body, { childList: true, subtree: true });
   }
 
+  // 供「Load Image from Immich」节点打开：进入选择面板模式，点图即回调
+  window.__immichPanel = {
+    openForPick: function (cb) {
+      state.pickMode = true;
+      state.onPick = cb;
+      var btn = document.getElementById("immich-btn-select");
+      if (btn) btn.style.display = "none";     // 选择面板没有批量选择
+      openPanel();
+      renderTimeline();
+    },
+    exitPick: function () {
+      state.pickMode = false;
+      state.onPick = null;
+      var btn = document.getElementById("immich-btn-select");
+      if (btn) btn.style.display = "";
+      closePanel();
+    },
+  };
+
   function togglePanel() {
     var overlay = document.getElementById("immich-panel-overlay");
     // 判断可见性而不是存在性：closePanel 只置 display:none 不移除元素，
@@ -348,7 +369,6 @@
       }).join("") +
       "        </div>" +
       '        <button class="immich-btn timeline-only" id="immich-btn-select" title="' + t("btn.select.title") + '">' + t("btn.select") + "</button>" +
-      '        <button class="immich-btn timeline-only" id="immich-btn-favonly" title="' + t("btn.favonly.title") + '">' + t("btn.favonly") + "</button>" +
       "      </div>" +
       "    </div>" +
       '    <span class="immich-header-sep"></span>' +
@@ -395,11 +415,6 @@
     document.getElementById("immich-btn-save").onclick = saveConfig;
     document.getElementById("immich-btn-reset").onclick = resetConfig;
     // "仅显示收藏"开关（需求 2.6）：切换后按现有时间大组/小组样式只显示收藏项
-    document.getElementById("immich-btn-favonly").onclick = function () {
-      state.favOnly = !state.favOnly;
-      updateFavOnlyButton();
-      refreshAll();
-    };
     // 批量操作栏（v0.6：选择模式下的批量收藏/删除；用户需求 2026-08-16：
     // 「取消选择」清空选中保留选择模式，原「取消」改「✕」退出选择模式）
     document.getElementById("immich-btn-bulk-all").onclick = bulkSelectAll;
@@ -447,6 +462,10 @@
     if (bar) bar.style.display = isConfig ? "flex" : "none";
     var header = document.getElementById("immich-panel-header");
     if (header) header.classList.toggle("config-mode", isConfig);
+    // 选择面板（节点打开）不提供批量选择
+    var sel = document.getElementById("immich-btn-select");
+    if (sel) sel.style.display = state.pickMode ? "none" : "";
+    overlay.classList.toggle("pick-mode", !!state.pickMode);
   }
 
   function updateZoomButtons() {
@@ -460,7 +479,7 @@
   function updateFavOnlyButton() {
     var overlay = document.getElementById("immich-panel-overlay");
     if (!overlay) return;
-    var btn = document.getElementById("immich-btn-favonly");
+    var btn = null;   // 「只看收藏」已移除（改用条件筛选）
     if (!btn) return;
     btn.classList.toggle("active", state.favOnly);
     btn.textContent = state.favOnly ? t("btn.favonly.active") : t("btn.favonly");
@@ -558,6 +577,7 @@
     if (!overlay) return;
     overlay.classList.toggle("select-mode", state.selectMode);
     var selBtn = document.getElementById("immich-btn-select");
+    if (selBtn) selBtn.style.display = state.pickMode ? "none" : "";   // 选择面板没有批量选择
     if (selBtn) {
       selBtn.classList.toggle("active", state.selectMode);
       // 用户 2026-08-16：进入选择模式后标题栏按钮保持「✅ 选择」文本，只用黄色边框高亮；
@@ -1101,6 +1121,11 @@
     // → 范围起点 = 进入选择模式前最后普通点击的 cell（A），即 [A..C]
     // 用户 2026-08-16：去掉 ctrl/meta 多选（ctrl+点选不再进入选择模式）
     cell.onclick = function (e) {
+      // 选择面板：点一下就把这张图交回节点，不进详情、不进选择模式
+      if (state.pickMode) {
+        if (typeof state.onPick === "function") state.onPick(asset);
+        return;
+      }
       if (e.shiftKey) {
         if (!state.selectMode) {
           var prevAnchor = state.shiftAnchorCell; // 进入选择模式前的普通点击锚

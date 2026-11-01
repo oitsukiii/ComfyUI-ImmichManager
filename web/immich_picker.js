@@ -293,137 +293,20 @@ function openConditionEditor(initial, lists, onApply) {
   render();
 }
 
+// 「选择图片」= 打开主面板的选择模式；点一张图就回填 asset_id 并关闭。
+// 资产展示、详情、缩放、时间轴全部复用主面板，节点这边不再自建列表。
 async function openPicker(node) {
-  ensureCSS();
-  const mask = document.createElement("div");
-  mask.className = "immich-pick-mask";
-  mask.innerHTML = `
-    <div class="immich-pick-win">
-      <div class="immich-pick-bar">
-        <button class="immich-pick-btn immich-add-cond">+ 添加条件</button>
-        <span class="immich-pick-chips"></span>
-        <span style="margin-left:auto">
-          <select class="immich-order" style="padding:6px 8px;border-radius:6px;border:1px solid #3a3f4a;background:#252a33;color:inherit;font:inherit;color-scheme:dark">
-            <option value="desc">最新优先</option><option value="asc">最早优先</option>
-          </select>
-          <button class="immich-pick-btn immich-close">关闭</button>
-        </span>
-      </div>
-      <div class="immich-pick-body"></div>
-      <div class="immich-pick-foot">
-        <span class="immich-pick-info">加载中…</span>
-        <span>
-          <button class="immich-pick-btn immich-prev">上一页</button>
-          <button class="immich-pick-btn immich-next">下一页</button>
-        </span>
-      </div>
-    </div>`;
-  document.body.appendChild(mask);
-
-  const chipsEl = mask.querySelector(".immich-pick-chips");
-  const body = mask.querySelector(".immich-pick-body");
-  const info = mask.querySelector(".immich-pick-info");
-  const prev = mask.querySelector(".immich-prev");
-  const next = mask.querySelector(".immich-next");
-  const orderSel = mask.querySelector(".immich-order");
-
-  const selectedId = getWidget(node, "asset_id") || "";
-  let page = 1;
-  let nextPage = null;
-  let lists = { albums: [], people: [], tags: [] };
-  // 从节点属性还原（工作流里存的），没有就用会话兜底
-  const filterState = readFilters(node);
-
-  const close = () => mask.remove();
-  mask.querySelector(".immich-close").onclick = close;
-  mask.addEventListener("click", (e) => { if (e.target === mask) close(); });
-
-  function renderChips() {
-    chipsEl.innerHTML = "";
-    filterState.conditions.forEach((c, i) => {
-      const chip = document.createElement("span");
-      chip.className = "immich-chip";
-      chip.textContent = condText(c, lists);
-      const x = document.createElement("b");
-      x.textContent = "×";
-      x.title = "移除这个条件";
-      x.onclick = () => { filterState.conditions.splice(i, 1); writeFilters(node, filterState); renderChips(); loadPage(1); };
-      chip.appendChild(x);
-      chipsEl.appendChild(chip);
-    });
+  const P = window.__immichPanel;
+  if (!P || typeof P.openForPick !== "function") {
+    console.warn("[Immich] 主面板未就绪，无法打开选择面板");
+    return;
   }
-
-  async function loadPage(p) {
-    body.innerHTML = "";
-    info.textContent = "加载中…";
-    try {
-      const d = await getJSON("/search?" + buildQuery(filterState.conditions, filterState.order, p, 24));
-      page = d.page || p;
-      nextPage = d.nextPage || null;
-      filterState.page = page;
-      writeFilters(node, filterState);
-      prev.disabled = page <= 1;
-      next.disabled = !nextPage;
-      const items = d.items || [];
-      info.textContent = `第 ${page} 页 · ${items.length} 张${nextPage ? "（还有下一页）" : ""}`;
-      if (!items.length) {
-        body.style.display = "block";
-        body.innerHTML = '<div style="opacity:.6;font-size:13px;padding:24px 8px">' +
-          '没有符合条件的资产。试试减少条件，或换一个相册 / 人脸。</div>';
-        return;
-      }
-      body.style.display = "grid";
-      for (const it of items) {
-        const cell = document.createElement("div");
-        cell.className = "immich-pick-cell" + (it.id === selectedId ? " immich-pick-selected" : "");
-        cell.title = it.originalFileName || it.id;
-        const img = document.createElement("img");
-        img.loading = "lazy";
-        cell.appendChild(img);
-        cell.onclick = () => {
-          setWidget(node, "asset_id", it.id);
-          applyNodePreview(node, it.id);
-          close();
-        };
-        body.appendChild(cell);
-        thumbURL(it.id).then((u) => { if (u) img.src = u; });
-      }
-    } catch (e) {
-      info.textContent = "加载失败：" + e.message;
-    }
-  }
-
-  mask.querySelector(".immich-add-cond").onclick = () => {
-    openConditionEditor(filterState.conditions, lists, (conds) => {
-      filterState.conditions = conds;
-      writeFilters(node, filterState);
-      renderChips();
-      loadPage(1);
-    });
-  };
-
-  orderSel.value = filterState.order || "desc";
-  orderSel.onchange = () => { filterState.order = orderSel.value; writeFilters(node, filterState); loadPage(1); };
-
-  try {
-    const [albums, people, tags] = await Promise.all([
-      getJSON("/albums").catch(() => []),
-      getJSON("/people").catch(() => []),
-      getJSON("/tags").catch(() => []),
-    ]);
-    lists = {
-      albums: (albums || []).map((a) => ({ id: a.id, name: a.albumName })),
-      people: (people || []).map((p) => ({ id: p.id, name: p.name || "(未命名)" })),
-      tags: (tags || []).map((t) => ({ id: t.id, name: t.name })),
-    };
-    renderChips();
-    loadPage(filterState.page || 1);
-  } catch (e) {
-    info.textContent = "加载失败：" + e.message;
-  }
-
-  prev.onclick = () => { if (page > 1) loadPage(page - 1); };
-  next.onclick = () => { if (nextPage) loadPage(Number(nextPage)); };
+  P.openForPick((asset) => {
+    if (!asset || !asset.id) return;
+    setWidget(node, "asset_id", asset.id);
+    applyNodePreview(node, asset.id);
+    P.exitPick();
+  });
 }
 
 // 选完立刻在节点上画缩略图（ui.images 只有执行后才渲染）
