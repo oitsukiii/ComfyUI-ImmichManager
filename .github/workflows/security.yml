@@ -32,8 +32,11 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      # numpy is not in requirements.txt because ComfyUI ships it, but
+      # upload_node.py imports it at module level and the tests pull that module
+      # in indirectly, so the runner needs it too.
       - name: Install runtime dependencies
-        run: python -m pip install --upgrade pip -r requirements.txt
+        run: python -m pip install --upgrade pip -r requirements.txt numpy
 
       # These are standalone scripts that exit non-zero on failure, not pytest
       # cases; tests/conftest.py keeps pytest from collecting them for that
