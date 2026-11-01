@@ -352,7 +352,6 @@
       "      </div>" +
       "    </div>" +
       '    <span class="immich-header-sep"></span>' +
-      '    <button class="immich-btn" id="immich-btn-config" title="' + t("btn.config.title") + '">' + t("btn.config") + "</button>" +
       '    <span class="immich-header-sep"></span>' +
       '    <button class="immich-btn" id="immich-btn-open" title="' + t("btn.open.title") + '">' + t("btn.open") + "</button>" +
       '    <button class="immich-btn" id="immich-btn-close" title="' + t("btn.close.title") + '">✕</button>' +
@@ -390,10 +389,6 @@
     document.getElementById("immich-btn-open").onclick = function () {
       var base = (state.config && state.config.base_url) || "http://127.0.0.1:2283";
       window.open(base.replace(/\/api\/?$/, ""), "_blank");
-    };
-    document.getElementById("immich-btn-config").onclick = function () {
-      exitSelectMode();
-      renderConfig();
     };
     // 配置操作栏（顶栏下方横条，复用批量栏样式）：测试连接 / 保存 / 清空
     document.getElementById("immich-btn-test").onclick = testConnection;
@@ -832,7 +827,7 @@
       if (token !== viewToken) return;
       if (e.message === "AUTH_REQUIRED") {
         timeline.innerHTML = '<div class="immich-empty">' + t("error.auth") + "</div>" +
-          '<div style="text-align:center"><button class="immich-btn primary" onclick="document.getElementById(\'immich-btn-config\').click()">' + t("error.auth.btn") + "</button></div>";
+          '<div style="text-align:center" class="immich-empty-sub">' + t("error.auth.btn") + "</div>";
         showStatus(t("error.auth.status"), "warn");
       } else {
         timeline.innerHTML = '<div class="immich-empty">' + t("error.load") + "</div>";

@@ -52,9 +52,11 @@ const FIELDS = [
   { key: "person", label: "人脸",   ops: ["为"],                     value: "personList" },
   { key: "tag",    label: "标签",   ops: ["为"],                     value: "tagList" },
   { key: "type",   label: "类型",   ops: ["为"],                     value: "typeList" },
+  { key: "favorite", label: "是否收藏", ops: ["为"],                   value: "boolList" },
   { key: "date",   label: "时间段", ops: ["早于", "晚于", "介于"],    value: "date" },
 ];
 const TYPE_OPTIONS = [{ id: "IMAGE", name: "图片" }, { id: "VIDEO", name: "视频" }];
+const BOOL_OPTIONS = [{ id: "1", name: "是" }, { id: "0", name: "否" }];
 
 // 筛选状态存两份：
 //   node.properties.immichFilters —— 随工作流 JSON 保存/还原（跨重启、跨机器）
@@ -137,6 +139,7 @@ function condText(c, lists) {
   else if (c.field === "person") val = name(lists.people, c.value);
   else if (c.field === "tag") val = name(lists.tags, c.value);
   else if (c.field === "type") val = name(TYPE_OPTIONS, c.value);
+  else if (c.field === "favorite") val = name(BOOL_OPTIONS, c.value);
   else if (c.field === "date") {
     val = c.op === "介于" ? `${c.value || "?"} ~ ${c.value2 || "?"}` : c.value || "?";
   }
@@ -150,6 +153,7 @@ function buildQuery(conditions, order, page, size) {
     else if (c.field === "person" && c.value) q.push(`person=${encodeURIComponent(c.value)}`);
     else if (c.field === "tag" && c.value) q.push(`tag=${encodeURIComponent(c.value)}`);
     else if (c.field === "type" && c.value) q.push(`type=${encodeURIComponent(c.value)}`);
+    else if (c.field === "favorite" && c.value) q.push(`favorite=${encodeURIComponent(c.value)}`);
     else if (c.field === "date" && c.value) {
       if (c.op === "早于") q.push(`before=${encodeURIComponent(c.value)}`);
       else if (c.op === "晚于") q.push(`after=${encodeURIComponent(c.value)}`);
@@ -190,6 +194,7 @@ function openConditionEditor(initial, lists, onApply) {
     if (field === "person") return lists.people;
     if (field === "tag") return lists.tags;
     if (field === "type") return TYPE_OPTIONS;
+    if (field === "favorite") return BOOL_OPTIONS;
     return [];
   }
 

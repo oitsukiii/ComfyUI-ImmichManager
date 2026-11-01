@@ -726,8 +726,9 @@ def setup_routes(server) -> None:
         order = (q.get("order", "desc") or "desc").lower()
         client = _get_client(config)
         try:
+            favorite = (q.get("favorite", "") or "").strip()
             data = await _call(client.search_assets, album_ids, person_ids, tag_ids,
-                               after, before, asset_type, page, size, order)
+                               after, before, asset_type, favorite, page, size, order)
         except ImmichError as exc:
             return _error(_safe_error(exc), 502)
         return web.json_response(data)

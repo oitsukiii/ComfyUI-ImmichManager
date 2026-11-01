@@ -312,6 +312,10 @@ class ImmichClient:
         page = max(1, int(page or 1))
         size = max(1, min(200, int(size or 24)))
         body: dict = {"albumIds": [album_id], "page": page, "size": size, "withExif": False}
+        if favorite in ("1", "true", "True"):
+            body["isFavorite"] = True          # 只看收藏
+        elif favorite in ("0", "false", "False"):
+            body["isFavorite"] = False         # 只看未收藏
         if asset_type in ("IMAGE", "VIDEO"):
             body["type"] = asset_type          # 类型筛选：图片 / 视频
         if order in ("asc", "desc"):
@@ -361,6 +365,7 @@ class ImmichClient:
 
     def search_assets(self, album_ids=None, person_ids=None, tag_ids=None,
                       taken_after="", taken_before="", asset_type="",
+                      favorite: str = "",
                       page: int = 1, size: int = 24, order: str = "desc") -> dict:
         """按条件搜索资产（服务端分页）。
 
@@ -380,6 +385,10 @@ class ImmichClient:
             body["takenAfter"] = taken_after
         if taken_before:
             body["takenBefore"] = taken_before
+        if favorite in ("1", "true", "True"):
+            body["isFavorite"] = True          # 只看收藏
+        elif favorite in ("0", "false", "False"):
+            body["isFavorite"] = False         # 只看未收藏
         if asset_type in ("IMAGE", "VIDEO"):
             body["type"] = asset_type
         if order in ("asc", "desc"):
