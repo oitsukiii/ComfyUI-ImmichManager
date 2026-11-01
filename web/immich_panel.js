@@ -2196,27 +2196,52 @@
     return td;
   }
 
-  function wideRow(kind, name, setter, value, options) {
-    // 只返回控件本身：ComfyUI 的外层已经渲染了名称列，再返回 <tr>+<label> 会出现两遍标题。
+  // 返回 <tr>：第一格是「小标题 + 感叹号」，第二格是控件。
+  // 这样悬停提示紧跟在标题后面（不是跑到最右边），也避开名称列重复。
+  var HINT_CSS = "display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;" +
+                 "margin-left:6px;border-radius:50%;border:1px solid currentColor;opacity:.55;" +
+                 "font-size:10px;line-height:1;cursor:help;vertical-align:middle";
+
+  function wideRow(kind, label, setter, value, options, hint) {
+    var tr = document.createElement("tr");
+
+    var td1 = document.createElement("td");
+    var lab = document.createElement("label");
+    lab.textContent = label || "";
+    td1.appendChild(lab);
+    if (hint) {
+      var bang = document.createElement("span");
+      bang.textContent = "!";
+      bang.style.cssText = HINT_CSS;
+      bang.title = hint;              // 原生 tooltip：悬停显示注释
+      bang.setAttribute("aria-label", hint);
+      td1.appendChild(bang);
+    }
+
+    var td2 = document.createElement("td");
     var el;
     if (kind === "combo") {
       el = document.createElement("select");
       el.style.cssText = WIDE;
       (options || []).forEach(function (o) {
         var op = document.createElement("option");
-        op.value = o; op.textContent = o;
+        op.value = o; op.textContent = o || "（不指定）";
         if (String(o) === String(value)) op.selected = true;
         el.appendChild(op);
       });
+      el.addEventListener("change", function () { setter(el.value); });
     } else {
       el = document.createElement("input");
       el.type = kind === "number" ? "number" : (kind === "password" ? "password" : "text");
       el.style.cssText = WIDE;
       el.value = value === undefined || value === null ? "" : value;
+      el.addEventListener("change", function () { setter(el.value); });
+      el.addEventListener("blur", function () { setter(el.value); });
     }
-    el.addEventListener("change", function () { setter(el.value); });
-    el.addEventListener("blur", function () { setter(el.value); });
-    return el;
+    td2.appendChild(el);
+    tr.appendChild(td1);
+    tr.appendChild(td2);
+    return tr;
   }
 
   // 只返回按钮容器（同上：名称列由外层渲染）
@@ -2255,16 +2280,26 @@
   }
 
   // 顺序对齐老配置页：连接 → 相册 → 网络 → 资源 → 安全 → 其他
+  // 注释文案（悬停在感叹号上显示）
+  var H_BASE     = "在这里填写你的 Immich 服务的地址。假如你的 Immich 地址是 192.168.1.2，就填 http://192.168.1.2/api";
+  var H_KEY      = "这里填你的 Immich API Key。Immich 网页右上角头像 → 账户设置 → API 密钥 → 新建。留空表示不修改已存的值。";
+  var H_ALBUM    = "上传的图片和视频会进入这个相册。列表来自 Immich，新增相册后刷新页面重新拉取。";
+  var H_PROXY    = "局域网直连一般保持 off。需要经代理访问 Immich 时选 custom 并填写代理地址。";
+  var H_RANGE    = "时间轴按这个粒度分组显示：today / 3d / 7d。";
+  var H_INTERVAL = "组内再按这个间隔细分：15m / 30m / 1h / 1d。";
+  var H_PAGE     = "面板一次加载多少个资产。越大滚动越省事，首次加载越慢。";
+  var H_LANG     = "面板界面语言，刷新页面后生效。";
+
   var CONFIG_SETTINGS = [
-    { key: "base_url", id: "immich.baseUrl", name: "Immich 地址", kind: "text", cat: ["Immich", "1 连接", "连接设置", "服务"] },
-    { key: "api_key", id: "immich.apiKey", name: "API Key（留空不修改）", kind: "password", cat: ["Immich", "1 连接", "连接设置", "凭据"] },
-    { key: "default_album", id: "immich.defaultAlbum", name: "上传到相册", kind: "combo", cat: ["Immich", "4 相册配置", "相册设置", "目标"], dynamic: "albums" },
-    { key: "proxy_mode", id: "immich.proxyMode", name: "网络代理模式", kind: "combo", cat: ["Immich", "3 网络", "网络设置", "模式"], options: ["off", "custom", "env"] },
-    { key: "proxy_url", id: "immich.proxyUrl", name: "代理地址（custom 必填）", kind: "text", cat: ["Immich", "3 网络", "网络设置", "地址"] },
-    { key: "timeline_range", id: "immich.timelineRange", name: "时间轴大组间隔", kind: "combo", cat: ["Immich", "5 资源", "资源设置", "时间轴"], options: ["today", "3d", "7d"] },
-    { key: "timeline_interval", id: "immich.timelineInterval", name: "时间轴小组间隔", kind: "combo", cat: ["Immich", "5 资源", "资源设置", "时间轴"], options: ["15m", "30m", "1h", "1d"] },
-    { key: "page_size", id: "immich.pageSize", name: "每页数量", kind: "number", cat: ["Immich", "5 资源", "资源设置", "分页"] },
-    { key: "__lang", id: "immich.lang", name: "面板语言（刷新后生效）", kind: "combo", cat: ["Immich", "6 前端面板配置", "面板设置", "语言"], options: ["en", "zh", "auto"], local: true },
+    { key: "base_url", id: "immich.baseUrl", name: "Immich 地址", kind: "text", cat: ["Immich", "1 连接", "连接设置", "服务"], hint: H_BASE },
+    { key: "api_key", id: "immich.apiKey", name: "API Key（留空不修改）", kind: "password", cat: ["Immich", "1 连接", "连接设置", "凭据"], hint: H_KEY },
+    { key: "default_album", id: "immich.defaultAlbum", name: "上传到相册", kind: "combo", cat: ["Immich", "4 相册配置", "相册设置", "目标"], dynamic: "albums", hint: H_ALBUM },
+    { key: "proxy_mode", id: "immich.proxyMode", name: "网络代理模式", kind: "combo", cat: ["Immich", "3 网络", "网络设置", "模式"], options: ["off", "custom", "env"], hint: H_PROXY },
+    { key: "proxy_url", id: "immich.proxyUrl", name: "代理地址", kind: "text", cat: ["Immich", "3 网络", "网络设置", "地址"], hint: H_PROXY },
+    { key: "timeline_range", id: "immich.timelineRange", name: "时间轴大组间隔", kind: "combo", cat: ["Immich", "5 资源", "资源设置", "时间轴A"], options: ["today", "3d", "7d"], hint: H_RANGE },
+    { key: "timeline_interval", id: "immich.timelineInterval", name: "时间轴小组间隔", kind: "combo", cat: ["Immich", "5 资源", "资源设置", "时间轴B"], options: ["15m", "30m", "1h", "1d"], hint: H_INTERVAL },
+    { key: "page_size", id: "immich.pageSize", name: "每页数量", kind: "number", cat: ["Immich", "5 资源", "资源设置", "分页"], hint: H_PAGE },
+    { key: "__lang", id: "immich.lang", name: "面板语言（刷新后生效）", kind: "combo", cat: ["Immich", "6 前端面板配置", "面板设置", "语言"], options: ["en", "zh", "auto"], local: true, hint: H_LANG },
   ];
 
   function testConnection() {
@@ -2329,8 +2364,8 @@
             if (current === undefined || current === null) current = def.kind === "number" ? 100 : "";
           }
           st.addSetting({
-            id: def.id, name: def.name, category: def.cat,
-            type: function (name, setter, value) { return wideRow(def.kind, name, setter, value, options); },
+            id: def.id, name: "", category: def.cat,
+            type: function (name, setter, value) { return wideRow(def.kind, def.name, setter, value, options, def.hint); },
             defaultValue: current,
             onChange: function (v) {
               if (def.local) { try { window.localStorage.setItem("immich_lang", v); } catch (e) {} setStatus("语言已保存，刷新后生效", false); return; }
