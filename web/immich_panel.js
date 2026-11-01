@@ -1990,61 +1990,112 @@
     }
   }
 
-  // ─────────────── 侧边栏入口（官方 registerSidebarTab）───────────────
+  // ─────────────── 左侧栏入口 ───────────────
   //
-  // 侧边栏 tab 由前端自己渲染图标并注册命令 Workspace.ToggleSidebarTab.<id>，
-  // 不再需要跟工具栏重绘赛跑（旧实现靠 MutationObserver 反复补挂按钮）。
-  var ENTRY_MODE_DEFAULT = "sidebar";
+  // ComfyUI 0.4x 的左侧图标栏（.side-toolbar-container）由 Vue 渲染，tab 必须是
+  // {type:"vue", component}，而前端没有把 Vue 暴露到 window，用户脚本造不出组件。
+  // （registerSidebarTab({type:"custom"}) 不报错但不渲染 —— 试过了。）
+  //
+  // 所以这里克隆官方 rail item 的 DOM：样式/结构/交互全部继承，只在它后面插一个
+  // 同款按钮。代价是 ComfyUI 改版会坏，收益是视觉上与原生一致。
+  var RAIL_LABELS = ["模板", "Templates", "テンプレート"];
+  var _railObserver = null;
 
-  function currentEntryMode() {
-    try {
-      var v = window.localStorage.getItem("immich_entry_mode");
-      if (v === "sidebar" || v === "toolbar") return v;
-    } catch (e) { /* ignore */ }
-    return ENTRY_MODE_DEFAULT;
+  function findRail() {
+    return document.querySelector(".side-toolbar-container");
   }
 
-  function mountSidebarTab(app) {
-    var ext = app && app.extensionManager;
-    if (!ext || typeof ext.registerSidebarTab !== "function") return false;
-    ext.registerSidebarTab({
-      id: "immich",
-      title: "Immich",
-      icon: "pi pi-images",
-      tooltip: t("title.panel"),
-      type: "custom",
-      render: function (el) {
-        el.innerHTML = "";
-        var wrap = document.createElement("div");
-        wrap.style.cssText = "padding:12px;display:flex;flex-direction:column;gap:10px";
-        var head = document.createElement("div");
-        head.textContent = "Immich";
-        head.style.cssText = "font-weight:600;font-size:13px;opacity:.85";
-        var openBtn = document.createElement("button");
-        openBtn.className = "comfyui-button";
-        openBtn.textContent = t("btn.open");
-        openBtn.onclick = function () { openPanel(); };
-        var hint = document.createElement("div");
-        hint.textContent = "素材面板以浮层打开，关闭后回到这里。";
-        hint.style.cssText = "font-size:12px;opacity:.6;line-height:1.5";
-        wrap.appendChild(head);
-        wrap.appendChild(openBtn);
-        wrap.appendChild(hint);
-        el.appendChild(wrap);
-      },
-    });
+  function findTemplateItem(rail) {
+    var kids = rail.querySelectorAll("button, [role='button'], a");
+    for (var i = 0; i < kids.length; i++) {
+      var txt = (kids[i].textContent || "").trim();
+      for (var j = 0; j < RAIL_LABELS.length; j++) {
+        if (txt.indexOf(RAIL_LABELS[j]) >= 0) return kids[i];
+      }
+    }
+    // 兜底：模板是官方列表的最后一个，取最后一个可点元素
+    return kids.length ? kids[kids.length - 1] : null;
+  }
+
+  function immichRailIcon() {
+    var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("fill", "none");
+    svg.setAttribute("stroke", "currentColor");
+    svg.setAttribute("stroke-width", "1.8");
+    svg.setAttribute("width", "1em");
+    svg.setAttribute("height", "1em");
+    svg.innerHTML =
+      '<rect x="3" y="4" width="18" height="16" rx="2.5"></rect>' +
+      '<circle cx="8.5" cy="9.5" r="1.6"></circle>' +
+      '<path d="M21 16.5 15.5 11 9 18"></path>';
+    return svg;
+  }
+
+  function setImmichLabel(node) {
+    // rail item 结构：<svg 图标/><span 文字/>。只改文字节点，别动图标容器。
+    var spans = node.querySelectorAll("span");
+    for (var i = 0; i < spans.length; i++) {
+      var t = (spans[i].textContent || "").trim();
+      if (t && RAIL_LABELS.indexOf(t) >= 0) { spans[i].textContent = "Immich"; return true; }
+    }
+    // 没有文字节点（纯图标模式）也接受
+    return false;
+  }
+
+  function addRailButton() {
+    if (document.getElementById("immich-rail-btn")) return true;
+    var rail = findRail();
+    if (!rail) return false;
+    var tpl = findTemplateItem(rail);
+    if (!tpl) return false;
+
+    var btn = tpl.cloneNode(true);
+    btn.id = "immich-rail-btn";
+    btn.removeAttribute("data-testid");
+    btn.removeAttribute("aria-selected");
+    btn.setAttribute("aria-label", t("title.panel"));
+    btn.setAttribute("title", t("title.panel"));
+
+    // 换图标：保留原 svg 的位置和 class，只换内容
+    var oldSvg = btn.querySelector("svg");
+    var fresh = immichRailIcon();
+    if (oldSvg) {
+      fresh.className = oldSvg.className;
+      oldSvg.parentNode.replaceChild(fresh, oldSvg);
+    } else if (btn.firstChild) {
+      btn.insertBefore(fresh, btn.firstChild);
+    }
+    setImmichLabel(btn);
+
+    // 清掉克隆带来的“选中”样式，点击只负责开面板
+    btn.classList.remove("active", "selected");
+    var stop = function (e) { e.preventDefault(); e.stopPropagation(); togglePanel(); };
+    btn.addEventListener("click", stop, true);
+    btn.addEventListener("pointerdown", function (e) { e.stopPropagation(); }, true);
+
+    if (tpl.nextSibling) tpl.parentNode.insertBefore(btn, tpl.nextSibling);
+    else tpl.parentNode.appendChild(btn);
     return true;
   }
 
-  function registerSidebarEntry() {
-    if (currentEntryMode() !== "sidebar") return;
-    if (!(window.app && window.app.registerExtension)) return;
-    try {
-      app.registerExtension({
-        name: "ComfyUI-ImmichManager.Sidebar",
-        setup: function (a) { mountSidebarTab(a); },
+  function watchRail() {
+    if (_railObserver) return;
+    var boot = function () {
+      if (!addRailButton()) { setTimeout(boot, 400); return; }
+      // Vue 重绘左侧栏会把克隆节点冲掉，观察后补回
+      _railObserver = new MutationObserver(function () {
+        if (document.getElementById("immich-rail-btn")) return;
+        clearTimeout(_railObserver._t);
+        _railObserver._t = setTimeout(function () { addRailButton(); }, 80);
       });
-    } catch (e) { console.warn("[Immich] sidebar tab 注册失败", e); }
+      _railObserver.observe(document.body, { childList: true, subtree: true });
+    };
+    boot();
+  }
+
+  function registerSidebarEntry() {
+    watchRail();
   }
 
   if (window.app && window.app.registerExtension) {
@@ -2068,7 +2119,7 @@
   // ─────────────── 启动 ───────────────
 
   function init() {
-    // sidebar 模式由 registerSidebarTab 提供入口；toolbar 模式保留旧行为
+    // sidebar 模式在左侧图标栏插入入口；toolbar 模式保留旧的顶部按钮
     if (currentEntryMode() === "toolbar") addToolbarButton();
     else registerSidebarEntry();
     applyNodeLang();
