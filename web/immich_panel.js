@@ -1025,6 +1025,7 @@
         '  <div class="immich-cf-rows"></div>' +
         '  <div class="immich-cf-foot">' +
         '    <button class="immich-btn" data-role="add">新增条件</button>' +
+        '    <button class="immich-btn" data-role="clear">清空条件</button>' +
         '    <span><button class="immich-btn" data-role="cancel">取消</button>' +
         '    <button class="immich-btn primary" data-role="ok">确定</button></span>' +
         '  </div>' +
@@ -1099,6 +1100,10 @@
 
       mask.querySelector('[data-role="add"]').onclick = function () {
         rows.push({ field: "album", op: "为", value: "", value2: "" }); paint();
+      };
+      mask.querySelector('[data-role="clear"]').onclick = function () {
+        rows = [];                       // 清空所有行
+        paint();
       };
       mask.querySelector('[data-role="cancel"]').onclick = function () { mask.remove(); };
       // 点空白处也能关（之前必须点取消）
@@ -1276,10 +1281,15 @@
         // 筛选通路也要恢复详情面板显隐 —— 之前漏了这一步，
         // 结果「有条件时」重开面板右侧预览区一直保持上一次的隐藏状态。
         var paneF = document.getElementById("immich-detail-pane");
-        if (paneF) paneF.style.display = (sessionStorage.getItem(LS_DETAIL_OPEN) === "0") ? "none" : "flex";
+        if (paneF) {
+          // 选择模式下详情面板保持隐藏（筛选后也不该自动弹出来）
+          paneF.style.display = state.selectMode
+            ? "none"
+            : ((sessionStorage.getItem(LS_DETAIL_OPEN) === "0") ? "none" : "flex");
+        }
         tl0.innerHTML = '<div class="immich-loading">筛选中…</div>';
         renderFiltered(tl0).then(function () {
-          restoreDetailState();
+          if (!state.selectMode) restoreDetailState();   // 选择模式不还原详情
         }).catch(function () {
           tl0.innerHTML = '<div class="immich-empty">筛选失败</div>';
         });
