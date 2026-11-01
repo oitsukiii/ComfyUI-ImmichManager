@@ -170,44 +170,26 @@
     return out;
   }
 
-  // 「导入 ComfyUI」：读图里的 workflow，直接载入画布（等同拖入）
+  // 「导入 ComfyUI」：后端统一提取工作流（图片读 PNG 文本块，视频读容器 metadata）
   function importAssetToCanvas(asset, btn) {
     var old = btn.textContent;
     btn.disabled = true; btn.textContent = "读取中…";
-    apiBlob("/assets/" + encodeURIComponent(asset.id) + "/original").then(function (blob) {
-      return blob.arrayBuffer();
-    }).then(function (buf) {
-      var meta = readPngText(new Uint8Array(buf));
-      var raw = meta.workflow || meta.prompt;
-      if (!raw) {
-        btn.disabled = false; btn.textContent = old;
-        showStatus("这张图没有 ComfyUI 元数据，无法导入工作流", "err");
-        return;
-      }
-      var graph;
-      try { graph = JSON.parse(raw); }
-      catch (e) { graph = null; }
-      if (!graph) {
-        btn.disabled = false; btn.textContent = old;
-        showStatus("元数据解析失败（不是合法的工作流 JSON）", "err");
-        return;
-      }
-      // prompt 是执行用的 API 格式，没有 nodes/links；优先 workflow
-      if (!graph.nodes && graph.prompt) {
-        btn.disabled = false; btn.textContent = old;
-        showStatus("这张图只存了 prompt，没有可编辑的工作流", "err");
-        return;
-      }
-      app.loadGraphData(graph).then(function () {
-        btn.disabled = false; btn.textContent = old;
-        showStatus("已导入工作流", "ok");
-      }).catch(function () {
-        btn.disabled = false; btn.textContent = old;
-        showStatus("载入工作流失败", "err");
-      });
-    }).catch(function () {
+    function done(msg, isErr) {
       btn.disabled = false; btn.textContent = old;
-      showStatus("下载原图失败", "err");
+      showStatus(msg, isErr ? "err" : "ok");
+    }
+    api("GET", "/assets/" + encodeURIComponent(asset.id) + "/workflow").then(function (d) {
+      var raw = (d && (d.workflow || d.prompt)) || "";
+      if (!raw) { done("这个文件没有 ComfyUI 元数据，无法导入工作流", true); return; }
+      var graph = null;
+      try { graph = JSON.parse(raw); } catch (e) { graph = null; }
+      if (!graph) { done("元数据解析失败（不是合法的工作流 JSON）", true); return; }
+      if (!graph.nodes) { done("只存了 prompt，没有可编辑的工作流", true); return; }
+      app.loadGraphData(graph).then(function () {
+        done("已导入工作流", false);
+      }).catch(function () { done("载入工作流失败", true); });
+    }).catch(function () {
+      done("读取元数据失败", true);
     });
   }
 

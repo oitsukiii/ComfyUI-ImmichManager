@@ -553,6 +553,100 @@ def setup_routes(server) -> None:
         await response.write_eof()
         return response
 
+    def _png_text_chunks(data: bytes) -> dict:
+        """从 PNG 里取 tEXt / iTXt 文本块（ComfyUI 把 prompt / workflow 写在这）。"""
+        out: dict = {}
+        if not data.startswith(b"\x89PNG\r\n\x1a\n"):
+            return out
+        pos = 8
+        n = len(data)
+        while pos + 12 <= n:
+            length = int.from_bytes(data[pos:pos + 4], "big")
+            ctype = data[pos + 4:pos + 8]
+            chunk = data[pos + 8:pos + 8 + length]
+            if ctype == b"tEXt":
+                z = chunk.find(b"\x00")
+                if z > 0:
+                    out[chunk[:z].decode("latin-1")] = chunk[z + 1:].decode("utf-8", "replace")
+            elif ctype == b"iTXt":
+                z1 = chunk.find(b"\x00")
+                if z1 > 0:
+                    key = chunk[:z1].decode("latin-1")
+                    comp = chunk[z1 + 1] if z1 + 1 < len(chunk) else 0
+                    p2 = z1 + 3
+                    z2 = chunk.find(b"\x00", p2)
+                    z3 = chunk.find(b"\x00", z2 + 1) if z2 >= 0 else -1
+                    if not comp and z3 >= 0:
+                        out[key] = chunk[z3 + 1:].decode("utf-8", "replace")
+            elif ctype == b"IEND":
+                break
+            pos += 12 + length
+        return out
+
+    def _video_text_metadata(path: str) -> dict:
+        """从视频容器里取 metadata（ComfyUI 用 ffmpeg tag 存 prompt / workflow）。"""
+        out: dict = {}
+        try:
+            import av  # noqa: PLC0415 — ComfyUI 自带 PyAV
+        except Exception:
+            return out
+        try:
+            with av.open(path) as container:
+                for k, v in (container.metadata or {}).items():
+                    out[str(k).lower()] = v
+        except Exception:
+            return out
+        return out
+
+    @routes.get(f"{ROUTE_PREFIX}/assets/{{asset_id}}/workflow")
+    async def asset_workflow(request: web.Request) -> web.Response:
+        """返回该资产里嵌入的 ComfyUI 工作流（图片读 PNG 文本块，视频读容器 metadata）。"""
+        if not _check_auth(request, config):
+            return _unauthorized()
+        asset_id = request.match_info["asset_id"]
+        if not _valid_asset_id(asset_id):
+            return _error("asset_id 格式不正确", 400)
+        client = _get_client(config)
+
+        def _collect():
+            import tempfile  # noqa: PLC0415
+            resp = client.get_original(asset_id)
+            if getattr(resp, "status_code", 200) != 200:
+                raise ImmichError(f"HTTP {resp.status_code}")
+            data = resp.content
+            meta = {}
+            if data[:8] == b"\x89PNG\r\n\x1a\n":
+                meta = _png_text_chunks(data)
+            else:
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".bin") as fh:
+                    fh.write(data)
+                    tmp = fh.name
+                try:
+                    meta = _video_text_metadata(tmp)
+                finally:
+                    try:
+                        os.unlink(tmp)
+                    except OSError:
+                        pass
+            wf = meta.get("workflow")
+            pm = meta.get("prompt")
+            # 有些容器把 JSON 存在 comment/description 里
+            if not wf:
+                for key in ("comment", "description", "com.apple.quicktime.description"):
+                    v = meta.get(key)
+                    if v and str(v).strip().startswith("{"):
+                        wf = v
+                        break
+            return {"workflow": wf, "prompt": pm}
+
+        try:
+            payload = await _call(_collect)
+        except ImmichError as exc:
+            return _error(_safe_error(exc), 502)
+        except Exception as exc:  # noqa: BLE001
+            return _error(f"读取元数据失败：{exc}", 500)
+        return web.json_response(payload)
+
     @routes.get(f"{ROUTE_PREFIX}/assets/{{asset_id}}/original")
     async def asset_original(request: web.Request) -> web.Response:
         """资产原文件代理（图片大图 / 视频播放）。
