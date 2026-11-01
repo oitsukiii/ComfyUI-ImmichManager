@@ -334,6 +334,7 @@
     "set.row.refresh": "2 Refresh",
     "set.row.pickClose": "Picker",
     "h.pickClose": "On: picking an asset writes it to the node and closes the panel. Off: the panel stays open and only highlights, so you can compare several before choosing.",
+    "cf.pin.empty": "Nothing was uploaded in that range, so there is nothing to pin",
     },
 
     zh: {
@@ -659,6 +660,7 @@
     "set.row.pickClose": "选择面板",
     "h.pickClose": "开启：点一张就写回节点并关闭面板；关闭：只高亮选中项，面板保留，方便继续比较。",
 
+    "cf.pin.empty": "这个时间段内没有资产，置顶区为空",
     },
   };
 

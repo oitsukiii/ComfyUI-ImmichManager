@@ -536,7 +536,7 @@
       state.groupBy = k; savePanelUi(); buildToolMenus(); renderTimeline();
     });
     fill("immich-pin-menu", PINS, state.pinRange || "", function (k) {
-      state.pinRange = k; savePanelUi(); buildToolMenus(); renderTimeline();
+      state.pinRange = k; state.__pinWarned = false; savePanelUi(); buildToolMenus(); renderTimeline();
     });
 
     [[ "immich-sort-btn", "immich-sort-menu" ],
@@ -1464,12 +1464,17 @@
       var asc = (state.sortOrder || "desc") === "asc";
 
       // 置顶区
+      // 置顶范围内没有资产时说明一下，否则看起来像"点了没反应"
+      if (pinStart && !pinned.length && !state.__pinWarned) {
+        state.__pinWarned = true;
+        showStatus(t("cf.pin.empty"), "warn");
+      }
       if (pinStart && pinned.length) {
         pinned.sort(function (a, b) {
           var x = Date.parse(a.fileCreatedAt || a.createdAt), y = Date.parse(b.fileCreatedAt || b.createdAt);
           return asc ? x - y : y - x;
         });
-        var pinLabel = state.pinRange === "today" ? "今天" : "近 7 天";
+        var pinLabel = state.pinRange === "today" ? t("cf.pin.label.today") : t("cf.pin.label.7d");
         collapsibleSection("📌 " + pinLabel, pinned, "pin");
       }
 
