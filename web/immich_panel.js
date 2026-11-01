@@ -1261,13 +1261,16 @@
 
           var wrap = document.createElement("div");
           if (def.value === "date") {
+            // <input type="date"> 的占位文案（yyyy/mm/日）跟元素 lang 走，
+            // 不设就会沿用浏览器语言，英文界面下仍显示中文的「日」
+            var cfLang = (window.ImmichI18n && window.ImmichI18n.getLang() === "zh") ? "zh-CN" : "en-GB";
             var d1 = document.createElement("input");
-            d1.type = "date"; d1.value = c.value || "";
+            d1.type = "date"; d1.lang = cfLang; d1.value = c.value || "";
             d1.onchange = function () { c.value = d1.value; };
             wrap.appendChild(d1);
             if (c.op === "介于") {
               var d2 = document.createElement("input");
-              d2.type = "date"; d2.value = c.value2 || "";
+              d2.type = "date"; d2.lang = cfLang; d2.value = c.value2 || "";
               d2.onchange = function () { c.value2 = d2.value; };
               wrap.appendChild(d2);
             }
