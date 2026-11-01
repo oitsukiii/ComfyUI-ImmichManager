@@ -123,7 +123,8 @@ def _get_client(config: ConfigManager) -> ImmichClient:
             old = _client_cache["client"]
             _client_cache["client"] = ImmichClient(
                 base_url=config.get("base_url", ""),
-                api_key=config.get("api_key", ""),
+                # 只有当 key 是为当前 base_url 填的才用它（配置被手改时也拦住）
+                api_key=config.api_key_for_current_host(),
                 proxy_mode=config.get("proxy_mode", "off"),
                 proxy_url=config.get("proxy_url", ""),
             )

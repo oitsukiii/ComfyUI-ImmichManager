@@ -16,6 +16,9 @@ from urllib.parse import urlparse
 DEFAULT_CONFIG = {
     "base_url": "http://127.0.0.1:2283/api",
     "api_key": "",
+    # api_key 是针对哪个 base_url 填的。base_url 变了这个 key 就不再使用，
+    # 避免"改地址 → 旧 key 被送到新地址"（THREAT_MODEL.md F 类问题的结构性修复）。
+    "api_key_host": "",
     "panel_token": "",
     # 网络代理（面板「🌐 网络代理」分组）：
     # off    = 不使用代理（默认）：忽略 HTTP_PROXY/HTTPS_PROXY/ALL_PROXY，局域网直连
@@ -290,9 +293,16 @@ class ConfigManager:
                     if cleaned is None:
                         continue
                     v = cleaned
+                    # 记住这个 key 是为哪个地址填的
+                    self._config["api_key_host"] = self._config.get("base_url", "")
                 if k == "base_url":
                     # SSRF 防线：协议白名单 + host 校验（非法输入直接抛错）
                     v = normalize_base_url(v)
+                    # 地址变了且本次没提交新 key：旧 key 是为旧地址填的，丢弃。
+                    # 这是 F 类问题（改地址→key 跟随外泄）的结构性修复。
+                    if v != self._config.get("base_url", "") and "api_key" not in kwargs:
+                        self._config["api_key"] = ""
+                        self._config["api_key_host"] = ""
                 if k == "proxy_mode":
                     if v not in ALLOWED_PROXY_MODES:
                         raise ValueError(
@@ -322,6 +332,31 @@ class ConfigManager:
         if value.lower() in _FALSEY_API_KEY:
             return None
         return value
+
+    def clear_api_key(self) -> None:
+        """清除 api_key 及其绑定地址（base_url 变化时调用，key 不得跟随）。"""
+        with self._lock:
+            self._config["api_key"] = ""
+            self._config["api_key_host"] = ""
+            self._save()
+
+    def api_key_for_current_host(self) -> str:
+        """取出可用于**当前** base_url 的 api_key，不匹配时返回空串。
+
+        老配置没有 api_key_host（升级前写的），这里首次调用时补记当前地址，
+        保持向后兼容；之后地址一变，key 就不再返回。
+        """
+        with self._lock:
+            key = self._config.get("api_key") or ""
+            if not key:
+                return ""
+            bound = self._config.get("api_key_host") or ""
+            current = self._config.get("base_url") or ""
+            if not bound:
+                self._config["api_key_host"] = current
+                self._save()
+                return key
+            return key if bound == current else ""
 
     def generate_panel_token(self) -> str:
         """生成新的随机面板令牌（密码学安全）并落盘。

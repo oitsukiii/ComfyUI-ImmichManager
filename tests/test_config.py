@@ -49,6 +49,21 @@ with tempfile.TemporaryDirectory() as tmp:
     cm.update(api_key="new-real-key-456")  # 真实 key 可更新
     check("sanitize 接受真实 key", cm.get("api_key") == "new-real-key-456")
 
+    # --- 2b. api_key 绑定 base_url（THREAT_MODEL.md 的结构性修复）---
+    with tempfile.TemporaryDirectory() as d2:
+        c2 = ConfigManager(os.path.join(d2, "config.json"))
+        c2.update(base_url="http://10.1.1.1:2283/api", api_key="KEY-X")
+        check("key 绑定: 设置后可用", c2.api_key_for_current_host() == "KEY-X")
+        check("key 绑定: host 已记录", c2.get("api_key_host") == "http://10.1.1.1:2283/api",
+              f"-> {c2.get('api_key_host')!r}")
+        c2.update(base_url="http://10.2.2.2:2283/api")
+        check("key 绑定: 只改地址即清空 key", c2.get("api_key") == "", f"-> {c2.get('api_key')!r}")
+        check("key 绑定: 清空后取不到 key", c2.api_key_for_current_host() == "")
+        c2.update(base_url="http://10.3.3.3:2283/api", api_key="KEY-Y")
+        check("key 绑定: 地址+新key 同提交生效", c2.api_key_for_current_host() == "KEY-Y")
+        c2.update(page_size=50)
+        check("key 绑定: 无关字段不影响 key", c2.api_key_for_current_host() == "KEY-Y")
+
     # --- 3. 落盘权限 0o600（仅 POSIX）---
     # Windows 没有 POSIX 权限位：os.open 的 mode 只映射到只读标志，文件实际继承
     # 所在目录的 ACL。这里不假装验证过它，直接标 SKIP。
