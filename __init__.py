@@ -79,9 +79,9 @@ if _check_deps():
         "ImmichSaveVideo": ImmichSaveVideo,
     }
     NODE_DISPLAY_NAME_MAPPINGS = {
-        "ImmichPickImage": "Load Image from Immich",
-        "ImmichSaveImage": "🖼️ Immich Save Image",
-        "ImmichSaveVideo": "🎬 Immich Save Video",
+        "ImmichPickImage": "📥 Load Image from Immich",
+        "ImmichSaveImage": "🖼️ Save Image into Immich",
+        "ImmichSaveVideo": "🎬 Save Video into Immich",
     }
 
     # 前端扩展目录
