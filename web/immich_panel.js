@@ -2388,7 +2388,7 @@
 
   var H_TOKEN = "面板令牌用于保护局域网访问。未设置时，局域网内任何设备都能读取和操作你的 Immich 素材；"
               + "设置后，非本机访问 /api/immich_plus/* 需要带上 Authorization: Bearer <令牌>。"
-              + "「显示」查看当前令牌；「复制」直接拷到剪贴板，粘贴到新设备的面板里即可接入；"
+              + "「检查状态」看令牌是否已生效；「复制」直接拷到剪贴板，粘贴到新设备的面板里即可接入；"
               + "「重新生成」让旧令牌立即失效；「清空」则取消保护，需谨慎。";
 
   var CONFIG_SETTINGS = [
@@ -2466,6 +2466,18 @@
       '[role="dialog"] select option{background-color:#1b1e24!important;color:#e6e6e6!important}';
     (document.head || document.documentElement).appendChild(el);
   })();
+
+  // 检查令牌状态：告诉用户当前防护是否生效
+  function checkTokenStatus() {
+    apiGet("/config").then(function (cfg) {
+      if (!cfg) { setStatus("无法读取配置状态（可能没有权限）", true); return; }
+      if (cfg.panel_token_configured) {
+        setStatus("已配置安全令牌，现在局域网设备需要提供令牌才能使用本插件访问你的 Immich 资产", false);
+      } else {
+        setStatus("未配置安全令牌，现在任何能访问 ComfyUI 的设备都能使用本插件访问你的 Immich 资产", true);
+      }
+    }).catch(function () { setStatus("无法读取配置状态", true); });
+  }
 
   // 复制令牌到剪贴板（拿明文需要本机或已带令牌，和「显示」同一条路径）
   function copyToken() {
@@ -2563,7 +2575,7 @@
         id: "immich.token", name: "", category: ["Immich", "2 🔒 安全", "安全设置", "令牌"],
         type: function () {
           return buttonRow("面板令牌", [
-            { text: "显示", onClick: showToken },
+            { text: "检查状态", onClick: checkTokenStatus },
             { text: "复制", onClick: copyToken },
             { text: "重新生成", onClick: regenToken },
             { text: "清空", onClick: clearToken },

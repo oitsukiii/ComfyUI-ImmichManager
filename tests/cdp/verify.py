@@ -65,7 +65,7 @@ def main():   # 注：按钮文案是「测试连接」不是「连接测试」
         hints: dlg.querySelectorAll('[data-immich-hint]').length,
         dropdowns: [...dlg.querySelectorAll('[data-immich-row] button')].filter(b=>b.textContent.indexOf('▾')>=0).length,
         buttons: [...dlg.querySelectorAll('button')].map(b=>b.textContent.trim())
-                   .filter(t=>['显示','重新生成','清空','测试连接','刷新相册'].includes(t))}); })()""")
+                   .filter(t=>['检查状态','复制','重新生成','清空','测试连接','刷新相册'].includes(t))}); })()""")
     seen = json.loads(seen) if isinstance(seen, str) else seen
 
     fails = []
