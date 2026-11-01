@@ -49,9 +49,14 @@ with tempfile.TemporaryDirectory() as tmp:
     cm.update(api_key="new-real-key-456")  # 真实 key 可更新
     check("sanitize 接受真实 key", cm.get("api_key") == "new-real-key-456")
 
-    # --- 3. 落盘权限 0o600 ---
-    mode = os.stat(path).st_mode & 0o777
-    check("config.json 权限 0o600", mode == 0o600, f"-> {oct(mode)}")
+    # --- 3. 落盘权限 0o600（仅 POSIX）---
+    # Windows 没有 POSIX 权限位：os.open 的 mode 只映射到只读标志，文件实际继承
+    # 所在目录的 ACL。这里不假装验证过它，直接标 SKIP。
+    if os.name == "posix":
+        mode = os.stat(path).st_mode & 0o777
+        check("config.json 权限 0o600", mode == 0o600, f"-> {oct(mode)}")
+    else:
+        print("  [SKIP] config.json 权限 0o600（Windows 无 POSIX 权限位，靠目录 ACL）")
     check("config.json 内容含新 key", "new-real-key-456" in open(path, encoding="utf-8").read())
 
     # --- 4. panel_token 半脱敏 ---

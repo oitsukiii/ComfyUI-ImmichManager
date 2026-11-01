@@ -262,7 +262,10 @@ class ConfigManager:
         return merged
 
     def _save(self) -> None:
-        # 以 0o600 权限直接创建/覆盖，避免 umask 默认权限的短暂窗口
+        # 以 0o600 权限直接创建/覆盖，避免 umask 默认权限的短暂窗口。
+        # 注意：这个 mode 只在 POSIX 上生效。Windows 的 os.open 只把它映射到
+        # 只读标志，文件实际权限来自所在目录的 ACL，所以配置里的 API key 在
+        # Windows 上由目录 ACL 保护，而不是这里的 0o600。
         try:
             fd = os.open(
                 self.config_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600
