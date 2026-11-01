@@ -93,3 +93,14 @@ saves a screenshot. README gains a "how to verify a UI change" section.
   the signature of the accidental-deletion bug above.
 - Verify over CDP before claiming it works. `--dump-dom` returns empty when the
   page never goes idle; use `Runtime.evaluate` instead.
+
+---
+
+## Backlog（明确决定「暂不做」的项）
+
+| 项 | 状态 | 决定 |
+|---|---|---|
+| **选图窗口的 MASK 预览** | 不做 | 2026-11-01 决定：节点已经输出 MASK（带 alpha 的 PNG 拆出真实遮罩），只缺可视化预览。等有人提 PR 再做。 |
+| **多条件筛选 + 条件 chip（带 x 移除）** | 待定 | 设计已定：相册下拉整合成「相册」条件，再加「类型」条件，每个条件一个 x。约 100 行前端。 |
+| **选图窗口的搜索/筛选** | 待定 | 现在只能翻页；大相册（ComfyuiOutput 3,783 张）找图慢。 |
+| **老配置页退场** | 待定 | 菜单页已覆盖全部配置；但远程接入带 token 的通路在老页里，删之前要确认菜单页远程可用。 |
