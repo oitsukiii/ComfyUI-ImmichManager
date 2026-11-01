@@ -345,7 +345,17 @@ function hookNodeDraw(node) {
     const dh = this.__immichImgH;
     const x = (this.size[0] - dw) / 2;
     const y = this.size[1] - dh - pad;
-    try { ctx.drawImage(im, x, y, dw, dh); } catch (e) {}
+    // 裁剪到节点矩形内：无论尺寸怎么变，都不会画到边框外面
+    try {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, this.size[0], this.size[1]);
+      ctx.clip();
+      ctx.drawImage(im, x, y, dw, dh);
+      ctx.restore();
+    } catch (e) {
+      try { ctx.restore(); } catch (e2) {}
+    }
   };
 }
 
