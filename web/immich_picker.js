@@ -339,23 +339,36 @@ function hookNodeDraw(node) {
     if (orig) orig.call(this, ctx);
     const im = this.__immichPreview;
     if (!im || !im.complete || !im.width) return;
-    // 在节点内框下方按比例画，宽度吃满节点
-    const pad = 6;
-    const x = pad, y = this.size[1] - this.__immichImgH - pad;
-    const w = this.size[0] - pad * 2;
-    try { ctx.drawImage(im, x, y, w, this.__immichImgH); } catch (e) {}
+    // 按预先算好的等比尺寸居中画（不做任何拉伸），底部留 pad
+    const pad = PAD;
+    const dw = this.__immichImgW;
+    const dh = this.__immichImgH;
+    const x = (this.size[0] - dw) / 2;
+    const y = this.size[1] - dh - pad;
+    try { ctx.drawImage(im, x, y, dw, dh); } catch (e) {}
   };
 }
 
+const PAD = 6;          // 图片四周留白
+const MAX_IMG_H = 420;  // 图片区高度上限（超出则按比例缩宽度，不裁剪不变形）
+
+// 等比布局：宽度吃满节点内宽 → 按图片比例算高度 → 超上限则整体缩放。
+// 节点高度 = 基础高度 + 图片高度 + 上下留白，保证图片正好落在节点内。
 function layoutForPreview(node, img) {
   const w = Math.max(node.size[0], 240);
-  const h = Math.round(Math.min(220, (w - 12) * (img.height / img.width)));
-  // 首次记录"不含预览图"的高度；换图时从基准重算，否则每换一次就再加一截
+  const availW = w - PAD * 2;
+  let dw = availW;
+  let dh = dw * (img.height / img.width);
+  if (dh > MAX_IMG_H) {
+    dh = MAX_IMG_H;
+    dw = dh * (img.width / img.height);
+  }
   if (node.__immichBaseH == null) {
     node.__immichBaseH = node.computeSize()[1];
   }
-  node.__immichImgH = h;
-  node.setSize([w, node.__immichBaseH + h + 10]);
+  node.__immichImgW = Math.round(dw);
+  node.__immichImgH = Math.round(dh);
+  node.setSize([w, Math.round(node.__immichBaseH + node.__immichImgH + PAD * 2)]);
 }
 
 function getWidget(node, name) {
