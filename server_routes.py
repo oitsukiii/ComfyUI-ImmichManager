@@ -681,6 +681,25 @@ def setup_routes(server) -> None:
 
     # ---------- 相册 ----------
 
+    @routes.get(f"{ROUTE_PREFIX}/albums/{{album_id}}/assets")
+    async def album_assets(request: web.Request) -> web.Response:
+        if not _check_auth(request, config):
+            return _unauthorized()
+        album_id = request.match_info["album_id"]
+        if not _valid_asset_id(album_id):        # 同一套 UUID 白名单
+            return _error("相册 id 格式不正确", 400)
+        try:
+            page = int(request.query.get("page", "1"))
+            size = int(request.query.get("size", "24"))
+        except ValueError:
+            return _error("page/size 必须是整数", 400)
+        client = _get_client(config)
+        try:
+            data = await _call(client.get_album_assets, album_id, page, size)
+        except ImmichError as exc:
+            return _error(_safe_error(exc), 502)
+        return web.json_response(data)
+
     @routes.get(f"{ROUTE_PREFIX}/albums")
     async def albums(request: web.Request) -> web.Response:
         if not _check_auth(request, config):

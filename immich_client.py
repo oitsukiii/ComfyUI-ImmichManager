@@ -302,6 +302,43 @@ class ImmichClient:
                 return album
         return None
 
+    def get_album_assets(self, album_id: str, page: int = 1, size: int = 24) -> dict:
+        """相册内的资产（服务端分页）。
+
+        不用 GET /albums/{id}（那个默认不展开 assets），改用 search/metadata
+        按 albumIds 过滤 —— 它支持真正的分页，几千张的相册也不会一次全取。
+        """
+        page = max(1, int(page or 1))
+        size = max(1, min(200, int(size or 24)))
+        res = self._json(
+            "POST", "/search/metadata",
+            json={"albumIds": [album_id], "page": page, "size": size, "withExif": False},
+        )
+        box = (res or {}).get("assets") or {}
+        raw = box.get("items") or []
+        # 这版 Immich 的 assets.total 等于本页条数，不是总数；
+        # 用 nextPage 判断是否还有下一页（它为空即到底）。
+        next_page = box.get("nextPage")
+        total = box.get("total") if (box.get("total") or 0) > len(raw) else None
+        items = []
+        for a in raw:
+            items.append({
+                "id": a.get("id"),
+                "originalFileName": a.get("originalFileName"),
+                "type": a.get("type"),
+                "fileCreatedAt": a.get("fileCreatedAt"),
+                "fileModifiedAt": a.get("fileModifiedAt"),
+                "thumbhash": a.get("thumbhash"),
+            })
+        return {
+            "albumName": None,
+            "total": total,
+            "page": page,
+            "size": size,
+            "nextPage": next_page,
+            "items": items,
+        }
+
     def create_album(self, name: str) -> dict:
         """创建相册（按名幂等性由 ensure_album 的"先查后建"保证）。"""
         return self._json("POST", "/albums", json={"albumName": name})

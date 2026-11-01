@@ -324,3 +324,31 @@ wrap.setAttribute("data-immich-row", "1");       // 按钮行也要
 5 资源:    时间轴大组 / 小组 / 每页数量
 6 前端面板: 面板语言 / 插件按钮位置
 ```
+
+---
+
+## 17. 从 SSH 重启 WKPC 上的 ComfyUI：必须用 WMI 分离启动
+
+`Start-Process` 从 SSH 会话启动的进程**挂在那个控制台会话上**。SSH 一断，
+控制台关闭 → Windows 给子进程发 `CTRL_CLOSE_EVENT` → ComfyUI 直接中止：
+
+```
+forrtl: error (200): program aborting due to window-CLOSE event
+^C
+```
+
+**日志里看到这行就是这个原因**，不是杀毒软件、不是配置。
+
+**正确做法**（进程不继承控制台）：
+
+```powershell
+Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{
+  CommandLine    = 'cmd.exe /c C:\ComfyUI\start_comfyui_lan.bat'
+  CurrentDirectory = 'C:\ComfyUI'
+}
+```
+
+`ReturnValue=0` 表示创建成功，之后约 24 秒 HTTP 200。
+
+**排查技巧**：看日志文件的 `LastWriteTime` —— 如果它停在启动那一刻，
+说明进程已经死了（文件是 bat 里 `del` + `>` 重建的）。
