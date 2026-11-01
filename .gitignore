@@ -8,6 +8,10 @@ venv/
 # 本插件运行时配置（含 api_key，绝不提交）
 config.json
 
+# 主面板 UI 状态（含相册/人脸 id 等选择痕迹，绝不提交）
+panel_state.json
+panel_state.json.tmp
+
 # 测试脚本（可能含本地测试专用 key）
 /tests/*.local.py
 *.local.py
