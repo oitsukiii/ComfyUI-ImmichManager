@@ -262,6 +262,11 @@ async def main():
             await client.close()
 
     # ---- 5. bucket 补 ext（格式角标） ----
+    # server_routes 的 _ext_cache 是模块级 + 60s TTL，前面几个测试段也打过 /bucket，
+    # 不清掉这里会读到过期（空）映射，结果取决于整份测试跑了多久 —— 本地慢刚好过期、
+    # CI 快就命中。显式重置，让断言与运行速度无关。
+    server_routes._ext_cache["ts"] = 0.0
+    server_routes._ext_cache["map"] = {}
     with tempfile.TemporaryDirectory() as tmp:
         fc = FakeClient(ext_map={"asset-1": "png"})
         app, fake = build_app(tmp, fc)
