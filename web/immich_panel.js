@@ -384,6 +384,7 @@
     sort: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 16 4 4 4-4"/><path d="M7 20V4"/><path d="M11 4h10"/><path d="M11 8h7"/><path d="M11 12h4"/></svg>',
     ruler: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v-3"/><path d="M14 15v-3"/><path d="M18 15v-3"/><path d="M2 8V4"/><path d="M22 6H2"/><path d="M22 8V4"/><path d="M6 15v-3"/><rect x="2" y="12" width="20" height="8" rx="2"/></svg>',
     checkCheck: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 7 17l-5-5"/><path d="m22 10-7.5 7.5L13 16"/></svg>',
+    settings: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></svg>',
     pin: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>',
     copyCheck: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 15 2 2 4-4"/><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>',
     link: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>',
@@ -549,6 +550,7 @@
       "      </div>" +
       "    </div>" +
       '    <span class="immich-header-sep"></span>' +
+      '    <button class="immich-btn immich-icon-btn" id="immich-btn-settings" title="打开 ComfyUI 设置（Immich 配置）">' + IC.settings + "</button>" +
       '    <button class="immich-btn immich-icon-btn" id="immich-btn-open" title="' + t("btn.open.title") + '">' + IC.link + "</button>" +
       '    <button class="immich-btn immich-icon-btn" id="immich-btn-close" title="' + t("btn.close.title") + '">' + IC.x + "</button>" +
       "  </div>" +
@@ -581,6 +583,24 @@
       if (state.selectMode) exitSelectMode();
       else enterSelectMode();
     };
+    var settingsBtn = document.getElementById("immich-btn-settings");
+    if (settingsBtn) {
+      settingsBtn.onclick = function () {
+        // 官方设置对话框没有公开的 show()，用它自己的按钮/快捷键拉起
+        var btn = Array.prototype.slice.call(document.querySelectorAll("button,[role=button]"))
+          .filter(function (b) {
+            var lab = b.getAttribute("aria-label") || "";
+            return lab.indexOf("设置") >= 0 || /settings/i.test(lab);
+          })[0];
+        if (btn) { btn.click(); return; }
+        // 兜底：Ctrl + ,
+        ["keydown"].forEach(function (t2) {
+          document.dispatchEvent(new KeyboardEvent(t2, {
+            key: ",", code: "Comma", ctrlKey: true, bubbles: true,
+          }));
+        });
+      };
+    }
     document.getElementById("immich-btn-open").onclick = function () {
       var base = (state.config && state.config.base_url) || "http://127.0.0.1:2283";
       window.open(base.replace(/\/api\/?$/, ""), "_blank");
