@@ -1041,8 +1041,14 @@
       if (tl0) {
         revokeBlobs();
         state.assetsById = {};
+        // 筛选通路也要恢复详情面板显隐 —— 之前漏了这一步，
+        // 结果「有条件时」重开面板右侧预览区一直保持上一次的隐藏状态。
+        var paneF = document.getElementById("immich-detail-pane");
+        if (paneF) paneF.style.display = (sessionStorage.getItem(LS_DETAIL_OPEN) === "0") ? "none" : "flex";
         tl0.innerHTML = '<div class="immich-loading">筛选中…</div>';
-        renderFiltered(tl0).catch(function () {
+        renderFiltered(tl0).then(function () {
+          restoreDetailState();
+        }).catch(function () {
           tl0.innerHTML = '<div class="immich-empty">筛选失败</div>';
         });
         return;
