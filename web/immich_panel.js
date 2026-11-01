@@ -2173,16 +2173,64 @@
   // 把面板里的配置项搬到官方 Settings。PUT /config 是 sensitive 路由：
   // 本机来源直接放行；从别的机器访问需要面板令牌（浏览器会自动带上 Authorization 吗？不会），
   // 所以这里在非本机时会 403 —— 面板里那份配置入口仍然保留，作为兜底。
-  // ── 状态行（每个分组一行，用内置类型保证渲染）──
-  var _statusEls = {};
-  var _albumSelect = null;
+  // 官方设置项默认控件很窄，宽度由我们自己渲染控制。
+  // color-scheme:dark 让原生 <select> 的弹层和滚动条用暗色，否则是一片白。
+  var WIDE = "width:520px;max-width:66vw;padding:6px 10px;border-radius:6px;" +
+             "border:1px solid #3a3f4a;background:transparent;color:inherit;font:inherit;" +
+             "color-scheme:dark";
+  var BTN = "padding:6px 14px;margin-right:8px;border-radius:6px;border:1px solid #3a3f4a;" +
+            "background:#252a33;color:inherit;font:inherit;cursor:pointer";
+  var _statusEl = null;
 
-  function setStatus(section, msg, isErr) {
-    var el = _statusEls[section];
-    if (!el) return;
-    el.textContent = msg || "";
-    el.style.color = isErr ? "#ff6b6b" : "#4ade80";
-    el.style.fontSize = "12px";
+  function setStatus(msg, isErr) {
+    if (!_statusEl) return;
+    _statusEl.textContent = msg || "";
+    _statusEl.style.color = isErr ? "#ff6b6b" : "#4ade80";
+    _statusEl.style.fontSize = "12px";
+  }
+
+  function mkTd(content) {
+    var td = document.createElement("td");
+    if (typeof content === "string") td.textContent = content;
+    else td.appendChild(content);
+    return td;
+  }
+
+  function wideRow(kind, name, setter, value, options) {
+    // 只返回控件本身：ComfyUI 的外层已经渲染了名称列，再返回 <tr>+<label> 会出现两遍标题。
+    var el;
+    if (kind === "combo") {
+      el = document.createElement("select");
+      el.style.cssText = WIDE;
+      (options || []).forEach(function (o) {
+        var op = document.createElement("option");
+        op.value = o; op.textContent = o;
+        if (String(o) === String(value)) op.selected = true;
+        el.appendChild(op);
+      });
+    } else {
+      el = document.createElement("input");
+      el.type = kind === "number" ? "number" : (kind === "password" ? "password" : "text");
+      el.style.cssText = WIDE;
+      el.value = value === undefined || value === null ? "" : value;
+    }
+    el.addEventListener("change", function () { setter(el.value); });
+    el.addEventListener("blur", function () { setter(el.value); });
+    return el;
+  }
+
+  // 只返回按钮容器（同上：名称列由外层渲染）
+  function buttonRow(name, buttons) {
+    var wrap = document.createElement("div");
+    buttons.forEach(function (b) {
+      var el = document.createElement("button");
+      el.type = "button";
+      el.textContent = b.text;
+      el.style.cssText = BTN;
+      el.onclick = b.onClick;
+      wrap.appendChild(el);
+    });
+    return wrap;
   }
 
   function apiGet(path) { return fetch("/api/immich_plus" + path).then(function (r) { return r.ok ? r.json() : null; }); }
@@ -2194,204 +2242,125 @@
     });
   }
 
-  function putConfig(key, value, section) {
+  function putConfig(key, value) {
     apiSend("PUT", "/config", { [key]: value }).then(function (r) {
-      if (r.ok) setStatus(section, "已保存：" + key, false);
-      else setStatus(section, "被后端拒绝（HTTP " + r.status + "）：" + key, true);
-    }).catch(function () { setStatus(section, "网络错误：" + key, true); });
+      if (r.ok) setStatus("已保存：" + key, false);
+      else setStatus("被后端拒绝（HTTP " + r.status + "）：" + key, true);
+    }).catch(function () { setStatus("网络错误：" + key, true); });
   }
 
-  function testConnection(section) {
-    setStatus(section, "测试中…", false);
+  // 顺序对齐老配置页：连接 → 相册 → 网络 → 资源 → 安全 → 其他
+  var CONFIG_SETTINGS = [
+    { key: "base_url", id: "immich.baseUrl", name: "Immich 地址", kind: "text", cat: ["Immich", "连接", "服务"] },
+    { key: "api_key", id: "immich.apiKey", name: "API Key（留空不修改）", kind: "password", cat: ["Immich", "连接", "凭据"] },
+    { key: "default_album", id: "immich.defaultAlbum", name: "上传到相册", kind: "combo", cat: ["Immich", "相册", "目标"], dynamic: "albums" },
+    { key: "proxy_mode", id: "immich.proxyMode", name: "网络代理模式", kind: "combo", cat: ["Immich", "网络", "模式"], options: ["off", "custom", "env"] },
+    { key: "proxy_url", id: "immich.proxyUrl", name: "代理地址（custom 必填）", kind: "text", cat: ["Immich", "网络", "地址"] },
+    { key: "timeline_range", id: "immich.timelineRange", name: "时间轴大组间隔", kind: "combo", cat: ["Immich", "资源", "时间轴"], options: ["today", "3d", "7d"] },
+    { key: "timeline_interval", id: "immich.timelineInterval", name: "时间轴小组间隔", kind: "combo", cat: ["Immich", "资源", "时间轴"], options: ["15m", "30m", "1h", "1d"] },
+    { key: "page_size", id: "immich.pageSize", name: "每页数量", kind: "number", cat: ["Immich", "资源", "分页"] },
+    { key: "__lang", id: "immich.lang", name: "面板语言（刷新后生效）", kind: "combo", cat: ["Immich", "其他", "语言"], options: ["en", "zh", "auto"], local: true },
+  ];
+
+  function testConnection() {
+    setStatus("测试中…", false);
     apiGet("/health").then(function (h) {
-      if (h && (h.ok === true || h.version)) {
-        var v = h.version || {};
-        setStatus(section, "✅ 连接成功（Immich " + (v.major || "?") + "." + (v.minor || "?") + "." + (v.patch || "?") + "）", false);
-      } else setStatus(section, "⚠️ 连接失败或后端未配置 Immich", true);
-    }).catch(function () { setStatus(section, "❌ 无法访问后端", true); });
+      if (h && (h.ok === true || h.version)) setStatus("✅ 连接成功" + (h.version ? "（Immich " + (h.version.major||"") + "." + (h.version.minor||"") + "." + (h.version.patch||"") + "）" : ""), false);
+      else setStatus("⚠️ 连接失败或后端未配置", true);
+    }).catch(function () { setStatus("❌ 无法访问后端", true); });
   }
 
-  function tokenOf(d) { return d && (d.panel_token || d.token || ""); }
   function showToken() {
     apiGet("/panel-token").then(function (d) {
-      var t = tokenOf(d);
-      setStatus("安全", t ? "当前令牌：" + t : "后端未返回令牌", !t);
-    }).catch(function () { setStatus("安全", "❌ 读取令牌失败", true); });
+      var t = d && (d.panel_token || d.token);
+      setStatus(t ? "当前令牌：" + t : "后端未返回令牌（可能未启用）", !t);
+    }).catch(function () { setStatus("❌ 读取令牌失败", true); });
   }
   function regenToken() {
     apiSend("POST", "/panel-token").then(function (r) {
-      if (!r.ok) { setStatus("安全", "❌ 重新生成被拒绝（HTTP " + r.status + "）", true); return; }
-      return r.json().then(function (d) { setStatus("安全", "✅ 已重新生成：" + (tokenOf(d) || "(未回传明文)"), false); });
-    }).catch(function () { setStatus("安全", "❌ 重新生成失败", true); });
+      if (!r.ok) { setStatus("❌ 重新生成被拒绝（HTTP " + r.status + "）", true); return; }
+      return r.json().then(function (d) {
+        setStatus("✅ 已重新生成：" + ((d && (d.panel_token || d.token)) || "(后端未回传明文)"), false);
+      });
+    }).catch(function () { setStatus("❌ 重新生成失败", true); });
   }
   function clearToken() {
-    if (!window.confirm("清空面板令牌后，局域网内任何设备都能访问 Immich 面板。确定清空？")) return;
+    if (!window.confirm("清空面板令牌后，局域网内任何设备都能访问 Immich 面板。确定？")) return;
     apiSend("DELETE", "/panel-token").then(function (r) {
-      setStatus("安全", r.ok ? "✅ 令牌已清空" : "❌ 清空被拒绝（HTTP " + r.status + "）", !r.ok);
-    }).catch(function () { setStatus("安全", "❌ 清空失败", true); });
-  }
-
-  function albumNames(albums) {
-    return [""].concat((albums || []).map(function (a) { return a && (a.albumName || a.name) || ""; }).filter(Boolean));
-  }
-  function fillAlbums(albums, keep) {
-    if (!_albumSelect) return;
-    var cur = keep !== undefined ? keep : _albumSelect.value;
-    _albumSelect.innerHTML = "";
-    albumNames(albums).forEach(function (n) {
-      var op = document.createElement("option");
-      op.value = n; op.textContent = n || "（不指定）";
-      if (n === cur) op.selected = true;
-      _albumSelect.appendChild(op);
-    });
-  }
-
-  // ── 注释文案（ob 笔记里的「注释：」）──
-  var H_BASE  = "在这里填写你的 Immich 服务的地址。假如你的 Immich 地址是 192.168.1.2，就填 http://192.168.1.2/api";
-  var H_KEY   = "这里填你的 Immich API Key。获取方法：Immich 网页右上角头像 → 账户设置 → API 密钥 → 新建。留空表示不修改已存的值。";
-  var H_TOKEN = "面板令牌保护局域网访问：未设置时，局域网内任何设备都能读取你的 Immich 素材。可在这里显示 / 重新生成 / 清空。";
-  var H_PROXY = "局域网直连一般保持 off。需要经代理访问 Immich 时选 custom 并填写代理地址。";
-  var H_ALBUM = "上传的图片和视频会进入这个相册。列表来自 Immich，新增相册后点「刷新相册」。";
-  var H_LANG  = "面板界面语言，刷新页面后生效。";
-  var H_ENTRY = "插件入口显示在哪：sidebar = 左侧图标栏，toolbar = 顶部按钮。刷新后生效。";
-
-  // tooltip 会渲染成官方那个 ⓘ，悬停显示注释 —— 这就是「感叹号」的正确做法
-  // 设置对话框按分组名排序，所以用 "1 连接" 这样的前缀固定顺序
-  var CAT = { "连接": "1 连接", "安全": "2 安全", "网络": "3 网络", "相册配置": "4 相册配置", "前端面板配置": "5 前端面板配置" };
-
-  function sz(section, name, text) {
-    return {
-      id: "immich.status." + section, name: name || "状态",
-      category: ["Immich", CAT[section] || section],
-      type: function () {
-        var span = document.createElement("span");
-        span.textContent = text || "—";
-        span.style.fontSize = "12px";
-        _statusEls[section] = span;
-        return span;
-      },
-      defaultValue: ""
-    };
+      setStatus(r.ok ? "✅ 令牌已清空" : "❌ 清空被拒绝（HTTP " + r.status + "）", !r.ok);
+    }).catch(function () { setStatus("❌ 清空失败", true); });
   }
 
   function registerConfigSettings(st) {
-    var cfgP = fetch("/api/immich_plus/config").then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
-    var albP = apiGet("/albums").catch(function () { return null; });
+    function build(cfg, albums) {
+      cfg = cfg || {};
 
-    Promise.all([cfgP, albP]).then(function (res) {
-      var cfg = res[0] || {};
-      var albums = res[1] || [];
-      var albumOpts = albumNames(albums);
-
-      // ── 1 连接 ──
-      st.addSetting(sz("连接", "状态"));
+      // 状态行：所有操作的反馈都写在这里
       st.addSetting({
-        id: "immich.baseUrl", name: "Immich地址", category: ["Immich", "1 连接"],
-        tooltip: H_BASE, type: "text", defaultValue: cfg.base_url || "",
-        onChange: function (v) { if (String(v || "").trim()) putConfig("base_url", v, "连接"); }
-      });
-      st.addSetting({
-        id: "immich.apiKey", name: "API Key（留空不修改）", category: ["Immich", "1 连接"],
-        tooltip: H_KEY, type: "text", defaultValue: "",
-        onChange: function (v) { if (String(v || "").trim()) putConfig("api_key", v, "连接"); }
-      });
-      st.addSetting({
-        id: "immich.test.conn", name: "连接测试", category: ["Immich", "1 连接"],
-        tooltip: "用当前保存的地址和 API Key 连一次 Immich，结果写在上面的状态行。",
-        type: function () {
-          var b = document.createElement("button");
-          b.textContent = "连接测试"; b.type = "button";
-          b.style.cssText = "padding:6px 14px;border-radius:6px;border:1px solid #3a3f4a;background:#252a33;color:inherit;cursor:pointer";
-          b.onclick = function () { testConnection("连接"); };
-          return b;
+        id: "immich.status", name: "状态", category: ["Immich", "连接", "状态"],
+        type: function (name) {
+          var span = document.createElement("span");
+          span.textContent = "—";
+          span.style.fontSize = "12px";
+          span.style.colorScheme = "dark";
+          _statusEl = span;
+          return span;
         },
-        defaultValue: ""
+        defaultValue: "",
       });
 
-      // ── 2 安全 ──
-      st.addSetting(sz("安全", "状态"));
-      st.addSetting({
-        id: "immich.token", name: "面板令牌", category: ["Immich", "2 安全"],
-        tooltip: H_TOKEN, type: function () {
-          var wrap = document.createElement("div");
-          [["显示", showToken], ["重新生成", regenToken], ["清空", clearToken]].forEach(function (p) {
-            var b = document.createElement("button");
-            b.textContent = p[0]; b.type = "button";
-            b.style.cssText = "padding:6px 14px;margin-right:8px;border-radius:6px;border:1px solid #3a3f4a;background:#252a33;color:inherit;cursor:pointer";
-            b.onclick = p[1];
-            wrap.appendChild(b);
+      for (var i = 0; i < CONFIG_SETTINGS.length; i++) {
+        (function (def) {
+          var current, options = def.options;
+          if (def.dynamic === "albums") {
+            options = [""].concat((albums || []).map(function (a) { return a.albumName || a.name || ""; }).filter(Boolean));
+          }
+          if (def.local) {
+            try { current = window.localStorage.getItem("immich_lang") || "auto"; } catch (e) { current = "auto"; }
+          } else if (def.key === "api_key" || def.key === "panel_token") {
+            current = "";
+          } else {
+            current = cfg[def.key];
+            if (current === undefined || current === null) current = def.kind === "number" ? 100 : "";
+          }
+          st.addSetting({
+            id: def.id, name: def.name, category: def.cat,
+            type: function (name, setter, value) { return wideRow(def.kind, name, setter, value, options); },
+            defaultValue: current,
+            onChange: function (v) {
+              if (def.local) { try { window.localStorage.setItem("immich_lang", v); } catch (e) {} setStatus("语言已保存，刷新后生效", false); return; }
+              if ((def.key === "api_key") && !String(v || "").trim()) return;
+              putConfig(def.key, def.kind === "number" ? Number(v) : v);
+            },
           });
-          return wrap;
-        },
-        defaultValue: ""
+        })(CONFIG_SETTINGS[i]);
+      }
+
+      // 测试连接（连接组）
+      st.addSetting({
+        id: "immich.test", name: "测试连接", category: ["Immich", "连接", "诊断"],
+        type: function (name) { return buttonRow(name, [{ text: "测试连接", onClick: testConnection }]); },
+        defaultValue: "",
       });
 
-      // ── 3 网络 ──
-      st.addSetting(sz("网络", "状态"));
+      // 安全：令牌（显示 / 重新生成 / 清空）
       st.addSetting({
-        id: "immich.proxyMode", name: "网络代理模式", category: ["Immich", "3 网络"],
-        tooltip: H_PROXY, type: "combo", options: ["off", "custom", "env"],
-        defaultValue: cfg.proxy_mode || "off",
-        onChange: function (v) { putConfig("proxy_mode", v, "网络"); }
-      });
-      st.addSetting({
-        id: "immich.proxyUrl", name: "代理地址", category: ["Immich", "3 网络"],
-        tooltip: H_PROXY, type: "text", defaultValue: cfg.proxy_url || "",
-        onChange: function (v) { putConfig("proxy_url", v, "网络"); }
-      });
-      st.addSetting({
-        id: "immich.test.net", name: "连接测试", category: ["Immich", "3 网络"],
-        tooltip: "经当前代理配置再连一次 Immich，用来确认代理是否生效。",
-        type: function () {
-          var b = document.createElement("button");
-          b.textContent = "连接测试"; b.type = "button";
-          b.style.cssText = "padding:6px 14px;border-radius:6px;border:1px solid #3a3f4a;background:#252a33;color:inherit;cursor:pointer";
-          b.onclick = function () { testConnection("网络"); };
-          return b;
+        id: "immich.token", name: "面板令牌", category: ["Immich", "安全", "令牌"],
+        type: function (name) {
+          return buttonRow(name, [
+            { text: "显示", onClick: showToken },
+            { text: "重新生成", onClick: regenToken },
+            { text: "清空", onClick: clearToken },
+          ]);
         },
-        defaultValue: ""
+        defaultValue: "",
       });
+    }
 
-      // ── 4 相册配置 ──
-      st.addSetting(sz("相册配置", "状态"));
-      st.addSetting({
-        id: "immich.defaultAlbum", name: "上传到哪个相册", category: ["Immich", "4 相册配置"],
-        tooltip: H_ALBUM, type: "combo", options: albumOpts,
-        defaultValue: cfg.default_album || "",
-        onChange: function (v) { putConfig("default_album", v, "相册配置"); }
-      });
-      st.addSetting({
-        id: "immich.album.refresh", name: "刷新相册", category: ["Immich", "4 相册配置"],
-        tooltip: H_ALBUM, type: function () {
-          var b = document.createElement("button");
-          b.textContent = "刷新相册"; b.type = "button";
-          b.style.cssText = "padding:6px 14px;border-radius:6px;border:1px solid #3a3f4a;background:#252a33;color:inherit;cursor:pointer";
-          b.onclick = function () {
-            setStatus("相册配置", "重新拉取相册列表…", false);
-            apiGet("/albums").then(function (a) {
-              fillAlbums(a);
-              setStatus("相册配置", "✅ 已刷新（" + ((a || []).length) + " 个相册）", false);
-            }).catch(function () { setStatus("相册配置", "❌ 刷新失败", true); });
-          };
-          return b;
-        },
-        defaultValue: ""
-      });
-
-      // ── 5 前端面板配置 ──
-      st.addSetting({
-        id: "immich.lang", name: "语言", category: ["Immich", "5 前端面板配置"],
-        tooltip: H_LANG, type: "combo", options: ["en", "zh"],
-        defaultValue: (function () { try { return window.localStorage.getItem("immich_lang") || "en"; } catch (e) { return "en"; } })(),
-        onChange: function (v) { try { window.localStorage.setItem("immich_lang", v); } catch (e) {} }
-      });
-      st.addSetting({
-        id: "immich.entryMode", name: "在哪里显示插件按钮", category: ["Immich", "5 前端面板配置"],
-        tooltip: H_ENTRY, type: "combo", options: ["sidebar", "toolbar"],
-        defaultValue: (function () { try { return window.localStorage.getItem("immich_entry_mode") || ENTRY_MODE_DEFAULT; } catch (e) { return ENTRY_MODE_DEFAULT; } })(),
-        onChange: function (v) { try { window.localStorage.setItem("immich_entry_mode", v); } catch (e) {} }
-      });
-    });
+    // 相册列表用于下拉；拿不到就退化成只有空选项
+    var albumsPromise = apiGet("/albums").catch(function () { return null; });
+    var cfgPromise = fetch("/api/immich_plus/config").then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
+    Promise.all([cfgPromise, albumsPromise]).then(function (res) { build(res[0], res[1]); });
   }
 
   function registerSettings() {
@@ -2399,6 +2368,18 @@
     try {
       var st = window.app && window.app.ui && window.app.ui.settings;
       if (!st || typeof st.addSetting !== "function") return false;
+      st.addSetting({
+        id: "immich.entryMode",
+        name: "入口位置（sidebar = 左侧栏 / toolbar = 顶部按钮，刷新后生效）",
+        category: ["Immich", "面板", "入口"],
+        tooltip: "切换 Immich 素材面板的入口位置。修改后请手动刷新页面生效。",
+        type: "combo",
+        defaultValue: ENTRY_MODE_DEFAULT,
+        options: ["sidebar", "toolbar"],
+        onChange: function (v) {
+          try { window.localStorage.setItem("immich_entry_mode", v); } catch (e) {}
+        },
+      });
       _immichSettingAdded = true;
       try { document.documentElement.setAttribute("data-immich-settings", "ok"); } catch (e) {}
       // 其余配置项：先读一次现有配置，再按表格注册（读失败就用默认值）
