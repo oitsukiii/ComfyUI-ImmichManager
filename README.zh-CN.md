@@ -198,6 +198,9 @@ python -m pip install requests pillow aiohttp
 
 ## 安全模型
 
+威胁模型（信任边界、逐路由的「谁能调/碰什么秘密/连哪」表、已接受的风险）见 [THREAT_MODEL.md](THREAT_MODEL.md)。
+
+
 下面从你在**配置页 🔒 安全分组**里实际看到的面板访问令牌讲起，按使用顺序说明。
 
 ### 1. 面板访问令牌是什么？

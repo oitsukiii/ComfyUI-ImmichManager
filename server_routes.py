@@ -11,6 +11,7 @@
 import asyncio
 import hmac
 import json
+import re
 import logging
 import threading
 import time
@@ -49,6 +50,16 @@ except ImportError:  # noqa: BLE001 — 直接 python3 运行（测试/调试）
     from upload_node import job_manager
 
 ROUTE_PREFIX = "/api/immich_plus"
+
+# 资产 id 只允许 Immich 实际使用的形态。放行 "/" 或 ".." 会让 requests 做 URL
+# 规范化，把 f"/assets/{asset_id}" 变成别的 Immich 端点，等于用操作者的 API key
+# 去打插件从未暴露的接口（见 THREAT_MODEL.md F2）。
+_ASSET_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+
+
+def _valid_asset_id(asset_id: str) -> bool:
+    return bool(_ASSET_ID_RE.match(asset_id or ""))
+
 ALLOWED_SIZES = {"thumbnail", "preview", "original"}
 MAX_DELETE_IDS = 1000
 
@@ -490,6 +501,8 @@ def setup_routes(server) -> None:
         if not _check_auth(request, config):
             return _unauthorized()
         asset_id = request.match_info["asset_id"]
+        if not _valid_asset_id(asset_id):
+            return _error("非法 asset_id")
         client = _get_client(config)
         try:
             data = await _call(client.get_asset, asset_id)
@@ -502,6 +515,8 @@ def setup_routes(server) -> None:
         if not _check_auth(request, config):
             return _unauthorized()
         asset_id = request.match_info["asset_id"]
+        if not _valid_asset_id(asset_id):
+            return _error("非法 asset_id")
         size = request.query.get("size", "preview")
         if size not in ALLOWED_SIZES:
             return _error(f"size 必须是 {sorted(ALLOWED_SIZES)} 之一")
@@ -547,6 +562,9 @@ def setup_routes(server) -> None:
         if not _check_auth(request, config):
             return _unauthorized()
         asset_id = request.match_info["asset_id"]
+        if not _valid_asset_id(asset_id):
+            return _error("非法 asset_id")
+        asset_id = request.match_info["asset_id"]
         client = _get_client(config)
         try:
             upstream = await _call(client.get_original, asset_id)
@@ -575,6 +593,9 @@ def setup_routes(server) -> None:
         内部优先 Immich 批量端点 PUT /assets，失败降级逐条（见
         ImmichClient.update_assets_bulk），返回部分成功语义。
         """
+        denied = _sensitive_denied(request, config)
+        if denied is not None:
+            return denied
         if not _check_auth(request, config):
             return _unauthorized()
         try:
@@ -601,9 +622,14 @@ def setup_routes(server) -> None:
 
     @routes.put(f"{ROUTE_PREFIX}/assets/{{asset_id}}")
     async def asset_update(request: web.Request) -> web.Response:
+        denied = _sensitive_denied(request, config)
+        if denied is not None:
+            return denied
         if not _check_auth(request, config):
             return _unauthorized()
         asset_id = request.match_info["asset_id"]
+        if not _valid_asset_id(asset_id):
+            return _error("非法 asset_id")
         try:
             payload = await request.json()
         except json.JSONDecodeError:
@@ -618,6 +644,9 @@ def setup_routes(server) -> None:
     @routes.delete(f"{ROUTE_PREFIX}/assets")
     async def assets_delete(request: web.Request) -> web.Response:
         """批量删除：DELETE /assets + body {ids}。删除总进回收站（v2 实测）。"""
+        denied = _sensitive_denied(request, config)
+        if denied is not None:
+            return denied
         if not _check_auth(request, config):
             return _unauthorized()
         try:

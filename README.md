@@ -195,6 +195,9 @@ When a proxy variable is detected in the process environment, the config page sh
 
 ## Security
 
+The threat model — trust boundaries, a per-route table of who can call what with which secret, and the accepted risks — is in [THREAT_MODEL.md](THREAT_MODEL.md).
+
+
 This section starts from the **panel access token** you actually see in the 🔒 Security group of the config page, and explains it step by step.
 
 ### 1. What is the panel access token?

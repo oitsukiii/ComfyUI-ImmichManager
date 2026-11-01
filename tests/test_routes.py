@@ -711,6 +711,52 @@ async def main():
               server_routes._sensitive_denied(sreq("192.168.1.50"), cfg) is not None)
         server_routes._TRUST_LOCALHOST = True  # 恢复生产默认
 
+    # ---- 16. 会改/删 Immich 库的路由必须走敏感守卫 ----
+    # 默认安装没有 panel_token 时 _check_auth 对所有人放行；如果这几个路由只挂
+    # _check_auth，局域网任意设备就能批量收藏/删除用户的 Immich 资产。
+    with tempfile.TemporaryDirectory() as tmp:
+        app, fake = build_app(tmp)
+        client = TestClient(TestServer(app))
+        await client.start_server()
+        real_is_local = server_routes._is_localhost
+        try:
+            # 令牌配好之后再模拟局域网来源，避免 _check_auth 的"无令牌放行"分支
+            await client.put("/api/immich_plus/config", json={"panel_token": "tok123"})
+            server_routes._is_localhost = lambda remote: False   # 假装来自局域网
+            for meth, path, body in (
+                ("put", "/api/immich_plus/assets", {"ids": ["a1"], "isFavorite": True}),
+                ("put", "/api/immich_plus/assets/a1", {"description": "x"}),
+                ("delete", "/api/immich_plus/assets", {"ids": ["a1"]}),
+            ):
+                kw = {"headers": {"Authorization": "Bearer tok123"}}
+                if body is not None:
+                    kw["json"] = body
+                r = await getattr(client, meth)(path, **kw)
+                check(f"敏感守卫: {meth.upper()} {path} 局域网+令牌不被拦", r.status != 403, f"-> {r.status}")
+                kw.pop("json", None)
+                r2 = await getattr(client, meth)(path, **({"json": body} if body else {}))
+                check(f"敏感守卫: {meth.upper()} {path} 局域网无令牌 403", r2.status == 403, f"-> {r2.status}")
+        finally:
+            server_routes._is_localhost = real_is_local
+            await client.close()
+
+    # ---- 17. asset_id 不允许路径穿越 ----
+    # Immich 客户端把 asset_id 拼进 URL 路径（f"/assets/{asset_id}"）。放行 "/" 或
+    # ".." 会让 requests 规范化成别的 Immich 端点，等于用操作者的 key 打插件从不
+    # 暴露的接口（THREAT_MODEL.md F2）。
+    with tempfile.TemporaryDirectory() as tmp:
+        app, fake = build_app(tmp)
+        client = TestClient(TestServer(app))
+        await client.start_server()
+        try:
+            for bad in ("abc%2F..%2F..%2Fusers", "..%2Fusers", "a.b", "a%20b"):
+                r = await client.get(f"/api/immich_plus/assets/{bad}")
+                check(f"asset_id 校验: {bad} 被拒", r.status in (400, 404), f"-> {r.status}")
+            ok = await client.get("/api/immich_plus/assets/asset-1")
+            check("asset_id 校验: 正常 id 不被拒", ok.status != 400, f"-> {ok.status}")
+        finally:
+            await client.close()
+
     # 未污染真实 config.json
     check("测试未污染真实 config.json", not os.path.exists(os.path.join(REPO_ROOT, "config.json")))
 
