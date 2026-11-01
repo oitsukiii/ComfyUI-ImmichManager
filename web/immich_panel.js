@@ -2300,11 +2300,11 @@
   var H_LANG  = "面板界面语言，刷新页面后生效。";
 
   var CONFIG_SETTINGS = [
-    { key: "base_url", id: "immich.baseUrl", name: "Immich 地址", kind: "text", cat: ["Immich", "1 连接", "服务"], hint: H_BASE },
-    { key: "api_key", id: "immich.apiKey", name: "API Key（留空不修改）", kind: "password", cat: ["Immich", "1 连接", "凭据"], hint: H_KEY },
-    { key: "default_album", id: "immich.defaultAlbum", name: "上传到相册", kind: "combo", cat: ["Immich", "4 相册配置", "目标"], dynamic: "albums", hint: H_ALBUM },
-    { key: "proxy_mode", id: "immich.proxyMode", name: "网络代理模式", kind: "combo", cat: ["Immich", "3 网络", "模式"], options: ["off", "custom", "env"], hint: H_PROXY },
-    { key: "proxy_url", id: "immich.proxyUrl", name: "代理地址（custom 必填）", kind: "text", cat: ["Immich", "3 网络", "地址"], hint: H_PROXY },
+    { key: "base_url", id: "immich.baseUrl", name: "Immich 地址", kind: "text", cat: ["Immich", "1 连接"], hint: H_BASE },
+    { key: "api_key", id: "immich.apiKey", name: "API Key（留空不修改）", kind: "password", cat: ["Immich", "1 连接"], hint: H_KEY },
+    { key: "default_album", id: "immich.defaultAlbum", name: "上传到哪个相册", kind: "combo", cat: ["Immich", "4 相册配置", "目标"], dynamic: "albums", hint: H_ALBUM },
+    { key: "proxy_mode", id: "immich.proxyMode", name: "网络代理模式", kind: "combo", cat: ["Immich", "3 网络"], options: ["off", "custom", "env"], hint: H_PROXY },
+    { key: "proxy_url", id: "immich.proxyUrl", name: "代理地址（custom 必填）", kind: "text", cat: ["Immich", "3 网络"], hint: H_PROXY },
     { key: "timeline_range", id: "immich.timelineRange", name: "时间轴大组间隔", kind: "combo", cat: ["Immich", "5 资源", "时间轴"], options: ["today", "3d", "7d"], hint: H_RANGE },
     { key: "timeline_interval", id: "immich.timelineInterval", name: "时间轴小组间隔", kind: "combo", cat: ["Immich", "5 资源", "时间轴"], options: ["15m", "30m", "1h", "1d"], hint: H_INTERVAL },
     { key: "__lang", id: "immich.lang", name: "面板语言（刷新后生效）", kind: "combo", cat: ["Immich", "6 前端面板配置", "语言"], options: ["en", "zh", "auto"], local: true, hint: H_LANG },
@@ -2462,8 +2462,8 @@
       if (!st || typeof st.addSetting !== "function") return false;
       st.addSetting({
         id: "immich.entryMode",
-        name: "入口位置（sidebar = 左侧栏 / toolbar = 顶部按钮，刷新后生效）",
-        category: ["Immich", "面板", "入口"],
+        name: "在哪里显示插件按钮（刷新后生效）",
+        category: ["Immich", "6 前端面板配置", "入口"],
         tooltip: "切换 Immich 素材面板的入口位置。修改后请手动刷新页面生效。",
         type: "combo",
         defaultValue: ENTRY_MODE_DEFAULT,
