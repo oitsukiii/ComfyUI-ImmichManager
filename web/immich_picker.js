@@ -61,14 +61,14 @@ const filterState = { conditions: [], order: "desc", page: 1 };
 
 const CSS = `
 .immich-pick-mask{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;align-items:center;justify-content:center}
-.immich-pick-win{width:min(940px,92vw);max-height:86vh;background:#1b1e24;color:#e6e6e6;border:1px solid #3a3f4a;
+.immich-pick-win{width:min(940px,92vw);height:min(720px,86vh);background:#1b1e24;color:#e6e6e6;border:1px solid #3a3f4a;
   border-radius:10px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.6)}
 .immich-pick-bar{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid #3a3f4a;flex-wrap:wrap}
 .immich-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;
   background:#2a3038;border:1px solid #3a3f4a;font-size:12px}
 .immich-chip b{cursor:pointer;opacity:.7;font-weight:400}
 .immich-chip b:hover{opacity:1;color:#ff6b6b}
-.immich-pick-body{padding:12px;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));
+.immich-pick-body{flex:1 1 auto;min-height:0;padding:12px;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));
   grid-auto-rows:150px;gap:8px}
 .immich-pick-cell{height:150px;background:#252a33;border-radius:6px;overflow:hidden;cursor:pointer;
   border:2px solid transparent;box-sizing:border-box;position:relative}
@@ -336,6 +336,13 @@ async function openPicker(node) {
       next.disabled = !nextPage;
       const items = d.items || [];
       info.textContent = `第 ${page} 页 · ${items.length} 张${nextPage ? "（还有下一页）" : ""}`;
+      if (!items.length) {
+        body.style.display = "block";
+        body.innerHTML = '<div style="opacity:.6;font-size:13px;padding:24px 8px">' +
+          '没有符合条件的资产。试试减少条件，或换一个相册 / 人脸。</div>';
+        return;
+      }
+      body.style.display = "grid";
       for (const it of items) {
         const cell = document.createElement("div");
         cell.className = "immich-pick-cell" + (it.id === selectedId ? " immich-pick-selected" : "");
