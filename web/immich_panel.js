@@ -1998,6 +1998,18 @@
   //
   // 所以这里克隆官方 rail item 的 DOM：样式/结构/交互全部继承，只在它后面插一个
   // 同款按钮。代价是 ComfyUI 改版会坏，收益是视觉上与原生一致。
+  // 入口方式：sidebar（左侧栏，默认）| toolbar（旧的顶部按钮）
+  var ENTRY_MODE_DEFAULT = "sidebar";
+
+  function currentEntryMode() {
+    try {
+      var v = window.localStorage.getItem("immich_entry_mode");
+      if (v === "sidebar" || v === "toolbar") return v;
+    } catch (e) { /* localStorage 可能禁用 */ }
+    return ENTRY_MODE_DEFAULT;
+  }
+
+  // rail 按钮的可见标签不是文本节点，只有 aria-label —— 必须按 aria 找。
   var RAIL_LABELS = ["模板", "Templates", "テンプレート"];
   var _railObserver = null;
 
@@ -2006,15 +2018,17 @@
   }
 
   function findTemplateItem(rail) {
-    var kids = rail.querySelectorAll("button, [role='button'], a");
-    for (var i = 0; i < kids.length; i++) {
-      var txt = (kids[i].textContent || "").trim();
-      for (var j = 0; j < RAIL_LABELS.length; j++) {
-        if (txt.indexOf(RAIL_LABELS[j]) >= 0) return kids[i];
-      }
+    for (var i = 0; i < RAIL_LABELS.length; i++) {
+      var el = rail.querySelector('[aria-label="' + RAIL_LABELS[i] + '"]');
+      if (el) return el;
     }
-    // 兜底：模板是官方列表的最后一个，取最后一个可点元素
-    return kids.length ? kids[kids.length - 1] : null;
+    // 兜底：顶部组（资产…模板）里的最后一个按钮，模板就是最后一个
+    var group = rail.querySelector('[data-testid="sidebar-top-group"]');
+    if (group) {
+      var btns = group.querySelectorAll("button");
+      if (btns.length) return btns[btns.length - 1];
+    }
+    return null;
   }
 
   function immichRailIcon() {
@@ -2033,22 +2047,31 @@
   }
 
   function setImmichLabel(node) {
-    // rail item 结构：<svg 图标/><span 文字/>。只改文字节点，别动图标容器。
+    var NAME = "Immich";
+    // 可见标签可能来自 aria-label（CSS attr()）或 <span> 文本，两处都改
+    node.setAttribute("aria-label", NAME);
+    node.setAttribute("title", NAME);
     var spans = node.querySelectorAll("span");
     for (var i = 0; i < spans.length; i++) {
       var t = (spans[i].textContent || "").trim();
-      if (t && RAIL_LABELS.indexOf(t) >= 0) { spans[i].textContent = "Immich"; return true; }
+      if (t && RAIL_LABELS.indexOf(t) >= 0) spans[i].textContent = NAME;
     }
-    // 没有文字节点（纯图标模式）也接受
-    return false;
+    // 文本节点直接命中
+    for (var j = 0; j < node.childNodes.length; j++) {
+      var c = node.childNodes[j];
+      if (c.nodeType === 3 && RAIL_LABELS.indexOf((c.textContent || "").trim()) >= 0) {
+        c.textContent = NAME;
+      }
+    }
   }
 
   function addRailButton() {
     if (document.getElementById("immich-rail-btn")) return true;
     var rail = findRail();
-    if (!rail) return false;
+    if (!rail) { document.documentElement.setAttribute("data-immich-rail", "norail"); return false; }
     var tpl = findTemplateItem(rail);
-    if (!tpl) return false;
+    if (!tpl) { document.documentElement.setAttribute("data-immich-rail", "notpl"); return false; }
+    document.documentElement.setAttribute("data-immich-rail", "ok");
 
     var btn = tpl.cloneNode(true);
     btn.id = "immich-rail-btn";
@@ -2095,6 +2118,7 @@
   }
 
   function registerSidebarEntry() {
+    try { document.documentElement.setAttribute("data-immich-entry", "sidebar"); } catch (e) {}
     watchRail();
   }
 
@@ -2119,6 +2143,7 @@
   // ─────────────── 启动 ───────────────
 
   function init() {
+    try { document.documentElement.setAttribute("data-immich-init", "1"); } catch (e) {}
     // sidebar 模式在左侧图标栏插入入口；toolbar 模式保留旧的顶部按钮
     if (currentEntryMode() === "toolbar") addToolbarButton();
     else registerSidebarEntry();
