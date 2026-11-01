@@ -61,6 +61,10 @@
 
 ![置顶菜单与置顶区](images/panel-pin.png)
 
+**多选模式** —— 勾选资产、shift 点选范围，然后一次性收藏或移入 Immich 回收站。
+
+![多选模式](images/panel-selection.png)
+
 **排序** —— 最新/最早优先；菜单展开时图标高亮。
 
 ![排序菜单](images/panel-sort-menu.png)

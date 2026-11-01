@@ -61,6 +61,10 @@
 
 ![Pin menu and a pinned section](images/panel-pin.png)
 
+**Selection mode** — check assets, shift-click for a range, then favourite or move them to the Immich trash in one go.
+
+![Selection mode](images/panel-selection.png)
+
 **Sorting** — newest or oldest first. The icon lights up while its menu is down.
 
 ![Sort menu](images/panel-sort-menu.png)
