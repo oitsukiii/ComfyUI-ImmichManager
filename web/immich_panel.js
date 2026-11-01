@@ -2265,6 +2265,26 @@
 
     box.appendChild(btn);
     box.appendChild(list);
+
+    // 供「刷新相册」调用：换掉选项列表，尽量保留当前选中值
+    box.__refresh = function (next) {
+      var keep = cur.textContent;
+      list.innerHTML = "";
+      (next || []).forEach(function (o) {
+        var item = document.createElement("div");
+        item.textContent = o || "（不指定）";
+        item.style.cssText = "padding:8px 12px;cursor:pointer;font:inherit;color:#e6e6e6";
+        item.addEventListener("mouseenter", function () { item.style.background = "#2a3038"; });
+        item.addEventListener("mouseleave", function () { item.style.background = "transparent"; });
+        item.addEventListener("click", function () {
+          cur.textContent = o;
+          list.style.display = "none";
+          setter(o);
+        });
+        list.appendChild(item);
+      });
+      cur.textContent = keep;
+    };
     return box;
   }
 
@@ -2356,11 +2376,15 @@
   var H_BASE     = "在这里填写你的 Immich 服务的地址。假如你的 Immich 地址是 192.168.1.2，就填 http://192.168.1.2/api";
   var H_KEY      = "这里填你的 Immich API Key。Immich 网页右上角头像 → 账户设置 → API 密钥 → 新建。留空表示不修改已存的值。";
   var H_ALBUM    = "上传的图片和视频会进入这个相册。列表来自 Immich，新增相册后刷新页面重新拉取。";
-  var H_PROXY    = "局域网直连一般保持 off。需要经代理访问 Immich 时选 custom 并填写代理地址。";
+  var H_PROXY    = "off = 不使用代理，直接连局域网（默认，推荐）；"
+                + "custom = 所有 Immich 请求走下面填写的代理地址；"
+                + "env = 沿用启动 ComfyUI 时的 HTTP_PROXY / HTTPS_PROXY / ALL_PROXY 环境变量（旧行为兼容）。";
   var H_RANGE    = "时间轴按这个粒度分组显示：today / 3d / 7d。";
   var H_INTERVAL = "组内再按这个间隔细分：15m / 30m / 1h / 1d。";
   var H_PAGE     = "面板一次加载多少个资产。越大滚动越省事，首次加载越慢。";
   var H_LANG     = "面板界面语言，刷新页面后生效。";
+
+  var _albumRefresh = null;   // 相册下拉的重建句柄
 
   var H_TOKEN = "面板令牌用于保护局域网访问。未设置时，局域网内任何设备都能读取和操作你的 Immich 素材；"
               + "设置后，非本机访问 /api/immich_plus/* 需要带上 Authorization: Bearer <令牌>。"
@@ -2442,6 +2466,17 @@
     (document.head || document.documentElement).appendChild(el);
   })();
 
+  function refreshAlbums() {
+    setStatus("重新拉取相册列表…", false);
+    apiGet("/albums").then(function (a) {
+      var names = [""].concat((a || []).map(function (x) {
+        return x && (x.albumName || x.name) || "";
+      }).filter(Boolean));
+      if (_albumRefresh) _albumRefresh(names);
+      setStatus("相册列表已刷新（" + ((a || []).length) + " 个）", false);
+    }).catch(function () { setStatus("刷新相册失败", true); });
+  }
+
   function registerConfigSettings(st) {
     function build(cfg, albums) {
       cfg = cfg || {};
@@ -2465,7 +2500,14 @@
           }
           st.addSetting({
             id: def.id, name: "", category: def.cat,
-            type: function (name, setter, value) { return wideRow(def.kind, def.name, setter, value, options, def.hint); },
+            type: function (name, setter, value) {
+              var row = wideRow(def.kind, def.name, setter, value, options, def.hint);
+              if (def.dynamic === "albums") {
+                var box = row.querySelector("div");
+                _albumRefresh = (box && box.__refresh) || null;
+              }
+              return row;
+            },
             defaultValue: current,
             onChange: function (v) {
               if (def.local) { try { window.localStorage.setItem("immich_lang", v); } catch (e) {} setStatus("语言已保存，刷新后生效", false); return; }
@@ -2481,6 +2523,13 @@
       st.addSetting({
         id: "immich.test", name: "", category: ["Immich", "1 🔗 连接", "连接设置", "1 测试"],
         type: function () { return buttonRow("", [{ text: "测试连接", onClick: testConnection }]); },
+        defaultValue: "",
+      });
+
+      // 相册：刷新按钮
+      st.addSetting({
+        id: "immich.album.refresh", name: "", category: ["Immich", "4 🖼️ 相册配置", "相册设置", "2 刷新"],
+        type: function () { return buttonRow("", [{ text: "刷新相册", onClick: refreshAlbums }], H_ALBUM); },
         defaultValue: "",
       });
 
