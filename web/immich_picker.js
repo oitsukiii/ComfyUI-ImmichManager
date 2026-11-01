@@ -302,11 +302,12 @@ async function openPicker(node) {
     return;
   }
   // 只回填，不关闭 —— 关不关由面板按设置（immich.pickClose）决定
+  // 把节点当前选中的 id 传进去，重开面板时能高亮上次那张
   P.openForPick((asset) => {
     if (!asset || !asset.id) return;
     setWidget(node, "asset_id", asset.id);
     applyNodePreview(node, asset.id);
-  });
+  }, getWidget(node, "asset_id") || "");
 }
 
 // 选完立刻在节点上画缩略图（ui.images 只有执行后才渲染）

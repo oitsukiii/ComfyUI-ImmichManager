@@ -329,10 +329,10 @@
 
   // 供「Load Image from Immich」节点打开：进入选择面板模式，点图即回调
   window.__immichPanel = {
-    openForPick: function (cb) {
+    openForPick: function (cb, currentId) {
       state.pickMode = true;
       state.onPick = cb;
-      state.pickSelected = "";
+      state.pickSelected = currentId || "";   // 记住上次选的，重新打开时高亮它
       var btn = document.getElementById("immich-btn-select");
       if (btn) btn.style.display = "none";     // 选择面板没有批量选择
       openPanel();
@@ -977,6 +977,17 @@
   }
 
   // 有条件时走 /search：把结果按月分组，复用 renderCell 渲染
+  // 时间轴滚动位置：复用已有的 sessionStorage 机制（LS_TIMELINE_SCROLL），
+  // 两条渲染通路（分桶 / 条件筛选）共用同一个位置。
+  function rememberTimelineScroll() {
+    var tl = document.getElementById("immich-timeline");
+    if (tl) { try { sessionStorage.setItem(LS_TIMELINE_SCROLL, String(tl.scrollTop)); } catch (e) {} }
+  }
+
+  function restoreTimelineScroll() {
+    restoreTimelineState();
+  }
+
   function renderFiltered(timeline) {
     var pages = [];
     function fetchPage(p) {
@@ -1017,12 +1028,14 @@
         timeline.appendChild(sec);
         lazyLoad(grid);
       });
+      restoreTimelineScroll();
     });
   }
 
   function renderTimeline() {
     var token = ++viewToken;
     setViewMode("timeline");
+    rememberTimelineScroll();
     if ((state.conditions || []).length) {
       var tl0 = document.getElementById("immich-timeline");
       if (tl0) {
@@ -1425,6 +1438,7 @@
       if (state.pickMode) {
         state.pickSelected = asset.id;
         syncPickSelected(asset.id);
+        openDetail(asset);                      // 右侧大图预览（选择面板也要有）
         if (typeof state.onPick === "function") state.onPick(asset);
         if (pickCloseAfterSelect()) {
           if (typeof window.__immichPanel.exitPick === "function") window.__immichPanel.exitPick();
