@@ -2300,11 +2300,11 @@
   var H_LANG  = "面板界面语言，刷新页面后生效。";
 
   var CONFIG_SETTINGS = [
-    { key: "base_url", id: "immich.baseUrl", name: "Immich 地址", kind: "text", cat: ["Immich", "1 连接"], hint: H_BASE },
-    { key: "api_key", id: "immich.apiKey", name: "API Key（留空不修改）", kind: "password", cat: ["Immich", "1 连接"], hint: H_KEY },
-    { key: "default_album", id: "immich.defaultAlbum", name: "上传到哪个相册", kind: "combo", cat: ["Immich", "4 相册配置", "目标"], dynamic: "albums", hint: H_ALBUM },
-    { key: "proxy_mode", id: "immich.proxyMode", name: "网络代理模式", kind: "combo", cat: ["Immich", "3 网络"], options: ["off", "custom", "env"], hint: H_PROXY },
-    { key: "proxy_url", id: "immich.proxyUrl", name: "代理地址（custom 必填）", kind: "text", cat: ["Immich", "3 网络"], hint: H_PROXY },
+    { key: "base_url", id: "immich.baseUrl", name: "Immich 地址", kind: "text", cat: ["Immich", "1 连接", "服务"], hint: H_BASE },
+    { key: "api_key", id: "immich.apiKey", name: "API Key（留空不修改）", kind: "password", cat: ["Immich", "1 连接", "凭据"], hint: H_KEY },
+    { key: "default_album", id: "immich.defaultAlbum", name: "上传到相册", kind: "combo", cat: ["Immich", "4 相册配置", "目标"], dynamic: "albums", hint: H_ALBUM },
+    { key: "proxy_mode", id: "immich.proxyMode", name: "网络代理模式", kind: "combo", cat: ["Immich", "3 网络", "模式"], options: ["off", "custom", "env"], hint: H_PROXY },
+    { key: "proxy_url", id: "immich.proxyUrl", name: "代理地址（custom 必填）", kind: "text", cat: ["Immich", "3 网络", "地址"], hint: H_PROXY },
     { key: "timeline_range", id: "immich.timelineRange", name: "时间轴大组间隔", kind: "combo", cat: ["Immich", "5 资源", "时间轴"], options: ["today", "3d", "7d"], hint: H_RANGE },
     { key: "timeline_interval", id: "immich.timelineInterval", name: "时间轴小组间隔", kind: "combo", cat: ["Immich", "5 资源", "时间轴"], options: ["15m", "30m", "1h", "1d"], hint: H_INTERVAL },
     { key: "__lang", id: "immich.lang", name: "面板语言（刷新后生效）", kind: "combo", cat: ["Immich", "6 前端面板配置", "语言"], options: ["en", "zh", "auto"], local: true, hint: H_LANG },
@@ -2351,41 +2351,6 @@
       '[role="dialog"] [data-pc-section="label"]{min-width:360px}';
     (document.head || document.documentElement).appendChild(st);
   })();
-
-  // ───────── 按钮动作：和「刷新相册」同一套写法（自包含 + 只用 toast 通知）─────────
-  function runHealth(label) {
-    toast("info", (label || "测试") + "：请求中…");
-    apiGet("/health").then(function (h) {
-      if (h && (h.ok === true || h.version)) {
-        var v = h.version || {};
-        toast("success", (label || "测试") + "：连接成功（Immich " + (v.major || "?") + "." + (v.minor || "?") + "." + (v.patch || "?") + "）");
-      } else {
-        toast("error", (label || "测试") + "：连接失败或后端未配置");
-      }
-    }).catch(function () { toast("error", (label || "测试") + "：无法访问后端"); });
-  }
-
-  function runTokenShow() {
-    apiGet("/panel-token").then(function (d) {
-      var t = tokenOf(d);
-      if (t) toast("success", "当前令牌：" + t);
-      else toast("error", "后端未返回令牌");
-    }).catch(function () { toast("error", "读取令牌失败"); });
-  }
-
-  function runTokenRegen() {
-    apiSend("POST", "/panel-token").then(function (r) {
-      if (!r.ok) { toast("error", "重新生成被拒绝（HTTP " + r.status + "）"); return; }
-      return r.json().then(function (d) { toast("success", "已重新生成：" + (tokenOf(d) || "(未回传明文)")); });
-    }).catch(function () { toast("error", "重新生成失败"); });
-  }
-
-  function runTokenClear() {
-    if (!window.confirm("清空面板令牌后，局域网内任何设备都能访问 Immich 面板。确定清空？")) return;
-    apiSend("DELETE", "/panel-token").then(function (r) {
-      r.ok ? toast("success", "令牌已清空") : toast("error", "清空被拒绝（HTTP " + r.status + "）");
-    }).catch(function () { toast("error", "清空失败"); });
-  }
 
   function registerConfigSettings(st) {
     function build(cfg, albums) {
@@ -2442,20 +2407,20 @@
       // 1 连接
       fieldsOf("1 连接");
       buttonOf("immich.test.conn", "连接测试", "1 连接", [
-        { text: "连接测试", onClick: function () { runHealth("连接测试"); } }
+        { text: "连接测试", onClick: testConnection }
       ]);
 
       // 2 安全
       buttonOf("immich.token", "面板令牌", "2 安全", [
-        { text: "显示", onClick: function () { runTokenShow(); } },
-        { text: "重新生成", onClick: function () { runTokenRegen(); } },
-        { text: "清空", onClick: function () { runTokenClear(); } }
+        { text: "显示", onClick: showToken },
+        { text: "重新生成", onClick: regenToken },
+        { text: "清空", onClick: clearToken }
       ]);
 
       // 3 网络
       fieldsOf("3 网络");
       buttonOf("immich.test.net", "连接测试", "3 网络", [
-        { text: "连接测试", onClick: function () { runHealth("网络连接测试"); } }
+        { text: "连接测试", onClick: testConnection }
       ]);
 
       // 4 相册配置
@@ -2497,8 +2462,8 @@
       if (!st || typeof st.addSetting !== "function") return false;
       st.addSetting({
         id: "immich.entryMode",
-        name: "在哪里显示插件按钮（刷新后生效）",
-        category: ["Immich", "6 前端面板配置", "入口"],
+        name: "入口位置（sidebar = 左侧栏 / toolbar = 顶部按钮，刷新后生效）",
+        category: ["Immich", "面板", "入口"],
         tooltip: "切换 Immich 素材面板的入口位置。修改后请手动刷新页面生效。",
         type: "combo",
         defaultValue: ENTRY_MODE_DEFAULT,
