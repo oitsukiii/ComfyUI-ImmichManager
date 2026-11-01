@@ -2202,15 +2202,21 @@
                  "margin-left:6px;border-radius:50%;border:1px solid currentColor;opacity:.55;" +
                  "font-size:10px;line-height:1;cursor:help;vertical-align:middle";
 
-  // 行结构：标题由对话框渲染（name），我们只返回控件格。
-  // 提示文字直接打出来、放在控件下方，用弱化颜色区分（替代原来的感叹号）。
-  var HINT_TEXT = "max-width:520px;margin-top:5px;font-size:11px;line-height:1.5;" +
+  // 行内容纵向排列：标题 / 控件 / 提示（都在我们自己的元素里）
+  var HINT_TEXT = "max-width:520px;margin-top:6px;font-size:11px;line-height:1.5;" +
                   "color:#8a8f98;opacity:.9";
+  var LABEL_CSS  = "display:block;margin-bottom:6px;font-size:13px;opacity:.85";
 
   function wideRow(kind, label, setter, value, options, hint) {
     var col = document.createElement("div");
-    col.style.cssText = "display:flex;flex-direction:column;align-items:flex-start";
-
+    col.style.cssText = "display:flex;flex-direction:column;align-items:flex-start;width:100%";
+    col.setAttribute("data-immich-row", "1");
+    if (label) {
+      var lab = document.createElement("label");
+      lab.textContent = label;
+      lab.style.cssText = LABEL_CSS;
+      col.appendChild(lab);
+    }
     var el;
     if (kind === "combo") {
       el = document.createElement("select");
@@ -2231,7 +2237,6 @@
       el.addEventListener("blur", function () { setter(el.value); });
     }
     col.appendChild(el);
-
     if (hint) {
       var note = document.createElement("div");
       note.textContent = hint;
@@ -2328,6 +2333,19 @@
     }).catch(function () { setStatus("❌ 清空失败", true); });
   }
 
+  // 只作用在含我们行标记的设置行：把「空的标题格」隐藏掉，内容回到左侧。
+  // 注意选择器是 >div>div:first-child（空标签格），不是 >div:first-child（那是整行）。
+  (function immichRowStyle() {
+    if (document.getElementById("immich-row-style")) return;
+    var el = document.createElement("style");
+    el.id = "immich-row-style";
+    el.textContent =
+      '.setting-item:has([data-immich-row])>div>div:first-child{display:none!important}' +
+      '.setting-item:has([data-immich-row]){justify-content:flex-start!important}' +
+      '.setting-item:has([data-immich-row])>div>div:last-child{flex:1 1 auto!important;justify-content:flex-start!important}';
+    (document.head || document.documentElement).appendChild(el);
+  })();
+
   function registerConfigSettings(st) {
     function build(cfg, albums) {
       cfg = cfg || {};
@@ -2361,7 +2379,7 @@
             if (current === undefined || current === null) current = def.kind === "number" ? 100 : "";
           }
           st.addSetting({
-            id: def.id, name: def.name, category: def.cat,
+            id: def.id, name: "", category: def.cat,
             type: function (name, setter, value) { return wideRow(def.kind, def.name, setter, value, options, def.hint); },
             defaultValue: current,
             onChange: function (v) {
