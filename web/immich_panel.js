@@ -436,20 +436,20 @@
     }
 
     fill("immich-sort-menu", SORTS, state.sortOrder || "desc", function (k) {
-      state.sortOrder = k; savePanelUi(); renderTimeline();
+      state.sortOrder = k; savePanelUi(); buildToolMenus(); renderTimeline();
     });
     fill("immich-zoom-menu", ZOOMS, state.zoomSize, function (k) {
       state.zoomSize = k;
       try { sessionStorage.setItem("immich_zoom", k); } catch (e) {}
       var p = document.getElementById("immich-panel");
       if (p) p.setAttribute("data-zoom", k);
-      buildToolMenus();
+      buildToolMenus();   // 重建以便高亮新选中项
     });
     fill("immich-group-menu", GROUPS, state.groupBy || "none", function (k) {
-      state.groupBy = k; savePanelUi(); renderTimeline();
+      state.groupBy = k; savePanelUi(); buildToolMenus(); renderTimeline();
     });
     fill("immich-pin-menu", PINS, state.pinRange || "", function (k) {
-      state.pinRange = k; savePanelUi(); renderTimeline();
+      state.pinRange = k; savePanelUi(); buildToolMenus(); renderTimeline();
     });
 
     [[ "immich-sort-btn", "immich-sort-menu" ],
