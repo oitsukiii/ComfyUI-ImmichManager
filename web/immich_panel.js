@@ -2209,7 +2209,8 @@
 
   function wideRow(kind, label, setter, value, options, hint) {
     var col = document.createElement("div");
-    col.style.cssText = "display:flex;flex-direction:column;align-items:flex-start";
+    col.style.cssText = "display:flex;flex-direction:column;align-items:flex-start;width:100%;" +
+                          "padding-right:32px;box-sizing:border-box";
 
     var el;
     if (kind === "combo") {
@@ -2287,6 +2288,9 @@
   var H_PAGE     = "面板一次加载多少个资产。越大滚动越省事，首次加载越慢。";
   var H_LANG     = "面板界面语言，刷新页面后生效。";
 
+  // 标题缩进用不间断空格，避免被 HTML 折叠；只作用于我们自己的设置行
+  var INDENT = "\u00a0\u00a0\u00a0\u00a0";
+
   var CONFIG_SETTINGS = [
     { key: "base_url", id: "immich.baseUrl", name: "Immich 地址", kind: "text", cat: ["Immich", "1 连接", "连接设置", "服务"], hint: H_BASE },
     { key: "api_key", id: "immich.apiKey", name: "API Key（留空不修改）", kind: "password", cat: ["Immich", "1 连接", "连接设置", "凭据"], hint: H_KEY },
@@ -2361,7 +2365,7 @@
             if (current === undefined || current === null) current = def.kind === "number" ? 100 : "";
           }
           st.addSetting({
-            id: def.id, name: def.name, category: def.cat,
+            id: def.id, name: INDENT + def.name, category: def.cat,
             type: function (name, setter, value) { return wideRow(def.kind, def.name, setter, value, options, def.hint); },
             defaultValue: current,
             onChange: function (v) {
