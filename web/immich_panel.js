@@ -2173,18 +2173,60 @@
   // 把面板里的配置项搬到官方 Settings。PUT /config 是 sensitive 路由：
   // 本机来源直接放行；从别的机器访问需要面板令牌（浏览器会自动带上 Authorization 吗？不会），
   // 所以这里在非本机时会 403 —— 面板里那份配置入口仍然保留，作为兜底。
+  // 官方设置项默认控件很窄。用自定义 type 函数自己渲染一行（pysssss 等插件也这么做），
+  // 宽度就完全由我们控制，不必去猜设置对话框的 CSS 选择器。
+  var WIDE = "width:520px;max-width:66vw;padding:6px 10px;border-radius:6px;" +
+             "border:1px solid #3a3f4a;background:transparent;color:inherit;font:inherit";
+
+  function wideRow(kind, name, setter, value, options) {
+    var tr = document.createElement("tr");
+    var td1 = document.createElement("td");
+    var lab = document.createElement("label");
+    lab.textContent = name;
+    lab.style.cssText = "padding-right:16px;white-space:nowrap;vertical-align:middle";
+    td1.appendChild(lab);
+    var td2 = document.createElement("td");
+    var el;
+    if (kind === "combo") {
+      el = document.createElement("select");
+      el.style.cssText = WIDE;
+      (options || []).forEach(function (o) {
+        var op = document.createElement("option");
+        op.value = o; op.textContent = o;
+        if (String(o) === String(value)) op.selected = true;
+        el.appendChild(op);
+      });
+    } else {
+      el = document.createElement("input");
+      el.type = kind === "number" ? "number" : "text";
+      el.style.cssText = WIDE;
+      el.value = value === undefined || value === null ? "" : value;
+      if (kind === "password") el.type = "password";
+    }
+    el.addEventListener("change", function () { setter(el.value); });
+    el.addEventListener("blur", function () { setter(el.value); });
+    td2.appendChild(el);
+    tr.appendChild(td1);
+    tr.appendChild(td2);
+    return tr;
+  }
+
   var CONFIG_SETTINGS = [
-    { key: "base_url",    id: "immich.baseUrl",    name: "Immich 地址",           type: "text",   cat: ["Immich", "连接", "服务"] },
-    { key: "api_key",     id: "immich.apiKey",     name: "API Key（留空表示不修改）", type: "text",   cat: ["Immich", "连接", "凭据"] },
-    { key: "default_album", id: "immich.defaultAlbum", name: "默认相册",          type: "text",   cat: ["Immich", "上传", "相册"] },
-    { key: "page_size",   id: "immich.pageSize",   name: "每页数量",             type: "number", cat: ["Immich", "浏览", "分页"] },
-    { key: "timeline_range", id: "immich.timelineRange", name: "时间轴大组间隔", type: "combo",  cat: ["Immich", "浏览", "时间轴"],
+    { key: "base_url",    id: "immich.baseUrl",    name: "Immich 地址",           kind: "text",   cat: ["Immich", "连接", "服务"] },
+    { key: "api_key",     id: "immich.apiKey",     name: "API Key（留空不修改）",  kind: "password", cat: ["Immich", "连接", "凭据"] },
+    { key: "panel_token", id: "immich.panelToken", name: "面板令牌（留空不修改）",  kind: "password", cat: ["Immich", "安全", "令牌"], local: false },
+    { key: "default_album", id: "immich.defaultAlbum", name: "默认相册",          kind: "text",   cat: ["Immich", "上传", "相册"] },
+    { key: "page_size",   id: "immich.pageSize",   name: "每页数量",             kind: "number", cat: ["Immich", "浏览", "分页"] },
+    { key: "timeline_range", id: "immich.timelineRange", name: "时间轴大组间隔", kind: "combo",  cat: ["Immich", "浏览", "时间轴"],
       options: ["today", "3d", "7d"] },
-    { key: "timeline_interval", id: "immich.timelineInterval", name: "时间轴小组间隔", type: "combo", cat: ["Immich", "浏览", "时间轴"],
+    { key: "timeline_interval", id: "immich.timelineInterval", name: "时间轴小组间隔", kind: "combo", cat: ["Immich", "浏览", "时间轴"],
       options: ["15m", "30m", "1h", "1d"] },
-    { key: "proxy_mode",  id: "immich.proxyMode",  name: "网络代理模式",          type: "combo",  cat: ["Immich", "代理", "模式"],
+    { key: "proxy_mode",  id: "immich.proxyMode",  name: "网络代理模式",          kind: "combo",  cat: ["Immich", "代理", "模式"],
       options: ["off", "custom", "env"] },
-    { key: "proxy_url",   id: "immich.proxyUrl",   name: "代理地址（custom 模式必填）", type: "text", cat: ["Immich", "代理", "地址"] },
+    { key: "proxy_url",   id: "immich.proxyUrl",   name: "代理地址（custom 必填）", kind: "text", cat: ["Immich", "代理", "地址"] },
+    // 语言只存在面板的 localStorage 里，不走后端；单独注册
+    { key: "__lang",      id: "immich.lang",       name: "面板语言（刷新后生效）",  kind: "combo",   cat: ["Immich", "面板", "语言"],
+      options: ["en", "zh", "auto"], local: true },
   ];
 
   function putConfig(key, value) {
@@ -2202,33 +2244,46 @@
   }
 
   function registerConfigSettings(st) {
-    fetch("/api/immich_plus/config").then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (cfg) {
-        cfg = cfg || {};
-        for (var i = 0; i < CONFIG_SETTINGS.length; i++) {
-          (function (def) {
-            var d = cfg[def.key];
-            if (def.key === "api_key") d = "";              // 不回显真实 key
-            if (d === undefined || d === null) d = def.type === "number" ? 100 : "";
-            var opt = {
-              id: def.id,
-              name: def.name,
-              category: def.cat,
-              type: def.type,
-              defaultValue: d,
-              onChange: function (v) {
-                // 空字符串不提交 api_key，避免把已存的 key 覆盖掉
-                if (def.key === "api_key" && !String(v || "").trim()) return;
-                putConfig(def.key, v);
-              },
-            };
-            if (def.options) opt.options = def.options;
-            st.addSetting(opt);
-          })(CONFIG_SETTINGS[i]);
-        }
-        try { document.documentElement.setAttribute("data-immich-settings-full", String(CONFIG_SETTINGS.length)); } catch (e) {}
-      })
-      .catch(function () { /* 读配置失败就只保留 entryMode */ });
+    function addAll(cfg) {
+      cfg = cfg || {};
+      for (var i = 0; i < CONFIG_SETTINGS.length; i++) {
+        (function (def) {
+          var current;
+          if (def.local) {
+            try { current = window.localStorage.getItem("immich_lang") || "auto"; } catch (e) { current = "auto"; }
+          } else if (def.key === "api_key" || def.key === "panel_token") {
+            current = "";                       // 后端不回显凭据
+          } else {
+            current = cfg[def.key];
+            if (current === undefined || current === null) current = def.kind === "number" ? 100 : "";
+          }
+          var opt = {
+            id: def.id,
+            name: def.name,
+            category: def.cat,
+            type: function (name, setter, value) {
+              return wideRow(def.kind, name, setter, value, def.options);
+            },
+            defaultValue: current,
+            onChange: function (v) {
+              if (def.local) {
+                try { window.localStorage.setItem("immich_lang", v); } catch (e) {}
+                return;
+              }
+              // 凭据留空 = 不修改，避免手滑清空
+              if ((def.key === "api_key" || def.key === "panel_token") && !String(v || "").trim()) return;
+              putConfig(def.key, def.kind === "number" ? Number(v) : v);
+            },
+          };
+          st.addSetting(opt);
+        })(CONFIG_SETTINGS[i]);
+      }
+      try { document.documentElement.setAttribute("data-immich-settings-full", String(CONFIG_SETTINGS.length)); } catch (e) {}
+    }
+    fetch("/api/immich_plus/config")
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(addAll)
+      .catch(function () { addAll(null); });   // 读不到也要把界面建出来，至少能改
   }
 
   function registerSettings() {
