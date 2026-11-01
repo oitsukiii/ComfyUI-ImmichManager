@@ -79,7 +79,7 @@ if _check_deps():
         "ImmichSaveVideo": ImmichSaveVideo,
     }
     NODE_DISPLAY_NAME_MAPPINGS = {
-        "ImmichPickImage": "📥 Immich Pick Image",
+        "ImmichPickImage": "Load Image from Immich",
         "ImmichSaveImage": "🖼️ Immich Save Image",
         "ImmichSaveVideo": "🎬 Immich Save Video",
     }
