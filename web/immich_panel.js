@@ -1069,6 +1069,15 @@
     (document.head || document.documentElement).appendChild(el);
   })();
 
+  // 空日期输入：把浏览器自带的「yyyy/mm/日」文字透明掉，露出我们自绘的占位
+  (function datePhCss() {
+    if (document.getElementById("immich-date-ph-css")) return;
+    var el = document.createElement("style");
+    el.id = "immich-date-ph-css";
+    el.textContent = '.immich-cf-win input[type=date]:invalid{color:transparent}';
+    (document.head || document.documentElement).appendChild(el);
+  })();
+
   // ─────────────── 条件筛选 ───────────────
   (function cfStyle() {
     if (document.getElementById("immich-cf-css")) return;
@@ -1261,18 +1270,27 @@
 
           var wrap = document.createElement("div");
           if (def.value === "date") {
-            // <input type="date"> 的占位文案（yyyy/mm/日）跟元素 lang 走，
-            // 不设就会沿用浏览器语言，英文界面下仍显示中文的「日」
-            var cfLang = (window.ImmichI18n && window.ImmichI18n.getLang() === "zh") ? "zh-CN" : "en-GB";
-            var d1 = document.createElement("input");
-            d1.type = "date"; d1.lang = cfLang; d1.value = c.value || "";
-            d1.onchange = function () { c.value = d1.value; };
-            wrap.appendChild(d1);
+            // 原生 <input type="date"> 的空值占位由浏览器语言决定，lang 属性在
+            // Chrome 上不生效 —— 用「透明原生文字 + 自绘占位」解决
+            function dateField(init, onSet) {
+              var box = document.createElement("div");
+              box.style.cssText = "position:relative;display:inline-flex;align-items:center;flex:1 1 0;min-width:0";
+              var inp = document.createElement("input");
+              inp.type = "date"; inp.required = true; inp.value = init || "";
+              inp.style.cssText = "flex:1 1 0;min-width:0";
+              var ph = document.createElement("span");
+              ph.textContent = "YYYY-MM-DD";
+              ph.style.cssText = "position:absolute;left:12px;pointer-events:none;opacity:.5;font-size:14px;display:" +
+                                 (inp.value ? "none" : "block");
+              inp.addEventListener("input", function () { ph.style.display = inp.value ? "none" : "block"; });
+              inp.addEventListener("change", function () { ph.style.display = inp.value ? "none" : "block"; onSet(inp.value); });
+              box.appendChild(inp);
+              box.appendChild(ph);
+              return box;
+            }
+            wrap.appendChild(dateField(c.value, function (v) { c.value = v; }));
             if (c.op === "介于") {
-              var d2 = document.createElement("input");
-              d2.type = "date"; d2.lang = cfLang; d2.value = c.value2 || "";
-              d2.onchange = function () { c.value2 = d2.value; };
-              wrap.appendChild(d2);
+              wrap.appendChild(dateField(c.value2, function (v) { c.value2 = v; }));
             }
           } else {
             var sel = document.createElement("select");
