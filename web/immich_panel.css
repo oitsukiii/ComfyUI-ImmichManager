@@ -86,9 +86,12 @@
 #immich-timeline-nav {
     display: inline-flex;
     align-items: center;
-    overflow: hidden;
+    /* 原来是 overflow:hidden —— 会把下拉菜单整个裁掉，
+       导致点图标"没反应"（菜单其实开了，只是看不见）。图标按钮已取代
+       原来的滑出动画，这里放开裁切。 */
+    overflow: visible;
     position: relative;
-    max-width: 340px;
+    max-width: none;
     /* 右/下各留 2px：active 琥珀光晕（box-shadow 外扩 2px）不被 overflow 裁掉 */
     padding: 0 2px 2px 0;
     transition: max-width 0.35s ease;
@@ -735,7 +738,7 @@
 .immich-icon-btn.active { color: #f9a825; border-color: #f9a825; }
 .immich-menu-wrap { position: relative; }
 .immich-menu { display: none; position: absolute; top: calc(100% + 4px); right: 0; z-index: 200; min-width: 130px;
-  background: #1b1e24; border: 1px solid #3a3f4a; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.5); overflow: hidden; }
+  background: var(--immich-panel-bg, #2b2b2b); border: 1px solid #3a3f4a; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.5); overflow: hidden; }
 .immich-menu.open { display: block; }
 .immich-menu div { padding: 8px 12px; cursor: pointer; font-size: 13px; white-space: nowrap; }
 .immich-menu div:hover { background: #2a3038; }

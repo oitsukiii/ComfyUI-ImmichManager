@@ -365,6 +365,8 @@
     sort: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 16 4 4 4-4"/><path d="M7 20V4"/><path d="M11 4h10"/><path d="M11 8h7"/><path d="M11 12h4"/></svg>',
     ruler: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v-3"/><path d="M14 15v-3"/><path d="M18 15v-3"/><path d="M2 8V4"/><path d="M22 6H2"/><path d="M22 8V4"/><path d="M6 15v-3"/><rect x="2" y="12" width="20" height="8" rx="2"/></svg>',
     checkCheck: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 7 17l-5-5"/><path d="m22 10-7.5 7.5L13 16"/></svg>',
+    link: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>',
+    x: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>',
     group: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M3 12h18"/><path d="M3 18h18"/></svg>',
   };
 
@@ -466,8 +468,8 @@
       "      </div>" +
       "    </div>" +
       '    <span class="immich-header-sep"></span>' +
-      '    <button class="immich-btn" id="immich-btn-open" title="' + t("btn.open.title") + '">' + t("btn.open") + "</button>" +
-      '    <button class="immich-btn" id="immich-btn-close" title="' + t("btn.close.title") + '">✕</button>' +
+      '    <button class="immich-btn immich-icon-btn" id="immich-btn-open" title="' + t("btn.open.title") + '">' + IC.link + "</button>" +
+      '    <button class="immich-btn immich-icon-btn" id="immich-btn-close" title="' + t("btn.close.title") + '">' + IC.x + "</button>" +
       "  </div>" +
       '  <div id="immich-config-bar" style="display:none">' +
       '    <button class="immich-btn" id="immich-btn-test">' + t("cfg.test.btn") + "</button>" +
@@ -849,10 +851,10 @@
       '.immich-icon-btn.active{color:#f9a825;border-color:#f9a825}' +
       '.immich-menu-wrap{position:relative}' +
       '.immich-menu{display:none;position:absolute;top:calc(100% + 4px);right:0;z-index:200;min-width:130px;' +
-      'background:#1b1e24;border:1px solid #3a3f4a;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.5);overflow:hidden}' +
+      'background:var(--immich-panel-bg,#2a2a2a);border:1px solid #3a3f4a;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.5);overflow:hidden}' +
       '.immich-menu.open{display:block}' +
       '.immich-menu div{padding:8px 12px;cursor:pointer;font-size:13px;white-space:nowrap}' +
-      '.immich-menu div:hover{background:#2a3038}' +
+      '.immich-menu div:hover{background:rgba(255,255,255,.08)}' +
       '.immich-menu div.on{color:#f9a825}' +
       '.immich-menu div.disabled{opacity:.4;cursor:default}';
     (document.head || document.documentElement).appendChild(el);
@@ -1068,6 +1070,8 @@
         rows.push({ field: "album", op: "为", value: "", value2: "" }); paint();
       };
       mask.querySelector('[data-role="cancel"]').onclick = function () { mask.remove(); };
+      // 点空白处也能关（之前必须点取消）
+      mask.addEventListener("click", function (e) { if (e.target === mask) mask.remove(); });
       mask.querySelector('[data-role="ok"]').onclick = function () {
         state.conditions = rows.filter(function (c) {
           return c.field === "date" ? !!(c.value || c.value2) : !!c.value;
