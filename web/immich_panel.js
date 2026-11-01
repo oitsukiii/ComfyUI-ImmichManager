@@ -85,6 +85,7 @@
     favOnly: false,     // "仅显示收藏"开关（需求 2.6）
     pickMode: false,     // 选择面板模式（由选图节点打开）
     pickSelected: "",    // 选择面板里当前高亮的资产 id
+    pickNode: null,      // 选择面板对应的节点（状态存它身上）
     onPick: null,        // 选中资产的回调
     sortOrder: "desc",   // 排序：最新优先 / 最早优先
     groupBy: "none",     // 分组间隔：none / day / month / year
@@ -348,9 +349,10 @@
 
   // 供「Load Image from Immich」节点打开：进入选择面板模式，点图即回调
   window.__immichPanel = {
-    openForPick: function (cb, currentId) {
+    openForPick: function (cb, currentId, node) {
       state.pickMode = true;
       state.onPick = cb;
+      state.pickNode = node || null;
       state.pickSelected = currentId || "";   // 记住上次选的，重新打开时高亮它
       var btn = document.getElementById("immich-btn-select");
       if (btn) btn.style.display = "none";     // 选择面板没有批量选择
@@ -465,31 +467,55 @@
     if (cf) cf.classList.toggle("active", !!(state.conditions && state.conditions.length));
   }
 
-  // 主面板 UI 状态持久化：筛选条件 / 排序 / 置顶 / 分组
-  var LS_PANEL_UI = "immich_panel_ui";
+  // 两套记忆：
+  //   主面板 → 存服务器（GET/POST /panel-state），跟着服务器走
+  //   选择面板 → 存 node.properties.immichUi，跟着工作流 JSON 走
+  function uiSnapshot() {
+    return {
+      conditions: state.conditions || [],
+      sortOrder: state.sortOrder || "desc",
+      pinRange: state.pinRange || "",
+      groupBy: state.groupBy || "none",
+    };
+  }
+  function applyUiSnapshot(d) {
+    if (!d || typeof d !== "object") return;
+    if (Array.isArray(d.conditions)) state.conditions = d.conditions;
+    if (d.sortOrder) state.sortOrder = d.sortOrder;
+    if (typeof d.pinRange === "string") state.pinRange = d.pinRange;
+    if (d.groupBy) state.groupBy = d.groupBy;
+  }
   function savePanelUi() {
-    try {
-      localStorage.setItem(LS_PANEL_UI, JSON.stringify({
-        conditions: state.conditions || [],
-        sortOrder: state.sortOrder || "desc",
-        pinRange: state.pinRange || "",
-        groupBy: state.groupBy || "none",
-      }));
-    } catch (e) {}
+    var snap = uiSnapshot();
+    if (state.pickMode) {
+      // 选择面板：写回节点（序列化时进工作流 JSON）
+      if (state.pickNode) {
+        state.pickNode.properties = state.pickNode.properties || {};
+        state.pickNode.properties.immichUi = snap;
+        try { state.pickNode.setDirtyCanvas(true, false); } catch (e) {}
+      }
+      return;
+    }
+    api("POST", "/panel-state", snap).catch(function () {});
   }
   function loadPanelUi() {
-    try {
-      var d = JSON.parse(localStorage.getItem(LS_PANEL_UI) || "{}");
-      if (Array.isArray(d.conditions)) state.conditions = d.conditions;
-      if (d.sortOrder) state.sortOrder = d.sortOrder;
-      if (typeof d.pinRange === "string") state.pinRange = d.pinRange;
-      if (d.groupBy) state.groupBy = d.groupBy;
-    } catch (e) {}
+    if (state.pickMode) {
+      applyUiSnapshot(state.pickNode && state.pickNode.properties && state.pickNode.properties.immichUi);
+      return Promise.resolve();
+    }
+    return api("GET", "/panel-state").then(function (d) {
+      var before = JSON.stringify(uiSnapshot());
+      applyUiSnapshot(d);
+      // 服务器状态与本地默认不同 → 用服务端的重画一次
+      if (JSON.stringify(uiSnapshot()) !== before) {
+        try { renderTimeline(); } catch (e) {}
+      }
+    }).catch(function () {});
   }
 
   function ensureSkeleton() {
     if (document.getElementById("immich-panel-overlay")) return;
-    loadPanelUi();   // 恢复上次的筛选/排序/置顶/分组
+    loadPanelUi();   // 主面板从服务器恢复（异步），选择面板从节点属性恢复
     var overlay = document.createElement("div");
     overlay.id = "immich-panel-overlay";
     overlay.innerHTML =

@@ -307,7 +307,7 @@ async function openPicker(node) {
     if (!asset || !asset.id) return;
     setWidget(node, "asset_id", asset.id);
     applyNodePreview(node, asset.id);
-  }, getWidget(node, "asset_id") || "");
+  }, getWidget(node, "asset_id") || "", node);   // 传节点：筛选状态存它身上（进工作流）
 }
 
 // 选完立刻在节点上画缩略图（ui.images 只有执行后才渲染）

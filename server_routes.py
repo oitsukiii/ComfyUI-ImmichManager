@@ -11,6 +11,7 @@
 import asyncio
 import hmac
 import json
+import os
 import re
 import logging
 import threading
@@ -680,6 +681,43 @@ def setup_routes(server) -> None:
         return web.json_response(job)
 
     # ---------- 相册 ----------
+
+    # 主面板 UI 状态（跟着服务器走，不进工作流）
+    def _ui_state_path() -> str:
+        return os.path.join(os.path.dirname(os.path.abspath(config.config_path)), "panel_state.json")
+
+    @routes.get(f"{ROUTE_PREFIX}/panel-state")
+    async def get_panel_state(request: web.Request) -> web.Response:
+        if not _check_auth(request, config):
+            return _unauthorized()
+        try:
+            with open(_ui_state_path(), "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+        except Exception:
+            data = {}
+        return web.json_response(data if isinstance(data, dict) else {})
+
+    @routes.post(f"{ROUTE_PREFIX}/panel-state")
+    async def post_panel_state(request: web.Request) -> web.Response:
+        denied = _sensitive_denied(request, config)
+        if denied is not None:
+            return denied
+        try:
+            payload = await request.json()
+        except Exception:
+            return _error("请求体不是合法 JSON", 400)
+        if not isinstance(payload, dict):
+            return _error("请求体必须是对象", 400)
+        path = _ui_state_path()
+        try:
+            tmp = path + ".tmp"
+            fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                json.dump(payload, fh, ensure_ascii=False, indent=2)
+            os.replace(tmp, path)
+        except Exception as exc:  # noqa: BLE001
+            return _error(f"写入失败：{exc}", 500)
+        return web.json_response({"ok": True})
 
     @routes.get(f"{ROUTE_PREFIX}/people")
     async def people(request: web.Request) -> web.Response:
