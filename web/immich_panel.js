@@ -2205,7 +2205,7 @@
   // 行内容纵向排列：标题 / 控件 / 提示（都在我们自己的元素里）
   var HINT_TEXT = "max-width:520px;margin-top:6px;font-size:11px;line-height:1.5;" +
                   "color:#8a8f98;opacity:.9";
-  var LABEL_CSS  = "display:block;margin-bottom:6px;font-size:13px;opacity:.85";
+  var LABEL_CSS  = "display:block;margin-bottom:6px;font-size:15px;opacity:.9";
 
   function wideRow(kind, label, setter, value, options, hint) {
     var col = document.createElement("div");
@@ -2294,15 +2294,15 @@
   var H_LANG     = "面板界面语言，刷新页面后生效。";
 
   var CONFIG_SETTINGS = [
-    { key: "base_url", id: "immich.baseUrl", name: "Immich 地址", kind: "text", cat: ["Immich", "1 连接", "连接设置", "3 地址"], hint: H_BASE },
-    { key: "api_key", id: "immich.apiKey", name: "API Key（留空不修改）", kind: "password", cat: ["Immich", "1 连接", "连接设置", "2 密钥"], hint: H_KEY },
-    { key: "default_album", id: "immich.defaultAlbum", name: "上传到相册", kind: "combo", cat: ["Immich", "4 相册配置", "相册设置", "目标"], dynamic: "albums", hint: H_ALBUM },
-    { key: "proxy_mode", id: "immich.proxyMode", name: "网络代理模式", kind: "combo", cat: ["Immich", "3 网络", "网络设置", "模式"], options: ["off", "custom", "env"], hint: H_PROXY },
-    { key: "proxy_url", id: "immich.proxyUrl", name: "代理地址", kind: "text", cat: ["Immich", "3 网络", "网络设置", "地址"], hint: H_PROXY },
-    { key: "timeline_range", id: "immich.timelineRange", name: "时间轴大组间隔", kind: "combo", cat: ["Immich", "5 资源", "资源设置", "时间轴A"], options: ["today", "3d", "7d"], hint: H_RANGE },
-    { key: "timeline_interval", id: "immich.timelineInterval", name: "时间轴小组间隔", kind: "combo", cat: ["Immich", "5 资源", "资源设置", "时间轴B"], options: ["15m", "30m", "1h", "1d"], hint: H_INTERVAL },
-    { key: "page_size", id: "immich.pageSize", name: "每页数量", kind: "number", cat: ["Immich", "5 资源", "资源设置", "分页"], hint: H_PAGE },
-    { key: "__lang", id: "immich.lang", name: "面板语言（刷新后生效）", kind: "combo", cat: ["Immich", "6 前端面板配置", "面板设置", "语言"], options: ["en", "zh", "auto"], local: true, hint: H_LANG },
+    { key: "base_url", id: "immich.baseUrl", name: "Immich 地址", kind: "text", cat: ["Immich", "1 🔗 连接", "连接设置", "3 地址"], hint: H_BASE },
+    { key: "api_key", id: "immich.apiKey", name: "API Key（留空不修改）", kind: "password", cat: ["Immich", "1 🔗 连接", "连接设置", "2 密钥"], hint: H_KEY },
+    { key: "default_album", id: "immich.defaultAlbum", name: "上传到相册", kind: "combo", cat: ["Immich", "4 🖼️ 相册配置", "相册设置", "目标"], dynamic: "albums", hint: H_ALBUM },
+    { key: "proxy_mode", id: "immich.proxyMode", name: "网络代理模式", kind: "combo", cat: ["Immich", "3 🌐 网络", "网络设置", "模式"], options: ["off", "custom", "env"], hint: H_PROXY },
+    { key: "proxy_url", id: "immich.proxyUrl", name: "代理地址", kind: "text", cat: ["Immich", "3 🌐 网络", "网络设置", "地址"], hint: H_PROXY },
+    { key: "timeline_range", id: "immich.timelineRange", name: "时间轴大组间隔", kind: "combo", cat: ["Immich", "5 🎞️ 资源", "资源设置", "时间轴A"], options: ["today", "3d", "7d"], hint: H_RANGE },
+    { key: "timeline_interval", id: "immich.timelineInterval", name: "时间轴小组间隔", kind: "combo", cat: ["Immich", "5 🎞️ 资源", "资源设置", "时间轴B"], options: ["15m", "30m", "1h", "1d"], hint: H_INTERVAL },
+    { key: "page_size", id: "immich.pageSize", name: "每页数量", kind: "number", cat: ["Immich", "5 🎞️ 资源", "资源设置", "分页"], hint: H_PAGE },
+    { key: "__lang", id: "immich.lang", name: "面板语言（刷新后生效）", kind: "combo", cat: ["Immich", "6 ⚙️ 前端面板配置", "面板设置", "语言"], options: ["en", "zh", "auto"], local: true, hint: H_LANG },
   ];
 
   function testConnection() {
@@ -2347,6 +2347,15 @@
     (document.head || document.documentElement).appendChild(el);
   })();
 
+  (function immichGroupStyle() {
+    if (document.getElementById("immich-group-style")) return;
+    var el = document.createElement("style");
+    el.id = "immich-group-style";
+    el.textContent = '.setting-group:has([data-immich-row])>h3{' +
+                     'font-size:1.35rem!important;font-weight:600!important;margin-bottom:14px!important}';
+    (document.head || document.documentElement).appendChild(el);
+  })();
+
   function registerConfigSettings(st) {
     function build(cfg, albums) {
       cfg = cfg || {};
@@ -2384,14 +2393,14 @@
       // 按钮要显示在组内最后 → 必须先注册（显示是注册倒序）
       function registerButtons() {
       st.addSetting({
-        id: "immich.test", name: "", category: ["Immich", "1 连接", "连接设置", "1 测试"],
+        id: "immich.test", name: "", category: ["Immich", "1 🔗 连接", "连接设置", "1 测试"],
         type: function () { return buttonRow("", [{ text: "测试连接", onClick: testConnection }]); },
         defaultValue: "",
       });
 
       // 安全：令牌（显示 / 重新生成 / 清空）
       st.addSetting({
-        id: "immich.token", name: "面板令牌", category: ["Immich", "2 安全", "安全设置", "令牌"],
+        id: "immich.token", name: "面板令牌", category: ["Immich", "2 🔒 安全", "安全设置", "令牌"],
         type: function (name) {
           return buttonRow(name, [
             { text: "显示", onClick: showToken },
@@ -2418,7 +2427,7 @@
       st.addSetting({
         id: "immich.entryMode",
         name: "入口位置（sidebar = 左侧栏 / toolbar = 顶部按钮，刷新后生效）",
-        category: ["Immich", "6 前端面板配置", "面板设置", "入口"],
+        category: ["Immich", "6 ⚙️ 前端面板配置", "面板设置", "入口"],
         tooltip: "切换 Immich 素材面板的入口位置。修改后请手动刷新页面生效。",
         type: "combo",
         defaultValue: ENTRY_MODE_DEFAULT,
