@@ -2182,11 +2182,11 @@
             "background:#252a33;color:inherit;font:inherit;cursor:pointer";
   var _statusEl = null;
 
+  // 反馈层统一：设置页也走面板自己的 toast（showStatus），不再各写一套。
+  // 保留 setStatus 的名字与签名，20 处调用点一行不用改。
   function setStatus(msg, isErr) {
-    if (!_statusEl) return;
-    _statusEl.textContent = msg || "";
-    _statusEl.style.color = isErr ? "#ff6b6b" : "#4ade80";
-    _statusEl.style.fontSize = "12px";
+    try { showStatus(msg || "", isErr ? "err" : "ok"); }
+    catch (e) { console.log("[Immich]", msg); }
   }
 
   function mkTd(content) {
