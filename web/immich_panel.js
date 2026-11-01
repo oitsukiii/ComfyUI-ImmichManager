@@ -498,6 +498,11 @@
       if (overlay && overlay.style.display !== "none") renderTimeline();
     } catch (e) {}
     try { applyNodeLang(); } catch (e) {}   // 节点悬停说明也立即换语言
+    try {
+      if (window.__immichPreview && window.__immichPreview.refreshPickLabels) {
+        window.__immichPreview.refreshPickLabels();   // 选图节点上的按钮文案
+      }
+    } catch (e) {}
   }
 
   // 收起所有下拉，并清掉按钮上的「菜单开着」高亮

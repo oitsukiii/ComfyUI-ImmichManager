@@ -293,6 +293,13 @@ function openConditionEditor(initial, lists, onApply) {
   render();
 }
 
+// 节点按钮文案（跟随面板语言）
+function pickLabel() {
+  const I = window.ImmichI18n;
+  const v = I && typeof I.t === "function" ? I.t("node.pick.button") : "";
+  return v && v !== "node.pick.button" ? v : "选择图片";
+}
+
 // 「选择图片」= 打开主面板的选择模式；点一张图就回填 asset_id 并关闭。
 // 资产展示、详情、缩放、时间轴全部复用主面板，节点这边不再自建列表。
 async function openPicker(node) {
@@ -395,7 +402,19 @@ function setWidget(node, name, value) {
 }
 
 // 便于排查/测试：把绘制与布局钩子暴露出来
-try { window.__immichPreview = { applyNodePreview, hookNodeDraw, layoutForPreview }; } catch (e) {}
+// 语言切换后刷新已存在节点上的按钮文案
+function refreshPickLabels() {
+  const g = window.app && app.graph;
+  if (!g || !g._nodes) return;
+  const label = pickLabel();
+  g._nodes.forEach((n) => {
+    if (!n || n.type !== "ImmichPickImage") return;
+    (n.widgets || []).forEach((w) => { if (w && w.__immichPickBtn) w.name = label; });
+    if (n.setDirtyCanvas) n.setDirtyCanvas(true, false);
+  });
+}
+
+try { window.__immichPreview = { applyNodePreview, hookNodeDraw, layoutForPreview, refreshPickLabels }; } catch (e) {}
 
 app.registerExtension({
   name: "Immich.PickImage",
@@ -404,7 +423,8 @@ app.registerExtension({
     const onCreated = nodeType.prototype.onNodeCreated;
     nodeType.prototype.onNodeCreated = function () {
       const r = onCreated ? onCreated.apply(this, arguments) : undefined;
-      const btn = this.addWidget("button", "选择图片", null, () => openPicker(this));
+      const btn = this.addWidget("button", pickLabel(), null, () => openPicker(this));
+      btn.__immichPickBtn = true;   // 供语言切换时改写文案
       btn.serialize = false;
       return r;
     };
