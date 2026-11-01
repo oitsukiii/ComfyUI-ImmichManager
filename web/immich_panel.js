@@ -2207,7 +2207,6 @@
 
   function registerSidebarEntry() {
     try { document.documentElement.setAttribute("data-immich-entry", "sidebar"); } catch (e) {}
-    waitForSettingsApi(60);   // 有界：最多 30s
     watchRail();
   }
 
@@ -2233,6 +2232,9 @@
 
   function init() {
     try { document.documentElement.setAttribute("data-immich-init", "1"); } catch (e) {}
+    // 设置项必须无条件注册：它控制的就是入口位置，如果只在 sidebar 分支里注册，
+    // 用户一旦切到 toolbar 就再也看不到这一项，等于把自己锁死。
+    waitForSettingsApi(60);   // 有界：最多 30s
     // sidebar 模式在左侧图标栏插入入口；toolbar 模式保留旧的顶部按钮
     if (currentEntryMode() === "toolbar") addToolbarButton();
     else registerSidebarEntry();
