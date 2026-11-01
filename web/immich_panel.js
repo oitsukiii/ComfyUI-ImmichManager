@@ -850,7 +850,7 @@
       '.immich-icon-btn{display:inline-flex;align-items:center;justify-content:center;padding:6px 8px;line-height:1}' +
       '.immich-icon-btn.active{color:#f9a825;border-color:#f9a825}' +
       '.immich-menu-wrap{position:relative}' +
-      '.immich-menu{display:none;position:absolute;top:calc(100% + 4px);right:0;z-index:200;min-width:130px;' +
+      '.immich-menu{display:none;position:absolute;top:calc(100% + 4px);right:0;z-index:600;min-width:130px;' +
       'background:var(--immich-panel-bg,#2a2a2a);border:1px solid #3a3f4a;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.5);overflow:hidden}' +
       '.immich-menu.open{display:block}' +
       '.immich-menu div{padding:8px 12px;cursor:pointer;font-size:13px;white-space:nowrap}' +
