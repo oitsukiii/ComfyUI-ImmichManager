@@ -2291,18 +2291,34 @@
     return col;
   }
 
-  function buttonRow(name, buttons) {
-    var wrap = document.createElement("div");
-    wrap.setAttribute("data-immich-row", "1");
+  function buttonRow(name, buttons, hint) {
+    var col = document.createElement("div");
+    col.style.cssText = "display:flex;flex-direction:column;align-items:flex-start;width:100%";
+    col.setAttribute("data-immich-row", "1");
+    if (name) {
+      var lab = document.createElement("label");
+      lab.textContent = name;
+      lab.style.cssText = LABEL_CSS;
+      col.appendChild(lab);
+    }
+    var row = document.createElement("div");
     buttons.forEach(function (b) {
       var el = document.createElement("button");
       el.type = "button";
       el.textContent = b.text;
       el.style.cssText = BTN;
       el.onclick = b.onClick;
-      wrap.appendChild(el);
+      row.appendChild(el);
     });
-    return wrap;
+    col.appendChild(row);
+    if (hint) {
+      var note = document.createElement("div");
+      note.textContent = hint;
+      note.style.cssText = HINT_TEXT;
+      note.setAttribute("data-immich-hint", "1");
+      col.appendChild(note);
+    }
+    return col;
   }
 
   // 复用老面板那套请求封装（它带 Authorization 头与 401 处理），
@@ -2336,6 +2352,10 @@
   var H_INTERVAL = "组内再按这个间隔细分：15m / 30m / 1h / 1d。";
   var H_PAGE     = "面板一次加载多少个资产。越大滚动越省事，首次加载越慢。";
   var H_LANG     = "面板界面语言，刷新页面后生效。";
+
+  var H_TOKEN = "面板令牌用于保护局域网访问。未设置时，局域网内任何设备都能读取和操作你的 Immich 素材；"
+              + "设置后，非本机访问 /api/immich_plus/* 需要带上 Authorization: Bearer <令牌>。"
+              + "「显示」查看当前令牌；「重新生成」让旧令牌立即失效；「清空」则取消保护，需谨慎。";
 
   var CONFIG_SETTINGS = [
     { key: "base_url", id: "immich.baseUrl", name: "Immich 地址", kind: "text", cat: ["Immich", "1 🔗 连接", "连接设置", "3 地址"], hint: H_BASE },
@@ -2457,13 +2477,13 @@
 
       // 安全：令牌（显示 / 重新生成 / 清空）
       st.addSetting({
-        id: "immich.token", name: "面板令牌", category: ["Immich", "2 🔒 安全", "安全设置", "令牌"],
-        type: function (name) {
-          return buttonRow(name, [
+        id: "immich.token", name: "", category: ["Immich", "2 🔒 安全", "安全设置", "令牌"],
+        type: function () {
+          return buttonRow("面板令牌", [
             { text: "显示", onClick: showToken },
             { text: "重新生成", onClick: regenToken },
             { text: "清空", onClick: clearToken },
-          ]);
+          ], H_TOKEN);
         },
         defaultValue: "",
       });

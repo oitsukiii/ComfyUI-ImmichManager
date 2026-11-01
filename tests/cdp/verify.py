@@ -14,7 +14,7 @@ non-zero if anything is missing, so it can gate a deploy.
 """
 import json, sys, urllib.request
 
-EXPECT = {"inputs": 5, "selects": 0, "hints": 10, "dropdowns": 6,  # 4 文本框 + 搜索框；下拉改为自绘；10 条提示
+EXPECT = {"inputs": 5, "selects": 0, "hints": 11, "dropdowns": 6,  # 4 文本框 + 搜索框；下拉改为自绘；11 条提示
           "buttons": ["显示", "重新生成", "清空", "测试连接"]}
 
 def page_url():
