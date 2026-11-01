@@ -16,9 +16,10 @@
 #immich-panel-overlay {
     position: fixed;
     inset: 0;
-    /* 9999 会盖住 ComfyUI 的设置对话框（那是 PrimeVue 的弹层），
-       调低到 900：仍高于画布与侧栏，但低于官方弹窗。 */
-    z-index: 900;
+    /* 层级取舍：顶部 toolbar（workflow-tabs / rgthree 进度条）是 999，
+       ComfyUI 设置对话框是 1702。面板要夹在中间：盖住 toolbar，
+       又被官方弹窗盖住。 */
+    z-index: 1200;
     background: rgba(0, 0, 0, 0.6);
     display: flex;
     align-items: center;
