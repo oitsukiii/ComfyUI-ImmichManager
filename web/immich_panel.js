@@ -2209,7 +2209,9 @@
 
   function wideRow(kind, label, setter, value, options, hint) {
     var col = document.createElement("div");
-    col.style.cssText = "display:flex;flex-direction:column;align-items:flex-start";
+    // 对话框把我的返回值包在 flex.justify-end 里，所以默认贴右；
+    // 让容器占满可用宽度，控件就从标题右边开始了。
+    col.style.cssText = "display:flex;flex-direction:column;align-items:flex-start;width:100%";
 
     var el;
     if (kind === "combo") {
