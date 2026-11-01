@@ -2627,6 +2627,33 @@
       col.appendChild(lab);
     }
     var el;
+    if (kind === "bool") {
+      var sw = document.createElement("label");
+      sw.style.cssText = "display:inline-flex;align-items:center;gap:10px;cursor:pointer;user-select:none";
+      var cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.checked = !!(value && value !== "false" && value !== "0");
+      cb.style.cssText = "width:44px;height:24px;appearance:none;cursor:pointer;border-radius:999px;" +
+        "border:1px solid #3a3f4a;transition:background .15s;background:" + (cb.checked ? "#2f6feb" : "#252a33");
+      var knob = document.createElement("span");
+      knob.textContent = cb.checked ? "开" : "关";
+      knob.style.cssText = "font-size:12px;opacity:.85";
+      cb.addEventListener("change", function () {
+        cb.style.background = cb.checked ? "#2f6feb" : "#252a33";
+        knob.textContent = cb.checked ? "开" : "关";
+        setter(cb.checked);
+      });
+      sw.appendChild(cb); sw.appendChild(knob);
+      col.appendChild(sw);
+      if (hint) {
+        var noteB = document.createElement("div");
+        noteB.textContent = hint;
+        noteB.style.cssText = HINT_TEXT;
+        noteB.setAttribute("data-immich-hint", "1");
+        col.appendChild(noteB);
+      }
+      return col;
+    }
     if (kind === "combo") {
       el = dropdown(options, value, setter);
     } else {
@@ -2901,14 +2928,15 @@
 
       // 选择面板：选中后是否立即关闭
       st.addSetting({
-        id: "immich.pickClose", name: "选中图片后立即关闭选择面板",
+        id: "immich.pickClose", name: "",
         category: ["Immich", "6 ⚙️ 前端面板配置", "面板设置", "选择面板"],
-        tooltip: "开启：点一张就写回节点并关闭面板；关闭：只高亮选中项，面板保留，方便继续比较。",
-        type: "boolean",
-        defaultValue: pickCloseAfterSelect(),
-        onChange: function (v) {
-          try { localStorage.setItem("immich_pick_close", v ? "1" : "0"); } catch (e) {}
+        type: function () {
+          return wideRow("bool", "选中图片后立即关闭选择面板", function (v) {
+            try { localStorage.setItem("immich_pick_close", v ? "1" : "0"); } catch (e) {}
+          }, pickCloseAfterSelect(), null,
+          "开启：点一张就写回节点并关闭面板；关闭：只高亮选中项，面板保留，方便继续比较。");
         },
+        defaultValue: pickCloseAfterSelect(),
       });
 
       // 相册：刷新按钮
