@@ -135,6 +135,82 @@
 
   // 统一后端 API 调用（全部走 /api/immich_plus/*，前端不直接碰 Immich）。
   // 401 → 抛 AUTH_REQUIRED（调用方弹令牌输入）；其他错误解析后端 {error} 文案。
+  // 解析 PNG 的文本块（ComfyUI 把 prompt / workflow 写在这里）
+  function readPngText(u8) {
+    var out = {};
+    // PNG 签名 8 字节
+    var sig = [137, 80, 78, 71, 13, 10, 26, 10];
+    for (var k = 0; k < 8; k++) if (u8[k] !== sig[k]) return out;
+    var pos = 8;
+    var dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+    var dec = new TextDecoder("utf-8");
+    while (pos + 12 <= u8.length) {
+      var len = dv.getUint32(pos);
+      var type = String.fromCharCode(u8[pos + 4], u8[pos + 5], u8[pos + 6], u8[pos + 7]);
+      var data = u8.subarray(pos + 8, pos + 8 + len);
+      if (type === "tEXt") {
+        var z = data.indexOf(0);
+        if (z > 0) {
+          var key = dec.decode(data.subarray(0, z));
+          out[key] = dec.decode(data.subarray(z + 1));
+        }
+      } else if (type === "iTXt") {
+        var z1 = data.indexOf(0);
+        if (z1 > 0) {
+          var key2 = dec.decode(data.subarray(0, z1));
+          var comp = data[z1 + 1];
+          var p2 = z1 + 3;                 // 跳过 compFlag/compMethod
+          var z2 = data.indexOf(0, p2);    // 语言标签
+          var z3 = data.indexOf(0, z2 + 1); // 翻译标签
+          if (!comp) out[key2] = dec.decode(data.subarray(z3 + 1));
+        }
+      } else if (type === "IEND") break;
+      pos += 12 + len;
+    }
+    return out;
+  }
+
+  // 「导入 ComfyUI」：读图里的 workflow，直接载入画布（等同拖入）
+  function importAssetToCanvas(asset, btn) {
+    var old = btn.textContent;
+    btn.disabled = true; btn.textContent = "读取中…";
+    apiBlob("/assets/" + encodeURIComponent(asset.id) + "/original").then(function (blob) {
+      return blob.arrayBuffer();
+    }).then(function (buf) {
+      var meta = readPngText(new Uint8Array(buf));
+      var raw = meta.workflow || meta.prompt;
+      if (!raw) {
+        btn.disabled = false; btn.textContent = old;
+        showStatus("这张图没有 ComfyUI 元数据，无法导入工作流", "err");
+        return;
+      }
+      var graph;
+      try { graph = JSON.parse(raw); }
+      catch (e) { graph = null; }
+      if (!graph) {
+        btn.disabled = false; btn.textContent = old;
+        showStatus("元数据解析失败（不是合法的工作流 JSON）", "err");
+        return;
+      }
+      // prompt 是执行用的 API 格式，没有 nodes/links；优先 workflow
+      if (!graph.nodes && graph.prompt) {
+        btn.disabled = false; btn.textContent = old;
+        showStatus("这张图只存了 prompt，没有可编辑的工作流", "err");
+        return;
+      }
+      app.loadGraphData(graph).then(function () {
+        btn.disabled = false; btn.textContent = old;
+        showStatus("已导入工作流", "ok");
+      }).catch(function () {
+        btn.disabled = false; btn.textContent = old;
+        showStatus("载入工作流失败", "err");
+      });
+    }).catch(function () {
+      btn.disabled = false; btn.textContent = old;
+      showStatus("下载原图失败", "err");
+    });
+  }
+
   // 取二进制（原图下载用）：带鉴权头，返回 Blob
   function apiBlob(path) {
     return fetch(API + path, { headers: headers() }).then(function (r) {
@@ -1770,6 +1846,7 @@
   // ext 白名单/duration 只在 isImage 缺失时兜底。
   function isVideoAsset(asset) {
     if (!asset) return false;
+    if (asset.type === "VIDEO") return true;   // Immich 的 search 结果直接带 type
     if (asset.isImage === false) return true;
     var e = String(asset.ext || "").toLowerCase();
     if (e) return e === "mp4" || e === "mov" || e === "webm" || e === "mkv" || e === "m4v" || e === "avi";
@@ -1924,6 +2001,7 @@
       '    <div class="immich-detail-actions">' +
       '      <button class="immich-btn" id="immich-btn-fav">' + (asset.isFavorite ? t("detail.fav.remove") : t("detail.fav.add")) + "</button>" +
       '      <button class="immich-btn" id="immich-btn-save-desc">' + t("detail.desc.save") + "</button>" +
+      '      <button class="immich-btn" id="immich-btn-import">导入 ComfyUI</button>' +
       '      <button class="immich-btn" id="immich-btn-open-asset">打开 Immich 查看</button>' +
       '      <button class="immich-btn" id="immich-btn-download">下载</button>' +
       '      <button class="immich-btn danger" id="immich-btn-del">' + t("detail.delete.btn") + "</button>" +
@@ -1950,6 +2028,8 @@
       };
     }
     // 下载原图：走带鉴权的 /assets/{id}/original，再用 blob 触发保存
+    var impBtn = document.getElementById("immich-btn-import");
+    if (impBtn) impBtn.onclick = function () { importAssetToCanvas(asset, impBtn); };
     var dlBtn = document.getElementById("immich-btn-download");
     if (dlBtn) {
       dlBtn.onclick = function () {

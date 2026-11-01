@@ -63,6 +63,12 @@ class ImmichError(Exception):
         self.status_code = status_code
 
 
+def _ext_of(name) -> str:
+    """从原文件名取扩展名（小写，无点）。"""
+    n = str(name or "")
+    return n.rsplit(".", 1)[-1].lower() if "." in n else ""
+
+
 class ImmichClient:
     def __init__(
         self,
@@ -406,6 +412,10 @@ class ImmichClient:
                 "id": a.get("id"),
                 "originalFileName": a.get("originalFileName"),
                 "type": a.get("type"),
+                # ext / isImage 时间轴渲染要用（判断视频、显示格式角标）
+                "ext": _ext_of(a.get("originalFileName")),
+                "isImage": a.get("type") != "VIDEO",
+                "duration": a.get("duration"),
                 "fileCreatedAt": a.get("fileCreatedAt"),
                 "thumbhash": a.get("thumbhash"),
             } for a in raw],
