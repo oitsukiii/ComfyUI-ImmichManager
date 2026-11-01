@@ -2538,6 +2538,7 @@
             current = cfg[def.key];
             if (current === undefined || current === null) current = def.kind === "number" ? 100 : "";
           }
+          var _initValue = current;   // 注册时的值：对话框回填若与它相同，说明不是用户改动
           st.addSetting({
             id: def.id, name: "", category: def.cat,
             type: function (name, setter, value) {
@@ -2550,7 +2551,14 @@
             },
             defaultValue: current,
             onChange: function (v) {
-              if (def.local) { try { window.localStorage.setItem("immich_lang", v); } catch (e) {} setStatus("语言已保存，刷新后生效", false); return; }
+              // 对话框在注册/回填时会调用 onChange，值没变就不是用户改的 → 不写、不弹提示
+              if (String(v ?? "") === String(_initValue ?? "")) return;
+              _initValue = v;
+              if (def.local) {
+                try { window.localStorage.setItem("immich_lang", v); } catch (e) {}
+                setStatus("语言已保存，刷新后生效", false);
+                return;
+              }
               if ((def.key === "api_key") && !String(v || "").trim()) return;
               putConfig(def.key, def.kind === "number" ? Number(v) : v);
             },
