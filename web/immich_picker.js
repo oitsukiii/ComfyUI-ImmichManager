@@ -24,6 +24,8 @@ async function getJSON(path) {
 }
 
 // 缩略图缓存：LRU 上限，超出时释放最旧的 blob URL（否则切页会一直累积内存）
+const lastPickState = { albumId: "", page: 1 };   // 跨次打开记住相册与页码
+
 const THUMB_MAX = 120;
 const thumbCache = new Map();
 
@@ -63,6 +65,9 @@ const CSS = `
 .immich-pick-body{padding:12px;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
 .immich-pick-cell{aspect-ratio:1;background:#252a33;border-radius:6px;overflow:hidden;cursor:pointer;border:2px solid transparent}
 .immich-pick-cell:hover{border-color:#5b8def}
+.immich-pick-cell.immich-pick-selected{border-color:#4ade80;box-shadow:0 0 0 2px #4ade80 inset}
+.immich-pick-cell.immich-pick-selected::after{content:"✓";position:absolute;top:4px;right:6px;color:#4ade80;font-weight:700}
+.immich-pick-cell{position:relative}
 .immich-pick-cell img{width:100%;height:100%;object-fit:cover;display:block}
 .immich-pick-foot{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-top:1px solid #3a3f4a;font-size:12px;opacity:.85}
 .immich-pick-btn{padding:6px 14px;border-radius:6px;border:1px solid #3a3f4a;background:#252a33;color:inherit;cursor:pointer}
@@ -107,6 +112,7 @@ async function openPicker(node) {
   let albumId = "";
   let page = 1;
   let nextPage = null;
+  const selectedId = getWidget(node, "asset_id") || "";
 
   const close = () => mask.remove();
   mask.querySelector(".immich-pick-close").onclick = close;
@@ -118,6 +124,8 @@ async function openPicker(node) {
     try {
       const d = await getJSON(`/albums/${albumId}/assets?page=${p}&size=24`);
       page = d.page || p;
+      lastPickState.albumId = albumId;      // 记住位置，下次打开还在这儿
+      lastPickState.page = page;
       nextPage = d.nextPage || null;
       prev.disabled = page <= 1;
       next.disabled = !nextPage;
@@ -125,7 +133,7 @@ async function openPicker(node) {
       info.textContent = `第 ${page} 页 · ${items.length} 张${nextPage ? "（还有下一页）" : ""}`;
       for (const it of items) {
         const cell = document.createElement("div");
-        cell.className = "immich-pick-cell";
+        cell.className = "immich-pick-cell" + (it.id === selectedId ? " immich-pick-selected" : "");
         cell.title = it.originalFileName || it.id;
         const img = document.createElement("img");
         img.loading = "lazy";
@@ -153,9 +161,12 @@ async function openPicker(node) {
       sel.appendChild(o);
     }
     if (!albums.length) { info.textContent = "Immich 里还没有相册"; return; }
-    albumId = albums[0].id;
+    // 恢复上次的相册；找不到就退回第一个
+    const remembered = lastPickState.albumId;
+    albumId = (remembered && albums.some((a) => a.id === remembered)) ? remembered : albums[0].id;
+    sel.value = albumId;
     sel.onchange = () => { albumId = sel.value; loadPage(1); };
-    loadPage(1);
+    loadPage(lastPickState.page || 1);
   } catch (e) {
     info.textContent = "读取相册失败：" + e.message;
   }
@@ -177,6 +188,11 @@ async function applyNodePreview(node, assetId) {
     app.graph.setDirtyCanvas(true, true);
   };
   img.src = url;
+}
+
+function getWidget(node, name) {
+  const w = (node.widgets || []).find((x) => x.name === name);
+  return w ? w.value : "";
 }
 
 function setWidget(node, name, value) {
