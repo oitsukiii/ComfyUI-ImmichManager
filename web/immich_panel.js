@@ -84,6 +84,7 @@
     videoAbort: null,   // 视频下载 AbortController（关闭详情时中止大视频下载）
     favOnly: false,     // "仅显示收藏"开关（需求 2.6）
     pickMode: false,     // 选择面板模式（由选图节点打开）
+    pickSelected: "",    // 选择面板里当前高亮的资产 id
     onPick: null,        // 选中资产的回调
     conditions: [],      // 条件筛选（空 = 走时间轴分桶）
     cfLists: null,       // 相册/人脸/标签下拉数据
@@ -331,6 +332,7 @@
     openForPick: function (cb) {
       state.pickMode = true;
       state.onPick = cb;
+      state.pickSelected = "";
       var btn = document.getElementById("immich-btn-select");
       if (btn) btn.style.display = "none";     // 选择面板没有批量选择
       openPanel();
@@ -569,6 +571,18 @@
 
   // 同步时间轴每个 cell 的选中态（用户需求 2026-08-16）：
   // 选择模式 → selectedIds 勾选的；普通模式 → 详情当前资产（黄框，无复选框）
+  // 选择面板：只高亮一个 cell（不进入批量选择）
+  function syncPickSelected(id) {
+    document.querySelectorAll("#immich-timeline .immich-cell").forEach(function (c) {
+      c.classList.toggle("selected", !!id && c.getAttribute("data-cell-id") === id);
+    });
+  }
+
+  // 设置项：选中后是否立即关闭选择面板（默认否）
+  function pickCloseAfterSelect() {
+    try { return localStorage.getItem("immich_pick_close") === "1"; } catch (e) { return false; }
+  }
+
   function syncCellSelectedState() {
     document.querySelectorAll("#immich-timeline .immich-cell").forEach(function (c) {
       var id = c.getAttribute("data-cell-id");
@@ -1389,6 +1403,8 @@
     // 渲染时恢复选中态（刷新/折叠重渲染后不丢）：选择模式勾选 或 普通模式详情当前资产
     if (state.selectMode) {
       if (state.selectedIds[asset.id]) cell.classList.add("selected");
+    } else if (state.pickMode && state.pickSelected === asset.id) {
+      cell.classList.add("selected");
     } else if (state.currentAsset && state.currentAsset.id === asset.id) {
       cell.classList.add("selected");
     }
@@ -1405,9 +1421,14 @@
     // → 范围起点 = 进入选择模式前最后普通点击的 cell（A），即 [A..C]
     // 用户 2026-08-16：去掉 ctrl/meta 多选（ctrl+点选不再进入选择模式）
     cell.onclick = function (e) {
-      // 选择面板：点一下就把这张图交回节点，不进详情、不进选择模式
+      // 选择面板：选中 → 高亮 + 交回节点；是否顺带关闭由设置决定
       if (state.pickMode) {
+        state.pickSelected = asset.id;
+        syncPickSelected(asset.id);
         if (typeof state.onPick === "function") state.onPick(asset);
+        if (pickCloseAfterSelect()) {
+          if (typeof window.__immichPanel.exitPick === "function") window.__immichPanel.exitPick();
+        }
         return;
       }
       if (e.shiftKey) {
@@ -2876,6 +2897,18 @@
         id: "immich.test", name: "", category: ["Immich", "1 🔗 连接", "连接设置", "1 测试"],
         type: function () { return buttonRow("", [{ text: "测试连接", onClick: testConnection }]); },
         defaultValue: "",
+      });
+
+      // 选择面板：选中后是否立即关闭
+      st.addSetting({
+        id: "immich.pickClose", name: "选中图片后立即关闭选择面板",
+        category: ["Immich", "6 ⚙️ 前端面板配置", "面板设置", "选择面板"],
+        tooltip: "开启：点一张就写回节点并关闭面板；关闭：只高亮选中项，面板保留，方便继续比较。",
+        type: "boolean",
+        defaultValue: pickCloseAfterSelect(),
+        onChange: function (v) {
+          try { localStorage.setItem("immich_pick_close", v ? "1" : "0"); } catch (e) {}
+        },
       });
 
       // 相册：刷新按钮

@@ -415,7 +415,8 @@
     cursor: pointer;
     pointer-events: auto;
 }
-#immich-panel-overlay.select-mode .immich-cell-check { display: flex; }
+#immich-panel-overlay.select-mode .immich-cell-check,
+#immich-panel-overlay.pick-mode .immich-cell-check { display: flex; }
 /* 选中态：琥珀边框 + 勾选框实心 */
 .immich-cell.selected {
     border-color: var(--immich-accent);

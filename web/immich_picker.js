@@ -301,11 +301,11 @@ async function openPicker(node) {
     console.warn("[Immich] 主面板未就绪，无法打开选择面板");
     return;
   }
+  // 只回填，不关闭 —— 关不关由面板按设置（immich.pickClose）决定
   P.openForPick((asset) => {
     if (!asset || !asset.id) return;
     setWidget(node, "asset_id", asset.id);
     applyNodePreview(node, asset.id);
-    P.exitPick();
   });
 }
 
