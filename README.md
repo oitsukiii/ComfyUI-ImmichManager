@@ -89,6 +89,10 @@
 
 ![Entry point](images/entry-point.png)
 
+**Settings** — the Immich group inside ComfyUI's own Settings dialog: connection, the panel token, the network proxy, the default album, page size, language and where the entry lives.
+
+![Immich settings group](images/settings-immich.png)
+
 **Finding the nodes** — search "immich" in the Add Node menu.
 
 ![Find the nodes](images/node-search.png)

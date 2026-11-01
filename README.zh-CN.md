@@ -89,6 +89,10 @@
 
 ![入口](images/entry-point.png)
 
+**设置** —— ComfyUI 官方设置对话框里的 Immich 分组：连接、面板令牌、网络代理、默认相册、每页数量、语言、入口位置。
+
+![Immich 设置分组](images/settings-immich.png)
+
 **找节点** —— 在「添加节点」菜单里搜 immich。
 
 ![找节点](images/node-search.png)
