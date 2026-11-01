@@ -576,8 +576,12 @@
 }
 #immich-detail-img {
     width: 100%;
-    aspect-ratio: 1;
-    flex-shrink: 0;
+    /* 之前是 aspect-ratio:1 —— 面板窄时图片框会被撑成正方形，
+       把下面的信息区挤出可视区域，看起来像"全页只有图片"。
+       改成吃剩余空间，并给信息区留出固定高度。 */
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: 70%;
     background: var(--comfy-input-bg, #1a1a1a);
     display: flex;
     align-items: center;
@@ -613,7 +617,7 @@
 .immich-detail-fs-btn:hover { background: rgba(0, 0, 0, 0.8); }
 .immich-detail-fs-btn svg { display: block; }
 #immich-detail-info {
-    flex: 1;
+    flex: 0 0 auto;
     padding: 14px;
     display: flex;
     flex-direction: column;
