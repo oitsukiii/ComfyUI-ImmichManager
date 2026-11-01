@@ -2041,19 +2041,39 @@
     return null;
   }
 
+  // 官方图标集是 Lucide（DOM 里是 icon-[lucide--…] 或内联 <svg>）。
+  // 这里直接用 Lucide 的 folder 轮廓内联，避免依赖 UnoCSS 是否生成了该 class，
+  // 同时保持相同的 24×24 / stroke-width 视觉规范。
+  // Lucide is ISC licensed.
   function immichRailIcon() {
     var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("viewBox", "0 0 24 24");
     svg.setAttribute("fill", "none");
     svg.setAttribute("stroke", "currentColor");
-    svg.setAttribute("stroke-width", "1.8");
-    svg.setAttribute("width", "1em");
-    svg.setAttribute("height", "1em");
-    svg.innerHTML =
-      '<rect x="3" y="4" width="18" height="16" rx="2.5"></rect>' +
-      '<circle cx="8.5" cy="9.5" r="1.6"></circle>' +
-      '<path d="M21 16.5 15.5 11 9 18"></path>';
+    svg.setAttribute("stroke-width", "2");
+    svg.setAttribute("stroke-linecap", "round");
+    svg.setAttribute("stroke-linejoin", "round");
+    svg.setAttribute("width", "16");
+    svg.setAttribute("height", "16");
+    var path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d",
+      "M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z");
+    svg.appendChild(path);
     return svg;
+  }
+
+  // 把克隆节点里所有旧图标清掉：可能是 <svg>，也可能是
+  // <i class="icon-[lucide--…]">，两种都要处理，否则会同时出现两个图标。
+  function stripIcons(node) {
+    var svgs = node.querySelectorAll("svg");
+    for (var i = 0; i < svgs.length; i++) svgs[i].parentNode.removeChild(svgs[i]);
+    var is = node.querySelectorAll("i");
+    for (var j = 0; j < is.length; j++) {
+      var cls = is[j].className || "";
+      if (typeof cls === "string" && cls.indexOf("icon-[") >= 0) {
+        is[j].parentNode.removeChild(is[j]);
+      }
+    }
   }
 
   function setImmichLabel(node) {
@@ -2091,15 +2111,12 @@
     btn.setAttribute("aria-label", t("title.panel"));
     btn.setAttribute("title", t("title.panel"));
 
-    // 换图标：保留原 svg 的位置和 class，只换内容
-    var oldSvg = btn.querySelector("svg");
+    // 清掉克隆来的旧图标，再放自己的（图标容器是第一个子元素）
+    var iconHost = btn.firstElementChild;
+    stripIcons(btn);
     var fresh = immichRailIcon();
-    if (oldSvg) {
-      fresh.className = oldSvg.className;
-      oldSvg.parentNode.replaceChild(fresh, oldSvg);
-    } else if (btn.firstChild) {
-      btn.insertBefore(fresh, btn.firstChild);
-    }
+    if (iconHost) iconHost.appendChild(fresh);
+    else btn.insertBefore(fresh, btn.firstChild);
     setImmichLabel(btn);
 
     // 清掉克隆带来的“选中”样式，点击只负责开面板
