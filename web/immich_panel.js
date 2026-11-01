@@ -718,9 +718,8 @@
     if (selBtn) selBtn.style.display = state.pickMode ? "none" : "";   // 选择面板没有批量选择
     if (selBtn) {
       selBtn.classList.toggle("active", state.selectMode);
-      // 用户 2026-08-16：进入选择模式后标题栏按钮保持「✅ 选择」文本，只用黄色边框高亮；
-      // ✕ 退出只在批量操作栏（bulkbar）里
-      selBtn.textContent = t("btn.select");
+      // 图标按钮：只在没有 svg 时才写文本（之前这里写 textContent 会把图标冲掉）
+      if (!selBtn.querySelector("svg")) selBtn.textContent = t("btn.select");
       selBtn.title = state.selectMode ? t("btn.select.title.active") : t("btn.select.title");
     }
     var bar = document.getElementById("immich-bulkbar");
@@ -1183,7 +1182,7 @@
       function monthSection(key, list) {
         var sec = renderMonth({ timeBucket: key + "-01", count: list.length });
         sec._assets = list;                       // 资产已就绪，展开时不再发请求
-        if (getExpandedMonths().indexOf(sec._mk) >= 0) expandMonth(sec);
+        expandMonth(sec);   // 搜索结果默认展开，点标题可折叠
         timeline.appendChild(sec);
         return sec;
       }
@@ -1313,8 +1312,9 @@
       timeline.innerHTML = "";
 
       // 本期起点：由 timeline_range 决定（今天 0 点 / 3 天前 / 7 天前）
-      var rangeKey = (state.config && state.config.timeline_range) || "today";
-      var rangeDays = RANGE_DAYS[rangeKey] != null ? RANGE_DAYS[rangeKey] : 0;
+      // 置顶范围改由顶栏「置顶」菜单控制（不再是设置里的 timeline_range）
+      var rangeKey = state.pinRange || "";
+      var rangeDays = RANGE_DAYS[rangeKey] != null ? RANGE_DAYS[rangeKey] : -1;
       var now = new Date();
       var periodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - rangeDays, 0, 0, 0, 0);
 
@@ -1352,7 +1352,7 @@
           else if (fav(a)) overflow.push(a);
         });
 
-        timeline.appendChild(renderPeriodSection(rangeKey, periodStart, inPeriod));
+        if (rangeDays >= 0) timeline.appendChild(renderPeriodSection(rangeKey, periodStart, inPeriod));
 
         // 溢出资产按月份折叠（资产已随整桶拉回，无需额外请求）
         var overflowByMonth = {};
@@ -1372,7 +1372,7 @@
           });
           var sec = renderMonth({ timeBucket: mk + "-01", count: assets.length });
           sec._assets = assets; // 预加载：展开时直接显示，不重复请求
-          if (getExpandedMonths().indexOf(sec._mk) >= 0) expandMonth(sec); // 记忆展开态还原
+          if (getExpandedMonths().indexOf(sec._mk) >= 0) expandMonth(sec);   // 记忆展开态还原
           timeline.appendChild(sec);
         });
 
