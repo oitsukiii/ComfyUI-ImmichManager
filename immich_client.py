@@ -416,6 +416,7 @@ class ImmichClient:
                 "ext": _ext_of(a.get("originalFileName")),
                 "isImage": a.get("type") != "VIDEO",
                 "duration": a.get("duration"),
+                "isFavorite": bool(a.get("isFavorite")),   # 收藏状态（角标爱心用）
                 "fileCreatedAt": a.get("fileCreatedAt"),
                 "thumbhash": a.get("thumbhash"),
             } for a in raw],
