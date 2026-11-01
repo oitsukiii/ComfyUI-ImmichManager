@@ -2351,7 +2351,10 @@
     function build(cfg, albums) {
       cfg = cfg || {};
 
-      for (var i = 0; i < CONFIG_SETTINGS.length; i++) {
+      registerButtons();
+
+      // 对话框按注册顺序「倒序」显示 → 字段倒着注册，屏幕上才是正序
+      for (var i = CONFIG_SETTINGS.length - 1; i >= 0; i--) {
         (function (def) {
           var current, options = def.options;
           if (def.dynamic === "albums") {
@@ -2378,7 +2381,8 @@
         })(CONFIG_SETTINGS[i]);
       }
 
-      // 测试连接（连接组）
+      // 按钮要显示在组内最后 → 必须先注册（显示是注册倒序）
+      function registerButtons() {
       st.addSetting({
         id: "immich.test", name: "", category: ["Immich", "1 连接", "连接设置", "1 测试"],
         type: function () { return buttonRow("", [{ text: "测试连接", onClick: testConnection }]); },
@@ -2397,6 +2401,7 @@
         },
         defaultValue: "",
       });
+      }
     }
 
     // 相册列表用于下拉；拿不到就退化成只有空选项

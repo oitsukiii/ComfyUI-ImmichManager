@@ -248,3 +248,79 @@ verify.py → [OK]
 ```
 
 改动前先 `git log --oneline` 找这个点，出问题就 `git checkout <它> -- web/immich_panel.js`。
+
+---
+
+## 13. 行序 = **注册顺序的倒序**
+
+同一分组内，`addSetting` 注册得越晚，屏幕上排得越靠前。
+
+**证据**：字段按 `地址 → 密钥` 注册，屏幕上是 `密钥 → 地址`；
+按钮在字段之后注册，却排在组内最上方。
+
+**所以想控制显示顺序，就倒着注册**：
+
+```js
+// 想要屏幕上：地址 / 密钥 / 测试
+// 就按：测试 / 密钥 / 地址 的顺序注册
+for (var i = CONFIG_SETTINGS.length - 1; i >= 0; i--) addField(CONFIG_SETTINGS[i]);
+registerButtons();   // 按钮要先注册 → 显示时排最后
+```
+
+`category` 的第 4 级（行锚点）**不参与排序** —— 改成 `z9 测试` 也没用，别浪费时间。
+
+---
+
+## 14. `:has()` 改父级时，选择器层次错了会隐藏整个对话框
+
+DOM 实际形状：
+
+```
+.setting-item                     ← 整行
+ └ div.flex.flex-row              ← >div
+     ├ div (空标题格 w≈484)        ← >div>div:first-child
+     └ div.flex.justify-end (我们的控件)
+```
+
+- ❌ `> div:first-child` → 命中**整行** → 加 `width:0;overflow:hidden` 后**对话框整块消失**，连小标题一起没了
+- ✅ `> div > div:first-child` → 命中**空标题格** → `display:none` 只隐藏占位，其他一切正常
+
+**教训**：改框架的父级元素前，**先把祖先链和每层的宽度/子节点数打出来**，别凭 `:first-child` 猜。
+
+---
+
+## 15. 让自定义行享受同款样式：打数据属性 + `:has()`
+
+```js
+col.setAttribute("data-immich-row", "1");        // 我们返回的元素
+wrap.setAttribute("data-immich-row", "1");       // 按钮行也要
+```
+
+```css
+.setting-item:has([data-immich-row])>div>div:first-child{display:none!important}
+```
+
+**按钮行如果忘了打标记，它就不会左对齐**（会停在 x≈813）。
+
+---
+
+## 16. 当前版式（2026-11 定稿）
+
+```
+<标题>
+[控件]
+<注释文字，灰色 #8a8f98，11px>
+```
+
+三者同一 x（实测 321），纵向排列；`宽 520px`（文本框）/ `460px`（下拉）。
+
+**字段顺序**（屏幕上从上到下）：
+
+```
+1 连接:    Immich 地址 / API Key / [测试连接]
+2 安全:    [显示][重新生成][清空]
+3 网络:    网络代理模式 / 代理地址
+4 相册配置: 上传到相册
+5 资源:    时间轴大组 / 小组 / 每页数量
+6 前端面板: 面板语言 / 插件按钮位置
+```
