@@ -213,6 +213,22 @@
   // 可选 action：actionLabel + actionFn（如"去回收站"）；带 action 的 toast 停留 4s，
   // 避免用户来不及点按钮（v0.6 批量删除场景）。
   function showStatus(text, cls, actionLabel, actionFn) {
+    // 统一走 ComfyUI 官方 toast（之前是自绘的「上方居中」提示条）
+    try {
+      var _t = window.app && window.app.extensionManager && window.app.extensionManager.toast;
+      if (_t && typeof _t.add === "function" && !actionLabel) {
+        _t.add({
+          severity: cls === "err" ? "error" : cls === "warn" ? "warn" : "success",
+          summary: text,
+          life: cls === "err" ? 6000 : 3000,
+        });
+        return;
+      }
+    } catch (e) {}
+    _showStatusLegacy(text, cls, actionLabel, actionFn);
+  }
+
+  function _showStatusLegacy(text, cls, actionLabel, actionFn) {
     var box = document.getElementById("immich-toast-box");
     if (!box) {
       box = document.createElement("div");
@@ -367,6 +383,7 @@
     ruler: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v-3"/><path d="M14 15v-3"/><path d="M18 15v-3"/><path d="M2 8V4"/><path d="M22 6H2"/><path d="M22 8V4"/><path d="M6 15v-3"/><rect x="2" y="12" width="20" height="8" rx="2"/></svg>',
     checkCheck: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 7 17l-5-5"/><path d="m22 10-7.5 7.5L13 16"/></svg>',
     pin: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>',
+    copyCheck: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 15 2 2 4-4"/><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>',
     link: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>',
     x: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>',
     group: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M3 12h18"/><path d="M3 18h18"/></svg>',
@@ -383,7 +400,6 @@
     ];
     var PINS = [
       { k: "today", t: "今天置顶" },
-      { k: "3d", t: "近 3 天置顶" },
       { k: "7d", t: "近 7 天置顶" },
       { k: "", t: "不置顶" },
     ];
@@ -479,7 +495,7 @@
       '            <button class="immich-btn immich-icon-btn" id="immich-pin-btn" title="置顶分组">' + IC.pin + "</button>" +
       '            <div class="immich-menu" id="immich-pin-menu"></div>' +
       "          </div>" +
-      '          <button class="immich-btn immich-icon-btn" id="immich-btn-select" title="' + t("btn.select.title") + '">' + IC.checkCheck + "</button>" +
+      '          <button class="immich-btn immich-icon-btn" id="immich-btn-select" title="' + t("btn.select.title") + '">' + IC.copyCheck + "</button>" +
       "        </div>" +
       "      </div>" +
       "    </div>" +
@@ -1149,7 +1165,7 @@
       }
 
       // 置顶起点
-      var pinDays = state.pinRange === "today" ? 0 : state.pinRange === "3d" ? 3 : state.pinRange === "7d" ? 7 : -1;
+      var pinDays = state.pinRange === "today" ? 0 : state.pinRange === "7d" ? 7 : -1;
       var pinStart = 0;
       if (pinDays >= 0) {
         var n0 = new Date();
@@ -1162,6 +1178,15 @@
         if (pinStart && ts >= pinStart) pinned.push(a);
         else rest.push(a);
       });
+
+      // 按月分组：复用时间轴原有的月份组件（折叠/展开 + 展开态记忆）
+      function monthSection(key, list) {
+        var sec = renderMonth({ timeBucket: key + "-01", count: list.length });
+        sec._assets = list;                       // 资产已就绪，展开时不再发请求
+        if (getExpandedMonths().indexOf(sec._mk) >= 0) expandMonth(sec);
+        timeline.appendChild(sec);
+        return sec;
+      }
 
       function section(title, list) {
         var sec = document.createElement("div");
@@ -1190,7 +1215,7 @@
           var x = Date.parse(a.fileCreatedAt || a.createdAt), y = Date.parse(b.fileCreatedAt || b.createdAt);
           return asc ? x - y : y - x;
         });
-        var pinLabel = state.pinRange === "today" ? "今天" : state.pinRange === "3d" ? "近 3 天" : "近 7 天";
+        var pinLabel = state.pinRange === "today" ? "今天" : "近 7 天";
         section("📌 " + pinLabel, pinned);
       }
 
@@ -1215,7 +1240,10 @@
           buckets[k].push(a);
         });
         order.sort(function (a, b) { return asc ? a.localeCompare(b) : b.localeCompare(a); });
-        order.forEach(function (k) { section(k, buckets[k]); });
+        order.forEach(function (k) {
+          if (state.groupBy === "month") monthSection(k, buckets[k]);
+          else section(k, buckets[k]);
+        });
       }
 
       // 还有下一页 → 底部给「加载更多」，不再一次性拉 500 条
