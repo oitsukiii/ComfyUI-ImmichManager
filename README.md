@@ -43,51 +43,21 @@
 
 ## Screenshots
 
+**Entry point** — the flower button sits in ComfyUI's sidebar.
+
+![Entry point](images/entry-point.png)
+
 **The panel** — thumbnail grid on the left, detail pane on the right. The header is all icons: filter, sort, zoom, grouping, pinning, selection mode, then settings, open-in-Immich and close.
 
 ![Asset panel with the detail pane open](images/panel-detail.png)
 
 **Detail pane** — large preview, asset facts, description editing, and the actions: favourite, import the embedded workflow, open in Immich, download the original, delete.
 
-**Filtering** — combine album, person, tag, type, favourite and date range. With no conditions the window says so instead of showing an empty row.
+**Filtering, grouping, pinning and selection** are described under [Usage](#usage) rather than shown: the toolbar carries a funnel that lights up while conditions are active, a grouping menu for month, day, year or none, a pin menu for today or the last seven days, and a copy-check button that enters selection mode.
 
-![Filter builder](images/panel-filters.png)
-
-**Grouping** — month, day or year sections that fold and remember it, or one flat grid.
-
-![Grouping menu and a month section](images/panel-grouping.png)
-
-**Pinning** — lifts today, or the last seven days, into a section at the top.
-
-![Pin menu and a pinned section](images/panel-pin.png)
-
-**Selection mode** — check assets, shift-click for a range, then favourite or move them to the Immich trash in one go.
-
-![Selection mode](images/panel-selection.png)
-
-**Sorting** — newest or oldest first. The icon lights up while its menu is down.
+**Sorting and zoom** — newest or oldest first, and three thumbnail sizes. The icon lights up while its menu is down.
 
 ![Sort menu](images/panel-sort-menu.png)
-
-**Zoom** — three thumbnail sizes, chosen from the ruler menu.
-
-![Zoom menu](images/panel-toolbar.png)
-
-**Small**
-
-![Small thumbnails](images/panel-zoom-small.png)
-
-**Medium**
-
-![Medium thumbnails](images/panel-zoom-medium.png)
-
-**Large**
-
-![Large thumbnails](images/panel-zoom-large.png)
-
-**Entry point** — the flower button sits in ComfyUI's sidebar.
-
-![Entry point](images/entry-point.png)
 
 **Settings** — the Immich group inside ComfyUI's own Settings dialog: connection, the panel token, the network proxy, the default album, page size, language and where the entry lives.
 
