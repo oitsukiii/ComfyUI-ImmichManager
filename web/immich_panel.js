@@ -87,7 +87,8 @@
     pickSelected: "",    // 选择面板里当前高亮的资产 id
     onPick: null,        // 选中资产的回调
     sortOrder: "desc",   // 排序：最新优先 / 最早优先
-    groupBy: "time",     // 分组：time / album / person / none
+    groupBy: "none",     // 分组间隔：none / day / month / year
+    pinRange: "",        // 置顶分组："" / today / 3d / 7d
     conditions: [],      // 条件筛选（空 = 走时间轴分桶）
     cfLists: null,       // 相册/人脸/标签下拉数据
     cfListsPromise: null,
@@ -365,6 +366,7 @@
     sort: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 16 4 4 4-4"/><path d="M7 20V4"/><path d="M11 4h10"/><path d="M11 8h7"/><path d="M11 12h4"/></svg>',
     ruler: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v-3"/><path d="M14 15v-3"/><path d="M18 15v-3"/><path d="M2 8V4"/><path d="M22 6H2"/><path d="M22 8V4"/><path d="M6 15v-3"/><rect x="2" y="12" width="20" height="8" rx="2"/></svg>',
     checkCheck: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 7 17l-5-5"/><path d="m22 10-7.5 7.5L13 16"/></svg>',
+    pin: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>',
     link: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>',
     x: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>',
     group: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M3 12h18"/><path d="M3 18h18"/></svg>',
@@ -374,10 +376,16 @@
   function buildToolMenus() {
     var SORTS = [{ k: "desc", t: "最新优先" }, { k: "asc", t: "最早优先" }];
     var GROUPS = [
-      { k: "time", t: "按时间" },
-      { k: "album", t: "按相册" },
-      { k: "person", t: "按人物" },
+      { k: "month", t: "按月分组" },
+      { k: "day", t: "按天分组" },
+      { k: "year", t: "按年分组" },
       { k: "none", t: "不分组" },
+    ];
+    var PINS = [
+      { k: "today", t: "今天置顶" },
+      { k: "3d", t: "近 3 天置顶" },
+      { k: "7d", t: "近 7 天置顶" },
+      { k: "", t: "不置顶" },
     ];
     var ZOOMS = ZOOM_LEVELS.map(function (z) { return { k: z.key, t: t(z.labelKey) }; });
 
@@ -409,13 +417,17 @@
       if (p) p.setAttribute("data-zoom", k);
       buildToolMenus();
     });
-    fill("immich-group-menu", GROUPS, state.groupBy || "time", function (k) {
+    fill("immich-group-menu", GROUPS, state.groupBy || "none", function (k) {
       state.groupBy = k; renderTimeline();
+    });
+    fill("immich-pin-menu", PINS, state.pinRange || "", function (k) {
+      state.pinRange = k; renderTimeline();
     });
 
     [[ "immich-sort-btn", "immich-sort-menu" ],
      [ "immich-zoom-btn", "immich-zoom-menu" ],
-     [ "immich-group-btn", "immich-group-menu" ]].forEach(function (pair) {
+     [ "immich-group-btn", "immich-group-menu" ],
+     [ "immich-pin-btn", "immich-pin-menu" ]].forEach(function (pair) {
       var btn = document.getElementById( pair[0] );
       var menu = document.getElementById( pair[1] );
       if (!btn || !menu) return;
@@ -462,6 +474,10 @@
       '          <div class="immich-menu-wrap">' +
       '            <button class="immich-btn immich-icon-btn" id="immich-group-btn" title="分组">' + IC.group + "</button>" +
       '            <div class="immich-menu" id="immich-group-menu"></div>' +
+      "          </div>" +
+      '          <div class="immich-menu-wrap">' +
+      '            <button class="immich-btn immich-icon-btn" id="immich-pin-btn" title="置顶分组">' + IC.pin + "</button>" +
+      '            <div class="immich-menu" id="immich-pin-menu"></div>' +
       "          </div>" +
       '          <button class="immich-btn immich-icon-btn" id="immich-btn-select" title="' + t("btn.select.title") + '">' + IC.checkCheck + "</button>" +
       "        </div>" +
@@ -1119,47 +1135,85 @@
       });
       timeline.innerHTML = "";
 
-      // 不分组：一个平铺网格
-      if ((state.groupBy || "time") === "none") {
-        var flat = document.createElement("div");
-        flat.className = "immich-grid";
-        pages.forEach(function (a) {
-          state.assetsById[a.id] = a;
-          flat.appendChild(renderCell(a));
-        });
-        timeline.appendChild(flat);
-        lazyLoad(flat);
-        restoreTimelineScroll();
-        return;
-      }
-      if (state.groupBy === "album" || state.groupBy === "person") {
-        // Immich 的 search 结果不返回所属相册/人物，前端无法据此分组
-        var warn = document.createElement("div");
-        warn.className = "immich-empty";
-        warn.textContent = "按" + (state.groupBy === "album" ? "相册" : "人物") + "分组暂不支持（Immich 搜索结果不带该信息），已按时间分组";
-        timeline.appendChild(warn);
+      // 分组键：year → 2026 / month → 2026-8 / day → 2026-8-27 / none → ""
+      function groupKey(ts) {
+        var d = new Date(ts);
+        var g = state.groupBy || "none";
+        if (g === "year") return String(d.getFullYear());
+        if (g === "month") return d.getFullYear() + "-" + (d.getMonth() + 1);
+        if (g === "day") return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+        return "";
       }
 
-      Object.keys(byMonth).sort(function (a, b) {
-        return state.sortOrder === "asc" ? a.localeCompare(b) : b.localeCompare(a);
-      }).forEach(function (key) {
+      // 置顶起点
+      var pinDays = state.pinRange === "today" ? 0 : state.pinRange === "3d" ? 3 : state.pinRange === "7d" ? 7 : -1;
+      var pinStart = 0;
+      if (pinDays >= 0) {
+        var n0 = new Date();
+        pinStart = new Date(n0.getFullYear(), n0.getMonth(), n0.getDate() - pinDays, 0, 0, 0, 0).getTime();
+      }
+      var pinned = [], rest = [];
+      pages.forEach(function (a) {
+        var ts = Date.parse(a.fileCreatedAt || a.createdAt);
+        if (isNaN(ts)) return;
+        if (pinStart && ts >= pinStart) pinned.push(a);
+        else rest.push(a);
+      });
+
+      function section(title, list) {
         var sec = document.createElement("div");
         sec.className = "immich-month";
         var head = document.createElement("div");
         head.className = "immich-month-head";
-        head.innerHTML = '<span class="immich-month-title">' + key.replace("-", "/") + "</span>" +
-          '<span class="immich-month-count">' + byMonth[key].length + " 项</span>";
+        head.innerHTML = '<span class="immich-month-title">' + esc(title) + "</span>" +
+          '<span class="immich-month-count">' + list.length + " 项</span>";
         sec.appendChild(head);
         var grid = document.createElement("div");
         grid.className = "immich-grid";
-        byMonth[key].forEach(function (a) {
+        list.forEach(function (a) {
           state.assetsById[a.id] = a;
           grid.appendChild(renderCell(a));
         });
         sec.appendChild(grid);
         timeline.appendChild(sec);
         lazyLoad(grid);
-      });
+      }
+
+      var asc = (state.sortOrder || "desc") === "asc";
+
+      // 置顶区
+      if (pinStart && pinned.length) {
+        pinned.sort(function (a, b) {
+          var x = Date.parse(a.fileCreatedAt || a.createdAt), y = Date.parse(b.fileCreatedAt || b.createdAt);
+          return asc ? x - y : y - x;
+        });
+        var pinLabel = state.pinRange === "today" ? "今天" : state.pinRange === "3d" ? "近 3 天" : "近 7 天";
+        section("📌 " + pinLabel, pinned);
+      }
+
+      // 其余：不分组 → 平铺；否则按 年/月/天 分组
+      if (!(state.groupBy && state.groupBy !== "none")) {
+        if (rest.length) {
+          var flat = document.createElement("div");
+          flat.className = "immich-grid";
+          rest.forEach(function (a) {
+            state.assetsById[a.id] = a;
+            flat.appendChild(renderCell(a));
+          });
+          timeline.appendChild(flat);
+          lazyLoad(flat);
+        }
+      } else {
+        var buckets = {}, order = [];
+        rest.forEach(function (a) {
+          var ts = Date.parse(a.fileCreatedAt || a.createdAt);
+          var k = groupKey(ts);
+          if (!buckets[k]) { buckets[k] = []; order.push(k); }
+          buckets[k].push(a);
+        });
+        order.sort(function (a, b) { return asc ? a.localeCompare(b) : b.localeCompare(a); });
+        order.forEach(function (k) { section(k, buckets[k]); });
+      }
       restoreTimelineScroll();
     });
   }
@@ -1168,7 +1222,9 @@
     var token = ++viewToken;
     setViewMode("timeline");
     rememberTimelineScroll();
-    if ((state.conditions || []).length) {
+    var needSearch = (state.conditions || []).length > 0 ||
+                     (state.groupBy && state.groupBy !== "month");
+    if (needSearch) {
       var tl0 = document.getElementById("immich-timeline");
       if (tl0) {
         revokeBlobs();
@@ -2904,8 +2960,6 @@
     { key: "default_album", id: "immich.defaultAlbum", name: "上传到相册", kind: "combo", cat: ["Immich", "4 🖼️ 相册配置", "相册设置", "目标"], dynamic: "albums", hint: H_ALBUM },
     { key: "proxy_mode", id: "immich.proxyMode", name: "网络代理模式", kind: "combo", cat: ["Immich", "3 🌐 网络", "网络设置", "模式"], options: ["off", "custom", "env"], hint: H_PROXY },
     { key: "proxy_url", id: "immich.proxyUrl", name: "代理地址", kind: "text", cat: ["Immich", "3 🌐 网络", "网络设置", "地址"], hint: H_PROXY },
-    { key: "timeline_range", id: "immich.timelineRange", name: "时间轴大组间隔", kind: "combo", cat: ["Immich", "5 🎞️ 资源", "资源设置", "时间轴A"], options: ["today", "3d", "7d"], hint: H_RANGE },
-    { key: "timeline_interval", id: "immich.timelineInterval", name: "时间轴小组间隔", kind: "combo", cat: ["Immich", "5 🎞️ 资源", "资源设置", "时间轴B"], options: ["15m", "30m", "1h", "1d"], hint: H_INTERVAL },
     { key: "page_size", id: "immich.pageSize", name: "每页数量", kind: "number", cat: ["Immich", "5 🎞️ 资源", "资源设置", "分页"], hint: H_PAGE },
     { key: "__lang", id: "immich.lang", name: "面板语言（刷新后生效）", kind: "combo", cat: ["Immich", "6 ⚙️ 前端面板配置", "面板设置", "语言"], options: ["en", "zh", "auto"], local: true, hint: H_LANG },
   ];
