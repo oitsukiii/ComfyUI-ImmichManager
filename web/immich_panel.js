@@ -1103,6 +1103,18 @@
     { key: "favorite", label: "是否收藏", ops: ["为"],                  value: "boolList" },
     { key: "date",     label: "时间段",   ops: ["早于", "晚于", "介于"], value: "date" },
   ];
+  // 显示用文案映射：内部值保持中文（参与比较），只翻译渲染出来的文字
+  var CF_DISPLAY = {
+    "相册": "cf.field.album", "人脸": "cf.field.person", "标签": "cf.field.tag",
+    "类型": "cf.field.type", "是否收藏": "cf.field.favorite", "时间段": "cf.field.date",
+    "为": "cf.op.is", "早于": "cf.op.before", "晚于": "cf.op.after", "介于": "cf.op.between",
+    "图片": "cf.type.image", "视频": "cf.type.video", "是": "cf.bool.yes", "否": "cf.bool.no",
+  };
+  function cfLabel(v) {
+    var key = CF_DISPLAY[v];
+    return key ? t(key) : v;
+  }
+
   var CF_TYPES = [{ id: "IMAGE", name: "图片" }, { id: "VIDEO", name: "视频" }];
   var CF_BOOLS = [{ id: "1", name: "是" }, { id: "0", name: "否" }];
 
@@ -1127,7 +1139,7 @@
     var v;
     if (f.value === "date") v = c.op === "介于" ? (c.value || "?") + " ~ " + (c.value2 || "?") : (c.value || "?");
     else v = cfName(f.value, c.value);
-    return f.label + ": " + v;
+    return cfLabel(f.label) + ": " + cfLabel(v);
   }
 
   function cfQuery(conds, order, page, size) {
@@ -1230,7 +1242,7 @@
           var selA = document.createElement("select");
           CF_FIELDS.forEach(function (f) {
             var o = document.createElement("option");
-            o.value = f.key; o.textContent = f.label;
+            o.value = f.key; o.textContent = cfLabel(f.label);
             if (f.key === c.field) o.selected = true;
             selA.appendChild(o);
           });
@@ -1241,7 +1253,7 @@
           var selB = document.createElement("select");
           def.ops.forEach(function (op) {
             var o = document.createElement("option");
-            o.value = op; o.textContent = op;
+            o.value = op; o.textContent = cfLabel(op);
             if (op === c.op) o.selected = true;
             selB.appendChild(o);
           });
@@ -1267,7 +1279,7 @@
             sel.appendChild(empty);
             opts.forEach(function (o) {
               var op = document.createElement("option");
-              op.value = o.id; op.textContent = o.name || o.id;
+              op.value = o.id; op.textContent = cfLabel(o.name || o.id);
               if (o.id === c.value) op.selected = true;
               sel.appendChild(op);
             });
