@@ -2202,15 +2202,23 @@
                  "margin-left:6px;border-radius:50%;border:1px solid currentColor;opacity:.55;" +
                  "font-size:10px;line-height:1;cursor:help;vertical-align:middle";
 
-  // 行结构：标题由对话框渲染（name），我们只返回控件格。
-  // 提示文字直接打出来、放在控件下方，用弱化颜色区分（替代原来的感叹号）。
-  var HINT_TEXT = "max-width:520px;margin-top:5px;font-size:11px;line-height:1.5;" +
+  // 行结构：标题在上、控件在下、提示再下，全部左对齐。
+  // 标题自己画（对话框的 name 留空），否则它会被排到控件左边。
+  var HINT_TEXT = "max-width:520px;margin-top:6px;font-size:11px;line-height:1.5;" +
                   "color:#8a8f98;opacity:.9";
+  var LABEL_CSS  = "display:block;margin-bottom:6px;font-size:13px;opacity:.85";
 
   function wideRow(kind, label, setter, value, options, hint) {
     var col = document.createElement("div");
     col.style.cssText = "display:flex;flex-direction:column;align-items:flex-start;width:100%";
     col.setAttribute("data-immich-row", "1");
+
+    if (label) {
+      var lab = document.createElement("label");
+      lab.textContent = label;
+      lab.style.cssText = LABEL_CSS;
+      col.appendChild(lab);
+    }
 
     var el;
     if (kind === "combo") {
@@ -2329,17 +2337,15 @@
     }).catch(function () { setStatus("❌ 清空失败", true); });
   }
 
-  // 版式：只在「包含我们行标记」的设置行上生效（:has 作用域化，不影响其它插件）
+  // 只作用在我们自己的行：标题列不占位、内容贴左
   (function immichRowStyle() {
     if (document.getElementById("immich-row-style")) return;
     var el = document.createElement("style");
     el.id = "immich-row-style";
     el.textContent =
-      '.setting-item:has([data-immich-row]){justify-content:flex-start!important;gap:0!important}' +
-      '.setting-item:has([data-immich-row])>div:first-child{padding-left:32px!important;text-align:left!important;flex:0 0 auto!important;max-width:none!important}' +
-      '.setting-item:has([data-immich-row])>div:last-child{padding-right:32px!important;box-sizing:border-box!important;flex:0 1 auto!important;justify-content:flex-start!important}' +
-      '[data-immich-row] [role="combobox"]{min-width:460px!important}' +
-      '[data-immich-row] input[type="text"],[data-immich-row] input[type="password"]{min-width:460px!important;width:460px!important}';
+      '.setting-item:has([data-immich-row]){justify-content:flex-start!important}' +
+      '.setting-item:has([data-immich-row])>div:first-child{flex:0 0 0!important;width:0!important;padding:0!important;overflow:hidden}' +
+      '.setting-item:has([data-immich-row])>div:last-child{flex:1 1 auto!important;justify-content:flex-start!important;padding-left:0!important}';
     (document.head || document.documentElement).appendChild(el);
   })();
 
@@ -2376,7 +2382,7 @@
             if (current === undefined || current === null) current = def.kind === "number" ? 100 : "";
           }
           st.addSetting({
-            id: def.id, name: def.name, category: def.cat,
+            id: def.id, name: "", category: def.cat,
             type: function (name, setter, value) { return wideRow(def.kind, def.name, setter, value, options, def.hint); },
             defaultValue: current,
             onChange: function (v) {
