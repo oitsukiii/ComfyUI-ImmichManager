@@ -2352,6 +2352,41 @@
     (document.head || document.documentElement).appendChild(st);
   })();
 
+  // ───────── 按钮动作：和「刷新相册」同一套写法（自包含 + 只用 toast 通知）─────────
+  function runHealth(label) {
+    toast("info", (label || "测试") + "：请求中…");
+    apiGet("/health").then(function (h) {
+      if (h && (h.ok === true || h.version)) {
+        var v = h.version || {};
+        toast("success", (label || "测试") + "：连接成功（Immich " + (v.major || "?") + "." + (v.minor || "?") + "." + (v.patch || "?") + "）");
+      } else {
+        toast("error", (label || "测试") + "：连接失败或后端未配置");
+      }
+    }).catch(function () { toast("error", (label || "测试") + "：无法访问后端"); });
+  }
+
+  function runTokenShow() {
+    apiGet("/panel-token").then(function (d) {
+      var t = tokenOf(d);
+      if (t) toast("success", "当前令牌：" + t);
+      else toast("error", "后端未返回令牌");
+    }).catch(function () { toast("error", "读取令牌失败"); });
+  }
+
+  function runTokenRegen() {
+    apiSend("POST", "/panel-token").then(function (r) {
+      if (!r.ok) { toast("error", "重新生成被拒绝（HTTP " + r.status + "）"); return; }
+      return r.json().then(function (d) { toast("success", "已重新生成：" + (tokenOf(d) || "(未回传明文)")); });
+    }).catch(function () { toast("error", "重新生成失败"); });
+  }
+
+  function runTokenClear() {
+    if (!window.confirm("清空面板令牌后，局域网内任何设备都能访问 Immich 面板。确定清空？")) return;
+    apiSend("DELETE", "/panel-token").then(function (r) {
+      r.ok ? toast("success", "令牌已清空") : toast("error", "清空被拒绝（HTTP " + r.status + "）");
+    }).catch(function () { toast("error", "清空失败"); });
+  }
+
   function registerConfigSettings(st) {
     function build(cfg, albums) {
       cfg = cfg || {};
@@ -2407,20 +2442,20 @@
       // 1 连接
       fieldsOf("1 连接");
       buttonOf("immich.test.conn", "连接测试", "1 连接", [
-        { text: "连接测试", onClick: testConnection }
+        { text: "连接测试", onClick: function () { runHealth("连接测试"); } }
       ]);
 
       // 2 安全
       buttonOf("immich.token", "面板令牌", "2 安全", [
-        { text: "显示", onClick: showToken },
-        { text: "重新生成", onClick: regenToken },
-        { text: "清空", onClick: clearToken }
+        { text: "显示", onClick: function () { runTokenShow(); } },
+        { text: "重新生成", onClick: function () { runTokenRegen(); } },
+        { text: "清空", onClick: function () { runTokenClear(); } }
       ]);
 
       // 3 网络
       fieldsOf("3 网络");
       buttonOf("immich.test.net", "连接测试", "3 网络", [
-        { text: "连接测试", onClick: testConnection }
+        { text: "连接测试", onClick: function () { runHealth("网络连接测试"); } }
       ]);
 
       // 4 相册配置
