@@ -2046,7 +2046,8 @@
   // 同时保持相同的 24×24 / stroke-width 视觉规范。
   // Lucide is ISC licensed.
   function immichRailIcon() {
-    var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    var NS = "http://www.w3.org/2000/svg";
+    var svg = document.createElementNS(NS, "svg");
     svg.setAttribute("viewBox", "0 0 24 24");
     svg.setAttribute("fill", "none");
     svg.setAttribute("stroke", "currentColor");
@@ -2055,10 +2056,16 @@
     svg.setAttribute("stroke-linejoin", "round");
     svg.setAttribute("width", "16");
     svg.setAttribute("height", "16");
-    var path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    path.setAttribute("d",
-      "M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z");
-    svg.appendChild(path);
+    // Lucide "image": rect + 圆点 + 斜线
+    var rect = document.createElementNS(NS, "rect");
+    rect.setAttribute("width", "18"); rect.setAttribute("height", "18");
+    rect.setAttribute("x", "3"); rect.setAttribute("y", "3");
+    rect.setAttribute("rx", "2"); rect.setAttribute("ry", "2");
+    var dot = document.createElementNS(NS, "circle");
+    dot.setAttribute("cx", "8"); dot.setAttribute("cy", "8"); dot.setAttribute("r", "2");
+    var line = document.createElementNS(NS, "path");
+    line.setAttribute("d", "m21 15-5-5L5 21");
+    svg.appendChild(rect); svg.appendChild(dot); svg.appendChild(line);
     return svg;
   }
 
