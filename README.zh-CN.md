@@ -57,13 +57,23 @@
 
 ![分组菜单与月份分区](images/panel-grouping.png)
 
-**排序与缩放** —— 最新/最早优先，三档缩略图尺寸；菜单展开时图标高亮。
+**排序** —— 最新/最早优先；菜单展开时图标高亮。
 
 ![排序菜单](images/panel-sort-menu.png)
 
+**缩放** —— 三档缩略图尺寸，在尺子菜单里选。
+
 ![缩放菜单](images/panel-toolbar.png)
 
-**大缩略图** —— 同一个库放到最大尺寸的样子。
+**小**
+
+![小缩略图](images/panel-zoom-small.png)
+
+**中**
+
+![中缩略图](images/panel-zoom-medium.png)
+
+**大**
 
 ![大缩略图](images/panel-zoom-large.png)
 

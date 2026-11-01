@@ -57,13 +57,23 @@
 
 ![Grouping menu and a month section](images/panel-grouping.png)
 
-**Sorting and zoom** — newest or oldest first, and three thumbnail sizes. The icon lights up while its menu is down.
+**Sorting** — newest or oldest first. The icon lights up while its menu is down.
 
 ![Sort menu](images/panel-sort-menu.png)
 
+**Zoom** — three thumbnail sizes, chosen from the ruler menu.
+
 ![Zoom menu](images/panel-toolbar.png)
 
-**Large thumbnails** — the same library at the largest size.
+**Small**
+
+![Small thumbnails](images/panel-zoom-small.png)
+
+**Medium**
+
+![Medium thumbnails](images/panel-zoom-medium.png)
+
+**Large**
 
 ![Large thumbnails](images/panel-zoom-large.png)
 
