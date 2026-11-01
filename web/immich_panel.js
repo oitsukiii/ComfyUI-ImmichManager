@@ -646,7 +646,7 @@
       "      </div>" +
       "    </div>" +
       '    <span class="immich-header-sep"></span>' +
-      '    <button class="immich-btn immich-icon-btn" id="immich-btn-settings" title="打开 ComfyUI 设置（Immich 配置）">' + IC.settings + "</button>" +
+      '    <button class="immich-btn immich-icon-btn" id="immich-btn-settings" title="' + t("title.settings") + '">' + IC.settings + "</button>" +
       '    <button class="immich-btn immich-icon-btn" id="immich-btn-open" title="' + t("btn.open.title") + '">' + IC.link + "</button>" +
       '    <button class="immich-btn immich-icon-btn" id="immich-btn-close" title="' + t("btn.close.title") + '">' + IC.x + "</button>" +
       "  </div>" +
