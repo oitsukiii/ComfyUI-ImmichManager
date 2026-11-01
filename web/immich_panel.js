@@ -135,6 +135,15 @@
 
   // 统一后端 API 调用（全部走 /api/immich_plus/*，前端不直接碰 Immich）。
   // 401 → 抛 AUTH_REQUIRED（调用方弹令牌输入）；其他错误解析后端 {error} 文案。
+  // 取二进制（原图下载用）：带鉴权头，返回 Blob
+  function apiBlob(path) {
+    return fetch(API + path, { headers: headers() }).then(function (r) {
+      if (r.status === 401) throw new Error("AUTH_REQUIRED");
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.blob();
+    });
+  }
+
   function api(method, path, body) {
     var opt = { method: method, headers: headers() };
     if (body !== undefined) opt.body = JSON.stringify(body);
@@ -1909,11 +1918,48 @@
       '    <div class="immich-detail-actions">' +
       '      <button class="immich-btn" id="immich-btn-fav">' + (asset.isFavorite ? t("detail.fav.remove") : t("detail.fav.add")) + "</button>" +
       '      <button class="immich-btn" id="immich-btn-save-desc">' + t("detail.desc.save") + "</button>" +
+      '      <button class="immich-btn" id="immich-btn-open-asset">打开 Immich 查看</button>' +
+      '      <button class="immich-btn" id="immich-btn-download">下载</button>' +
       '      <button class="immich-btn danger" id="immich-btn-del">' + t("detail.delete.btn") + "</button>" +
       "    </div>" +
       "  </div>" +
       "</div>";
 
+    // 打开 Immich 网页里这张资产的详情（Immich 前端路由是 /photos/<id>）
+    var openAssetBtn = document.getElementById("immich-btn-open-asset");
+    if (openAssetBtn) {
+      openAssetBtn.onclick = function () {
+        var base = (state.config && state.config.base_url) || "";
+        base = base.replace(/\/api\/?$/, "");
+        if (!base) { showStatus(t("error.load"), "err"); return; }
+        window.open(base + "/photos/" + encodeURIComponent(asset.id), "_blank", "noopener");
+      };
+    }
+    // 下载原图：走带鉴权的 /assets/{id}/original，再用 blob 触发保存
+    var dlBtn = document.getElementById("immich-btn-download");
+    if (dlBtn) {
+      dlBtn.onclick = function () {
+        dlBtn.disabled = true;
+        var old = dlBtn.textContent;
+        dlBtn.textContent = "下载中…";
+        apiBlob("/assets/" + encodeURIComponent(asset.id) + "/original").then(function (blob) {
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement("a");
+          a.href = url;
+          a.download = asset.originalFileName || (asset.id + ".bin");
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+          dlBtn.disabled = false;
+          dlBtn.textContent = old;
+        }).catch(function () {
+          dlBtn.disabled = false;
+          dlBtn.textContent = old;
+          showStatus(t("error.load.fail", { msg: "下载失败" }), "err");
+        });
+      };
+    }
     document.getElementById("immich-btn-detail-close").onclick = userCloseDetail;
     // 已收藏资产：详情收藏按钮加 active 高亮
     if (asset.isFavorite) {
