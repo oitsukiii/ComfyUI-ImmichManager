@@ -592,13 +592,26 @@
             var lab = b.getAttribute("aria-label") || "";
             return lab.indexOf("设置") >= 0 || /settings/i.test(lab);
           })[0];
-        if (btn) { btn.click(); return; }
-        // 兜底：Ctrl + ,
-        ["keydown"].forEach(function (t2) {
-          document.dispatchEvent(new KeyboardEvent(t2, {
-            key: ",", code: "Comma", ctrlKey: true, bubbles: true,
-          }));
-        });
+        if (btn) btn.click();
+        else document.dispatchEvent(new KeyboardEvent("keydown", {
+          key: ",", code: "Comma", ctrlKey: true, bubbles: true,
+        }));
+        // 打开后自动定位到 Immich 分组
+        var tries = 0;
+        var timer = setInterval(function () {
+          tries += 1;
+          var dlg = document.querySelector('[role="dialog"]');
+          var hit = dlg && Array.prototype.slice.call(dlg.querySelectorAll("*"))
+            .filter(function (e) {
+              return (e.textContent || "").trim() === "Immich" && e.children.length <= 2;
+            })[0];
+          if (hit) {
+            (hit.closest("button,[role=button],li,a") || hit).click();
+            clearInterval(timer);
+          } else if (tries > 40) {
+            clearInterval(timer);   // 4 秒没等到就放弃
+          }
+        }, 100);
       };
     }
     document.getElementById("immich-btn-open").onclick = function () {

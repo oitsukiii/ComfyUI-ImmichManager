@@ -16,7 +16,9 @@
 #immich-panel-overlay {
     position: fixed;
     inset: 0;
-    z-index: 9999;
+    /* 9999 会盖住 ComfyUI 的设置对话框（那是 PrimeVue 的弹层），
+       调低到 900：仍高于画布与侧栏，但低于官方弹窗。 */
+    z-index: 900;
     background: rgba(0, 0, 0, 0.6);
     display: flex;
     align-items: center;
