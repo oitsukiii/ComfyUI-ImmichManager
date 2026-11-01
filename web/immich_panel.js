@@ -483,6 +483,12 @@
     try { applyNodeLang(); } catch (e) {}   // 节点悬停说明也立即换语言
   }
 
+  // 收起所有下拉，并清掉按钮上的「菜单开着」高亮
+  function closeAllMenus() {
+    document.querySelectorAll(".immich-menu").forEach(function (m) { m.classList.remove("open"); });
+    document.querySelectorAll(".immich-icon-btn.menu-open").forEach(function (b) { b.classList.remove("menu-open"); });
+  }
+
   function buildToolMenus() {
     var SORTS = [{ k: "desc", t: t("cf.sort.desc") }, { k: "asc", t: t("cf.sort.asc") }];
     var GROUPS = [
@@ -509,7 +515,7 @@
         if (it.disabled) row.className = "disabled";
         row.onclick = function () {
           if (it.disabled) return;
-          el.classList.remove("open");
+          closeAllMenus();
           onPick(it.k);
         };
         el.appendChild(row);
@@ -543,15 +549,16 @@
       btn.onclick = function (e) {
         e.stopPropagation();
         var open = menu.classList.contains("open");
-        document.querySelectorAll(".immich-menu").forEach(function (m) { m.classList.remove("open"); });
-        if (!open) menu.classList.add("open");
+        closeAllMenus();
+        if (!open) {
+          menu.classList.add("open");
+          btn.classList.add("menu-open");   // 菜单开着时图标也高亮
+        }
       };
     });
     if (!window.__immichMenuCloser) {
       window.__immichMenuCloser = true;
-      document.addEventListener("click", function () {
-        document.querySelectorAll(".immich-menu").forEach(function (m) { m.classList.remove("open"); });
-      });
+      document.addEventListener("click", closeAllMenus);
     }
     // 非默认配置时图标高亮（和漏斗图标一致的做法）
     var cf = document.getElementById("immich-cf-add");
