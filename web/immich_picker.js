@@ -69,8 +69,8 @@ const CSS = `
 .immich-chip b{cursor:pointer;opacity:.7;font-weight:400}
 .immich-chip b:hover{opacity:1;color:#ff6b6b}
 .immich-pick-head select{flex:1;padding:8px 10px;border-radius:6px;border:1px solid #3a3f4a;background:#252a33;color:inherit;font:inherit}
-.immich-pick-body{padding:12px;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
-.immich-pick-cell{aspect-ratio:1;background:#252a33;border-radius:6px;overflow:hidden;cursor:pointer;border:2px solid transparent}
+.immich-pick-body{padding:12px;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));grid-auto-rows:150px;gap:8px}
+.immich-pick-cell{height:150px;background:#252a33;border-radius:6px;overflow:hidden;cursor:pointer;border:2px solid transparent;box-sizing:border-box}
 .immich-pick-cell:hover{border-color:#5b8def}
 .immich-pick-cell.immich-pick-selected{border-color:#4ade80;box-shadow:0 0 0 2px #4ade80 inset}
 .immich-pick-cell.immich-pick-selected::after{content:"✓";position:absolute;top:4px;right:6px;color:#4ade80;font-weight:700}
