@@ -85,6 +85,9 @@
     favOnly: false,     // "仅显示收藏"开关（需求 2.6）
     pickMode: false,     // 选择面板模式（由选图节点打开）
     onPick: null,        // 选中资产的回调
+    conditions: [],      // 条件筛选（空 = 走时间轴分桶）
+    cfLists: null,       // 相册/人脸/标签下拉数据
+    cfListsPromise: null,
     selectMode: false,  // 批量选择模式（v0.6：勾选多个资产批量收藏/删除）
     selectedIds: {},    // 选中资产 id 集合 {id: true}（对象查重 O(1)）
     detailBeforeSelect: null, // 进入选择模式前详情状态快照（退出时还原）
@@ -372,6 +375,10 @@
       "      </div>" +
       "    </div>" +
       '    <span class="immich-header-sep"></span>' +
+      '    <div class="immich-cf-bar timeline-only">' +
+      '      <button class="immich-btn" id="immich-cf-add" title="添加筛选条件">+ 条件</button>' +
+      '      <span id="immich-cf-chips"></span>' +
+      "    </div>" +
       '    <span class="immich-header-sep"></span>' +
       '    <button class="immich-btn" id="immich-btn-open" title="' + t("btn.open.title") + '">' + t("btn.open") + "</button>" +
       '    <button class="immich-btn" id="immich-btn-close" title="' + t("btn.close.title") + '">✕</button>' +
@@ -402,6 +409,8 @@
       exitSelectMode();
       renderTimeline();
     };
+    var cfAdd = document.getElementById("immich-cf-add");
+    if (cfAdd) cfAdd.onclick = openConditionEditor;
     document.getElementById("immich-btn-select").onclick = function () {
       if (state.selectMode) exitSelectMode();
       else enterSelectMode();
@@ -734,9 +743,284 @@
 
   // 渲染时间轴视图：拉桶列表 → 分桶渲染 → 还原滚动/展开记忆。
   // viewToken 用于废弃过期异步结果（快速切换视图时旧请求不覆盖新 DOM）。
+  // ─────────────── 条件筛选 ───────────────
+  (function cfStyle() {
+    if (document.getElementById("immich-cf-css")) return;
+    var el = document.createElement("style");
+    el.id = "immich-cf-css";
+    el.textContent =
+      '.immich-cf-bar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;max-width:46vw}' +
+      '.immich-cf-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:999px;' +
+      'background:#2a3038;border:1px solid #3a3f4a;font-size:12px;color:#e6e6e6}' +
+      '.immich-cf-chip b{cursor:pointer;opacity:.7;font-weight:400}' +
+      '.immich-cf-chip b:hover{opacity:1;color:#ff6b6b}' +
+      '.immich-cf-mask{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:center;justify-content:center}' +
+      '.immich-cf-win{width:min(720px,92vw);max-height:80vh;background:#1b1e24;color:#e6e6e6;border:1px solid #3a3f4a;' +
+      'border-radius:10px;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.6)}' +
+      '.immich-cf-head{padding:12px 16px;border-bottom:1px solid #3a3f4a;font-weight:600}' +
+      '.immich-cf-rows{padding:12px 16px;overflow:auto;display:flex;flex-direction:column;gap:10px}' +
+      '.immich-cf-row{display:grid;grid-template-columns:140px 110px 1fr 26px;gap:8px;align-items:center}' +
+      '.immich-cf-row select,.immich-cf-row input{padding:7px 9px;border-radius:6px;border:1px solid #3a3f4a;' +
+      'background:#252a33;color:#e6e6e6;font:inherit;width:100%;box-sizing:border-box;color-scheme:dark;margin-right:6px}' +
+      '.immich-cf-del{cursor:pointer;text-align:center;opacity:.7}' +
+      '.immich-cf-del:hover{opacity:1;color:#ff6b6b}' +
+      '.immich-cf-foot{display:flex;justify-content:space-between;padding:12px 16px;border-top:1px solid #3a3f4a;gap:8px}';
+    (document.head || document.documentElement).appendChild(el);
+  })();
+
+  // 全部用下拉：Immich 的 search 只支持 id 精确匹配与时间范围，没有文本模糊匹配。
+  var CF_FIELDS = [
+    { key: "album",    label: "相册",     ops: ["为"],                  value: "albumList" },
+    { key: "person",   label: "人脸",     ops: ["为"],                  value: "personList" },
+    { key: "tag",      label: "标签",     ops: ["为"],                  value: "tagList" },
+    { key: "type",     label: "类型",     ops: ["为"],                  value: "typeList" },
+    { key: "favorite", label: "是否收藏", ops: ["为"],                  value: "boolList" },
+    { key: "date",     label: "时间段",   ops: ["早于", "晚于", "介于"], value: "date" },
+  ];
+  var CF_TYPES = [{ id: "IMAGE", name: "图片" }, { id: "VIDEO", name: "视频" }];
+  var CF_BOOLS = [{ id: "1", name: "是" }, { id: "0", name: "否" }];
+
+  function cfDef(key) { return CF_FIELDS.find(function (f) { return f.key === key; }) || CF_FIELDS[0]; }
+
+  function cfLists() {
+    var L = state.cfLists || {};
+    return {
+      albumList: L.albums || [], personList: L.people || [], tagList: L.tags || [],
+      typeList: CF_TYPES, boolList: CF_BOOLS,
+    };
+  }
+
+  function cfName(listKey, id) {
+    var arr = cfLists()[listKey] || [];
+    var hit = arr.find(function (x) { return x.id === id; });
+    return hit ? (hit.name || id) : id;
+  }
+
+  function cfText(c) {
+    var f = cfDef(c.field);
+    var v;
+    if (f.value === "date") v = c.op === "介于" ? (c.value || "?") + " ~ " + (c.value2 || "?") : (c.value || "?");
+    else v = cfName(f.value, c.value);
+    return f.label + ": " + v;
+  }
+
+  function cfQuery(conds, order, page, size) {
+    var q = ["page=" + page, "size=" + size, "order=" + order];
+    (conds || []).forEach(function (c) {
+      if (c.field === "date") {
+        if (c.op === "早于" && c.value) q.push("before=" + encodeURIComponent(c.value));
+        else if (c.op === "晚于" && c.value) q.push("after=" + encodeURIComponent(c.value));
+        else if (c.op === "介于") {
+          if (c.value) q.push("after=" + encodeURIComponent(c.value));
+          if (c.value2) q.push("before=" + encodeURIComponent(c.value2));
+        }
+        return;
+      }
+      if (!c.value) return;
+      var key = c.field;
+      q.push(key + "=" + encodeURIComponent(c.value));
+    });
+    return q.join("&");
+  }
+
+  function ensureCfLists() {
+    if (state.cfListsPromise) return state.cfListsPromise;
+    state.cfListsPromise = Promise.all([
+      api("GET", "/albums").catch(function () { return []; }),
+      api("GET", "/people").catch(function () { return []; }),
+      api("GET", "/tags").catch(function () { return []; }),
+    ]).then(function (r) {
+      state.cfLists = {
+        albums: (r[0] || []).map(function (a) { return { id: a.id, name: a.albumName }; }),
+        people: (r[1] || []).map(function (p) { return { id: p.id, name: p.name || "(未命名)" }; }),
+        tags: (r[2] || []).map(function (t) { return { id: t.id, name: t.name }; }),
+      };
+      return state.cfLists;
+    }).catch(function () { return { albums: [], people: [], tags: [] }; });
+    return state.cfListsPromise;
+  }
+
+  function renderConditionChips() {
+    var host = document.getElementById("immich-cf-chips");
+    if (!host) return;
+    host.innerHTML = "";
+    (state.conditions || []).forEach(function (c, i) {
+      var chip = document.createElement("span");
+      chip.className = "immich-cf-chip";
+      chip.textContent = cfText(c);
+      var x = document.createElement("b");
+      x.textContent = "×";
+      x.title = "移除这个条件";
+      x.onclick = function () {
+        state.conditions.splice(i, 1);
+        renderConditionChips();
+        renderTimeline();
+      };
+      chip.appendChild(x);
+      host.appendChild(chip);
+    });
+  }
+
+  function openConditionEditor() {
+    ensureCfLists().then(function () {
+      var mask = document.createElement("div");
+      mask.className = "immich-cf-mask";
+      var rows = (state.conditions || []).map(function (c) { return Object.assign({}, c); });
+      if (!rows.length) rows.push({ field: "album", op: "为", value: "", value2: "" });
+
+      mask.innerHTML =
+        '<div class="immich-cf-win">' +
+        '  <div class="immich-cf-head">筛选条件</div>' +
+        '  <div class="immich-cf-rows"></div>' +
+        '  <div class="immich-cf-foot">' +
+        '    <button class="immich-btn" data-role="add">新增条件</button>' +
+        '    <span><button class="immich-btn" data-role="cancel">取消</button>' +
+        '    <button class="immich-btn primary" data-role="ok">确定</button></span>' +
+        '  </div>' +
+        '</div>';
+      document.body.appendChild(mask);
+      var rowsEl = mask.querySelector(".immich-cf-rows");
+
+      function paint() {
+        rowsEl.innerHTML = "";
+        rows.forEach(function (c, idx) {
+          var row = document.createElement("div");
+          row.className = "immich-cf-row";
+          var def = cfDef(c.field);
+
+          var selA = document.createElement("select");
+          CF_FIELDS.forEach(function (f) {
+            var o = document.createElement("option");
+            o.value = f.key; o.textContent = f.label;
+            if (f.key === c.field) o.selected = true;
+            selA.appendChild(o);
+          });
+          selA.onchange = function () {
+            c.field = selA.value; c.op = cfDef(c.field).ops[0]; c.value = ""; c.value2 = ""; paint();
+          };
+
+          var selB = document.createElement("select");
+          def.ops.forEach(function (op) {
+            var o = document.createElement("option");
+            o.value = op; o.textContent = op;
+            if (op === c.op) o.selected = true;
+            selB.appendChild(o);
+          });
+          selB.onchange = function () { c.op = selB.value; paint(); };
+
+          var wrap = document.createElement("div");
+          if (def.value === "date") {
+            var d1 = document.createElement("input");
+            d1.type = "date"; d1.value = c.value || "";
+            d1.onchange = function () { c.value = d1.value; };
+            wrap.appendChild(d1);
+            if (c.op === "介于") {
+              var d2 = document.createElement("input");
+              d2.type = "date"; d2.value = c.value2 || "";
+              d2.onchange = function () { c.value2 = d2.value; };
+              wrap.appendChild(d2);
+            }
+          } else {
+            var sel = document.createElement("select");
+            var opts = cfLists()[def.value] || [];
+            var empty = document.createElement("option");
+            empty.value = ""; empty.textContent = opts.length ? "（请选择）" : "（没有可选项）";
+            sel.appendChild(empty);
+            opts.forEach(function (o) {
+              var op = document.createElement("option");
+              op.value = o.id; op.textContent = o.name || o.id;
+              if (o.id === c.value) op.selected = true;
+              sel.appendChild(op);
+            });
+            sel.onchange = function () { c.value = sel.value; };
+            wrap.appendChild(sel);
+          }
+
+          var del = document.createElement("span");
+          del.className = "immich-cf-del";
+          del.textContent = "×";
+          del.onclick = function () { rows.splice(idx, 1); paint(); };
+
+          row.appendChild(selA); row.appendChild(selB); row.appendChild(wrap); row.appendChild(del);
+          rowsEl.appendChild(row);
+        });
+      }
+
+      mask.querySelector('[data-role="add"]').onclick = function () {
+        rows.push({ field: "album", op: "为", value: "", value2: "" }); paint();
+      };
+      mask.querySelector('[data-role="cancel"]').onclick = function () { mask.remove(); };
+      mask.querySelector('[data-role="ok"]').onclick = function () {
+        state.conditions = rows.filter(function (c) {
+          return c.field === "date" ? !!(c.value || c.value2) : !!c.value;
+        });
+        mask.remove();
+        renderConditionChips();
+        renderTimeline();
+      };
+      paint();
+    });
+  }
+
+  // 有条件时走 /search：把结果按月分组，复用 renderCell 渲染
+  function renderFiltered(timeline) {
+    var pages = [];
+    function fetchPage(p) {
+      return api("GET", "/search?" + cfQuery(state.conditions, "desc", p, 100)).then(function (d) {
+        pages = pages.concat(d.items || []);
+        if ((d.nextPage && pages.length < 500)) return fetchPage(Number(d.nextPage));
+      });
+    }
+    return fetchPage(1).then(function () {
+      if (!pages.length) {
+        timeline.innerHTML = '<div class="immich-empty">没有符合条件的资产</div>';
+        return;
+      }
+      var byMonth = {};
+      pages.forEach(function (a) {
+        var ts = Date.parse(a.fileCreatedAt || a.createdAt);
+        if (isNaN(ts)) return;
+        var d = new Date(ts);
+        var key = d.getFullYear() + "-" + (d.getMonth() + 1);
+        (byMonth[key] = byMonth[key] || []).push(a);
+      });
+      timeline.innerHTML = "";
+      Object.keys(byMonth).sort().reverse().forEach(function (key) {
+        var sec = document.createElement("div");
+        sec.className = "immich-month";
+        var head = document.createElement("div");
+        head.className = "immich-month-head";
+        head.innerHTML = '<span class="immich-month-title">' + key.replace("-", "/") + "</span>" +
+          '<span class="immich-month-count">' + byMonth[key].length + " 项</span>";
+        sec.appendChild(head);
+        var grid = document.createElement("div");
+        grid.className = "immich-grid";
+        byMonth[key].forEach(function (a) {
+          state.assetsById[a.id] = a;
+          grid.appendChild(renderCell(a));
+        });
+        sec.appendChild(grid);
+        timeline.appendChild(sec);
+        lazyLoad(grid);
+      });
+    });
+  }
+
   function renderTimeline() {
     var token = ++viewToken;
     setViewMode("timeline");
+    if ((state.conditions || []).length) {
+      var tl0 = document.getElementById("immich-timeline");
+      if (tl0) {
+        revokeBlobs();
+        state.assetsById = {};
+        tl0.innerHTML = '<div class="immich-loading">筛选中…</div>';
+        renderFiltered(tl0).catch(function () {
+          tl0.innerHTML = '<div class="immich-empty">筛选失败</div>';
+        });
+        return;
+      }
+    }
     clearStatus();
     revokeBlobs(); // 旧缩略图 blob 统一回收
     var timeline = document.getElementById("immich-timeline");
