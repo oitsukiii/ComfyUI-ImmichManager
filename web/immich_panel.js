@@ -2202,23 +2202,25 @@
                  "margin-left:6px;border-radius:50%;border:1px solid currentColor;opacity:.55;" +
                  "font-size:10px;line-height:1;cursor:help;vertical-align:middle";
 
-  function wideRow(kind, label, setter, value, options, hint) {
-    var tr = document.createElement("tr");
+  // 行结构：标题由对话框渲染（放进 name，左侧统一对齐），
+  // 我们只返回控件格；感叹号放在控件之前 —— 视觉上紧跟标题。
+  var HINT_CSS = "display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;" +
+                 "margin-right:8px;border-radius:50%;border:1px solid currentColor;opacity:.55;" +
+                 "font-size:10px;line-height:1;cursor:help;vertical-align:middle";
 
-    var td1 = document.createElement("td");
-    var lab = document.createElement("label");
-    lab.textContent = label || "";
-    td1.appendChild(lab);
+  function wideRow(kind, label, setter, value, options, hint) {
+    var wrap = document.createElement("div");
+    wrap.style.cssText = "display:flex;align-items:center;justify-content:flex-end";
+
     if (hint) {
       var bang = document.createElement("span");
       bang.textContent = "!";
       bang.style.cssText = HINT_CSS;
-      bang.title = hint;              // 原生 tooltip：悬停显示注释
+      bang.title = hint;
       bang.setAttribute("aria-label", hint);
-      td1.appendChild(bang);
+      wrap.appendChild(bang);
     }
 
-    var td2 = document.createElement("td");
     var el;
     if (kind === "combo") {
       el = document.createElement("select");
@@ -2238,10 +2240,8 @@
       el.addEventListener("change", function () { setter(el.value); });
       el.addEventListener("blur", function () { setter(el.value); });
     }
-    td2.appendChild(el);
-    tr.appendChild(td1);
-    tr.appendChild(td2);
-    return tr;
+    wrap.appendChild(el);
+    return wrap;
   }
 
   // 只返回按钮容器（同上：名称列由外层渲染）
@@ -2364,7 +2364,7 @@
             if (current === undefined || current === null) current = def.kind === "number" ? 100 : "";
           }
           st.addSetting({
-            id: def.id, name: "", category: def.cat,
+            id: def.id, name: def.name, category: def.cat,
             type: function (name, setter, value) { return wideRow(def.kind, def.name, setter, value, options, def.hint); },
             defaultValue: current,
             onChange: function (v) {
