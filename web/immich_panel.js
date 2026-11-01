@@ -2182,6 +2182,15 @@
             "background:#252a33;color:inherit;font:inherit;cursor:pointer";
   var _statusEls = {};   // 每个分组一行状态
 
+  // 官方 toast：按钮反馈用它，不依赖某个状态行是否已渲染
+  function toast(kind, msg) {
+    try {
+      var t = window.app && window.app.extensionManager && window.app.extensionManager.toast;
+      if (t && typeof t.add === "function") { t.add({ severity: kind, summary: msg, life: kind === "error" ? 6000 : 3500 }); return; }
+    } catch (e) {}
+    console.log("[Immich]", kind, msg);
+  }
+
   function setStatus(group, msg, isErr) {
     var el = _statusEls[group || "1 连接"];
     if (!el) return;
@@ -2274,9 +2283,9 @@
 
   function putConfig(key, value, group) {
     apiSend("PUT", "/config", { [key]: value }).then(function (r) {
-      if (r.ok) setStatus(group, "已保存：" + key, false);
-      else setStatus(group, "被后端拒绝（HTTP " + r.status + "）：" + key, true);
-    }).catch(function () { setStatus(group, "网络错误：" + key, true); });
+      if (r.ok) toast("success", "已保存：" + key);
+      else toast("error", "被后端拒绝（HTTP " + r.status + "）：" + key);
+    }).catch(function () { toast("error", "网络错误：" + key); });
   }
 
   // 顺序对齐老配置页：连接 → 相册 → 网络 → 资源 → 安全 → 其他
@@ -2298,7 +2307,6 @@
     { key: "proxy_url", id: "immich.proxyUrl", name: "代理地址（custom 必填）", kind: "text", cat: ["Immich", "3 网络", "地址"], hint: H_PROXY },
     { key: "timeline_range", id: "immich.timelineRange", name: "时间轴大组间隔", kind: "combo", cat: ["Immich", "5 资源", "时间轴"], options: ["today", "3d", "7d"], hint: H_RANGE },
     { key: "timeline_interval", id: "immich.timelineInterval", name: "时间轴小组间隔", kind: "combo", cat: ["Immich", "5 资源", "时间轴"], options: ["15m", "30m", "1h", "1d"], hint: H_INTERVAL },
-    { key: "page_size", id: "immich.pageSize", name: "每页数量", kind: "number", cat: ["Immich", "5 资源", "分页"], hint: H_PAGE },
     { key: "__lang", id: "immich.lang", name: "面板语言（刷新后生效）", kind: "combo", cat: ["Immich", "6 前端面板配置", "语言"], options: ["en", "zh", "auto"], local: true, hint: H_LANG },
   ];
 
@@ -2360,7 +2368,7 @@
               onChange: function (v) {
                 if (d.local) {
                   try { window.localStorage.setItem("immich_lang", v); } catch (e) {}
-                  setStatus("6 前端面板配置", "已保存，刷新后生效", false);
+                  toast("success", "已保存，刷新后生效");
                   return;
                 }
                 if (d.key === "api_key" && !String(v || "").trim()) return;
@@ -2383,7 +2391,7 @@
       addStatusRow(st, "1 连接");
       fieldsOf("1 连接");
       buttonOf("immich.test.conn", "连接测试", "1 连接", [
-        { text: "连接测试", onClick: function () { testConnection("1 连接"); } }
+        { text: "连接测试", onClick: testConnection }
       ]);
 
       // 2 安全
@@ -2398,7 +2406,7 @@
       addStatusRow(st, "3 网络");
       fieldsOf("3 网络");
       buttonOf("immich.test.net", "连接测试", "3 网络", [
-        { text: "连接测试", onClick: function () { testConnection("3 网络"); } }
+        { text: "连接测试", onClick: testConnection }
       ]);
 
       // 4 相册配置
@@ -2406,7 +2414,7 @@
       fieldsOf("4 相册配置");
       buttonOf("immich.album.refresh", "刷新相册", "4 相册配置", [
         { text: "刷新相册", onClick: function () {
-          setStatus("4 相册配置", "重新拉取相册列表…", false);
+          toast("info", "重新拉取相册列表…");
           apiGet("/albums").then(function (a) {
             var sel = document.querySelector('select[data-immich="album"]');
             if (sel) {
@@ -2419,8 +2427,8 @@
                 sel.appendChild(op);
               });
             }
-            setStatus("4 相册配置", "✅ 已刷新（" + ((a || []).length) + " 个相册）", false);
-          }).catch(function () { setStatus("4 相册配置", "❌ 刷新失败", true); });
+            toast("success", "已刷新（" + ((a || []).length) + " 个相册）");
+          }).catch(function () { toast("error", "刷新相册失败"); });
         } }
       ]);
 
