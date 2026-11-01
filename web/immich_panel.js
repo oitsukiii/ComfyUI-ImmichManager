@@ -472,9 +472,15 @@
         document.querySelectorAll(".immich-menu").forEach(function (m) { m.classList.remove("open"); });
       });
     }
-    // 有条件时漏斗图标高亮
+    // 非默认配置时图标高亮（和漏斗图标一致的做法）
     var cf = document.getElementById("immich-cf-add");
     if (cf) cf.classList.toggle("active", !!(state.conditions && state.conditions.length));
+
+    var gb = document.getElementById("immich-group-btn");
+    if (gb) gb.classList.toggle("active", (state.groupBy || "none") !== "none");
+
+    var pb = document.getElementById("immich-pin-btn");
+    if (pb) pb.classList.toggle("active", !!state.pinRange);
   }
 
   // 两套记忆：
