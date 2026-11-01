@@ -1,0 +1,77 @@
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Re-run weekly so newly added CodeQL queries get applied to old code.
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  offline-tests:
+    name: Offline tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install runtime dependencies
+        run: python -m pip install --upgrade pip -r requirements.txt
+
+      # These are standalone scripts that exit non-zero on failure, not pytest
+      # cases; tests/conftest.py keeps pytest from collecting them for that
+      # reason. Run them the way the author runs them.
+      #
+      # Excluded on purpose:
+      #   test_client.py             -> integration, needs IMMICH_TEST_KEY and a live server
+      #   test_video_integration.py  -> needs ComfyUI + torch (comfy_api)
+      - name: Run offline security-relevant tests
+        shell: bash
+        env:
+          PYTHONIOENCODING: utf-8
+          PYTHONUTF8: "1"
+        run: |
+          set -euo pipefail
+          for f in test_client_bulk_offline test_config test_extract test_proxy_offline test_routes; do
+            echo "::group::$f"
+            python "tests/$f.py"
+            echo "::endgroup::"
+          done
+
+  codeql:
+    name: CodeQL (python)
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: python
+          # security-extended adds the SSRF / request-forgery and credential
+          # queries that catch the class of bug the registry review found.
+          queries: security-extended
+
+      - uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:python"
