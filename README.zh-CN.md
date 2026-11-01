@@ -130,9 +130,9 @@ python -m pip install requests pillow aiohttp
 - 全局并发上限 3（信号量）；相册按名查找 / 创建 / 批量加入（带锁防并发建同名）。
 - 某张上传失败时抛错中断执行——**已成功上传进 Immich 的图不会回滚也不会重传**，错误信息会列出每个失败文件及原因。
 
-用法示例：
+节点本体 —— `filename_prefix` + images 输入：
 
-![Immich Save Image 节点典型用法](images/image-node-usage.png)
+![Immich Save Image 节点](images/node-save-image.png)
 
 ### 2. 🎬 Immich Save Video
 
@@ -152,9 +152,9 @@ python -m pip install requests pillow aiohttp
 - **流式上传**：分块 SHA-1 + multipart 流式上传——大视频不会整读进内存。
 - 本地 temp 保存 `.mp4` 用于节点预览（同时作为上传源文件；ComfyUI **每次启动时清空 `temp/` 目录**）。
 
-用法示例：
+节点本体 —— `filename_prefix` + video 输入：
 
-![Immich Save Video 节点典型用法](images/video-node-usage.png)
+![Immich Save Video 节点](images/node-save-video.png)
 
 ### 3. 📥 Load Image from Immich
 
@@ -167,6 +167,8 @@ python -m pip install requests pillow aiohttp
 - 节点上的 **选择图片** 按钮以「选择模式」打开资产面板：单击即选中、面板自动关闭，缩略图直接画在节点上。
 - 分组、筛选、排序、缩放与主面板一致，但**选择面板的状态存在节点里**，跟着工作流 JSON 走；主面板的状态存在服务器上。
 - 再次打开选择面板会恢复上次选中的图片、滚动位置和预览。
+
+![Load Image from Immich 节点](images/node-pick.png)
 
 ### 4. 资产面板
 

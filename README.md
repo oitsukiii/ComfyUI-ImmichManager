@@ -127,9 +127,9 @@ Both nodes take their connection settings (base URL / API key / default album) f
 - Global concurrency cap of 3 (semaphore); album lookup / create / batch-add with a lock against concurrent duplicate creation.
 - Upload failure raises and interrupts execution — **images already uploaded to Immich are neither rolled back nor re-uploaded**; the error lists each failed file and its reason.
 
-Example wiring:
+The node itself — `filename_prefix` plus the images input:
 
-![Immich Save Image example workflow](images/image-node-usage.png)
+![Immich Save Image node](images/node-save-image.png)
 
 ### 2. 🎬 Immich Save Video
 
@@ -149,9 +149,9 @@ Example wiring:
 - **Streaming upload**: files are uploaded in chunks (SHA-1 + multipart streaming) — large videos are never fully read into memory.
 - A local `.mp4` is kept in the ComfyUI temp folder for the preview (it is also the upload source; ComfyUI **clears the `temp/` folder on every startup**).
 
-Example wiring:
+The node itself — `filename_prefix` plus the video input:
 
-![Immich Save Video example workflow](images/video-node-usage.png)
+![Immich Save Video node](images/node-save-video.png)
 
 ### 3. 📥 Load Image from Immich
 
@@ -164,6 +164,8 @@ Example wiring:
 - The node's **Choose image** button opens the asset panel in pick mode: one click selects, the panel closes, and the thumbnail is drawn on the node itself.
 - Grouping, filtering, sorting and zoom work exactly as in the main panel, but the pick panel keeps **its own state inside the node**, so it travels with the workflow JSON. The main panel keeps its state on the server.
 - Reopening the picker restores the last selection, the scroll position and the preview pane.
+
+![Load Image from Immich node](images/node-pick.png)
 
 ### 4. Asset panel
 
