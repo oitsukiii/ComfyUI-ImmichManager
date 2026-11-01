@@ -193,6 +193,19 @@
     });
   }
 
+  // 拿 Immich 网页地址（去掉结尾 /api）。没缓存就现取 /config，
+  // 绝不用 127.0.0.1 之类猜的默认值——那会把人带到错误的机器。
+  function withImmichBase(cb) {
+    var cached = state.config && state.config.base_url;
+    if (cached) { cb(String(cached).replace(/\/api\/?$/, "")); return; }
+    api("GET", "/config").then(function (cfg) {
+      state.config = cfg || {};
+      var b = String(state.config.base_url || "").replace(/\/api\/?$/, "");
+      if (!b) { showStatus(t("detail.noBaseUrl"), "err"); return; }
+      cb(b);
+    }).catch(function () { showStatus(t("detail.readBaseFail"), "err"); });
+  }
+
   // 取二进制（原图下载用）：带鉴权头，返回 Blob
   function apiBlob(path) {
     return fetch(API + path, { headers: headers() }).then(function (r) {
@@ -477,6 +490,10 @@
     } catch (e) {}
     try { buildToolMenus(); } catch (e) {}
     try {
+      // 预取配置：让"在 Immich 打开"和 base_url 相关功能不用等到点击才发请求
+      if (!state.config) {
+        api("GET", "/config").then(function (cfg) { state.config = cfg || {}; }).catch(function () {});
+      }
       var overlay = document.getElementById("immich-panel-overlay");
       if (overlay && overlay.style.display !== "none") renderTimeline();
     } catch (e) {}
@@ -718,8 +735,9 @@
       };
     }
     document.getElementById("immich-btn-open").onclick = function () {
-      var base = (state.config && state.config.base_url) || "http://127.0.0.1:2283";
-      window.open(base.replace(/\/api\/?$/, ""), "_blank");
+      withImmichBase(function (base) {
+        window.open(base, "_blank", "noopener");
+      });
     };
     // 配置操作栏（顶栏下方横条，复用批量栏样式）：测试连接 / 保存 / 清空
     document.getElementById("immich-btn-test").onclick = testConnection;
@@ -2063,18 +2081,9 @@
     var openAssetBtn = document.getElementById("immich-btn-open-asset");
     if (openAssetBtn) {
       openAssetBtn.onclick = function () {
-        function openWith(baseUrl) {
-          var base = String(baseUrl || "").replace(/\/api\/?$/, "");
-          if (!base) { showStatus(t("detail.noBaseUrl"), "err"); return; }
+        withImmichBase(function (base) {
           window.open(base + "/photos/" + encodeURIComponent(asset.id), "_blank", "noopener");
-        }
-        var cached = state.config && state.config.base_url;
-        if (cached) { openWith(cached); return; }
-        // 筛选/不分组路径不会预取 /config —— 这里按需取一次
-        api("GET", "/config").then(function (cfg) {
-          state.config = cfg || {};
-          openWith(state.config.base_url);
-        }).catch(function () { showStatus(t("detail.readBaseFail"), "err"); });
+        });
       };
     }
     // 下载原图：走带鉴权的 /assets/{id}/original，再用 blob 触发保存
