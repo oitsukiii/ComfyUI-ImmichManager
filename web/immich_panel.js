@@ -2394,7 +2394,7 @@
               id: d.id, name: "", category: d.cat,
               // 下拉用官方内置 combo：就是「入口位置」那个 PrimeVue 样式（弹层不像原生白框）。
               // 文本框继续自定义渲染（内置 text 行在这个版本不渲染）。
-              type: (d.kind === "combo") ? "combo" : function (name, setter, value) { return wideRow(d.kind, name, setter, value, options, d.hint); },
+              type: (d.kind === "combo") ? "combo" : function (name, setter, value) { return wideRow(d.kind, d.name, setter, value, options, d.hint); },
               tooltip: d.hint,
               options: (d.kind === "combo") ? options : undefined,
               defaultValue: current,
@@ -2412,10 +2412,10 @@
         }
       }
 
-      function buttonOf(id, name, group, buttons) {
+      function buttonOf(id, label, group, buttons) {
         st.addSetting({
-          id: id, name: name, category: ["Immich", group],
-          type: function () { return buttonRow(name, buttons); },
+          id: id, name: "", category: ["Immich", group],
+          type: function () { return buttonRow(label, buttons); },
           defaultValue: "",
         });
       }
