@@ -2388,7 +2388,8 @@
 
   var H_TOKEN = "面板令牌用于保护局域网访问。未设置时，局域网内任何设备都能读取和操作你的 Immich 素材；"
               + "设置后，非本机访问 /api/immich_plus/* 需要带上 Authorization: Bearer <令牌>。"
-              + "「显示」查看当前令牌；「重新生成」让旧令牌立即失效；「清空」则取消保护，需谨慎。";
+              + "「显示」查看当前令牌；「复制」直接拷到剪贴板，粘贴到新设备的面板里即可接入；"
+              + "「重新生成」让旧令牌立即失效；「清空」则取消保护，需谨慎。";
 
   var CONFIG_SETTINGS = [
     { key: "base_url", id: "immich.baseUrl", name: "Immich 地址", kind: "text", cat: ["Immich", "1 🔗 连接", "连接设置", "3 地址"], hint: H_BASE },
@@ -2466,6 +2467,30 @@
     (document.head || document.documentElement).appendChild(el);
   })();
 
+  // 复制令牌到剪贴板（拿明文需要本机或已带令牌，和「显示」同一条路径）
+  function copyToken() {
+    apiGet("/panel-token").then(function (d) {
+      var tok = d && (d.panel_token || d.token);
+      if (!tok) { setStatus("后端未返回令牌，无法复制", true); return; }
+      var done = function () { setStatus("令牌已复制到剪贴板", false); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(tok).then(done, function () { fallback(); });
+      } else fallback();
+      function fallback() {
+        try {
+          var ta = document.createElement("textarea");
+          ta.value = tok;
+          ta.style.cssText = "position:fixed;left:-9999px";
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand("copy");
+          document.body.removeChild(ta);
+          done();
+        } catch (e) { setStatus("复制失败，请用「显示」手动复制", true); }
+      }
+    }).catch(function () { setStatus("读取令牌失败", true); });
+  }
+
   function refreshAlbums() {
     setStatus("重新拉取相册列表…", false);
     apiGet("/albums").then(function (a) {
@@ -2539,6 +2564,7 @@
         type: function () {
           return buttonRow("面板令牌", [
             { text: "显示", onClick: showToken },
+            { text: "复制", onClick: copyToken },
             { text: "重新生成", onClick: regenToken },
             { text: "清空", onClick: clearToken },
           ], H_TOKEN);
