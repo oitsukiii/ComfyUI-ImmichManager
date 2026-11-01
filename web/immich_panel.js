@@ -2209,9 +2209,7 @@
 
   function wideRow(kind, label, setter, value, options, hint) {
     var col = document.createElement("div");
-    // 对话框把我的返回值包在 flex.justify-end 里，所以默认贴右；
-    // 让容器占满可用宽度，控件就从标题右边开始了。
-    col.style.cssText = "display:flex;flex-direction:column;align-items:flex-start;width:100%";
+    col.style.cssText = "display:flex;flex-direction:column;align-items:flex-start";
 
     var el;
     if (kind === "combo") {
@@ -2329,21 +2327,6 @@
       setStatus(r.ok ? "✅ 令牌已清空" : "❌ 清空被拒绝（HTTP " + r.status + "）", !r.ok);
     }).catch(function () { setStatus("❌ 清空失败", true); });
   }
-
-  // 设置面板样式覆盖（一次性注入）
-  // 标题列：默认由对话框排布、随视口漂移；这里固定成左对齐的 240px 列。
-  (function immichSettingsStyle() {
-    if (document.getElementById("immich-settings-style")) return;
-    var el = document.createElement("style");
-    el.id = "immich-settings-style";
-    el.textContent =
-      '[role="dialog"] .setting-item{justify-content:flex-start!important}' +
-      '[role="dialog"] .setting-item>div:first-child{flex:0 0 240px!important;max-width:240px!important;text-align:left!important;justify-content:flex-start!important}' +
-      '[role="dialog"] .setting-item>div:last-child{flex:0 1 auto!important;justify-content:flex-start!important}' +
-      '[role="dialog"] [role="combobox"]{min-width:460px!important}' +
-      '[role="dialog"] input[type="text"],[role="dialog"] input[type="password"]{min-width:460px!important;width:460px!important}';
-    (document.head || document.documentElement).appendChild(el);
-  })();
 
   function registerConfigSettings(st) {
     function build(cfg, albums) {
