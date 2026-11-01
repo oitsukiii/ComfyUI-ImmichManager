@@ -2111,12 +2111,16 @@
     btn.setAttribute("aria-label", t("title.panel"));
     btn.setAttribute("title", t("title.panel"));
 
-    // 清掉克隆来的旧图标，再放自己的（图标容器是第一个子元素）
-    var iconHost = btn.firstElementChild;
+    // 官方结构：.side-bar-button-content > .sidebar-icon-wrapper > 图标，然后才是标签。
+    // 复用那个 wrapper 而不是在它前面插，否则会留下一个空的占位 div 把图标顶偏。
+    var content = btn.querySelector(".side-bar-button-content") || btn;
+    var wrapper = content.querySelector(".sidebar-icon-wrapper");
     stripIcons(btn);
-    var fresh = immichRailIcon();
-    if (iconHost) iconHost.appendChild(fresh);
-    else btn.insertBefore(fresh, btn.firstChild);
+    if (wrapper) {
+      wrapper.insertBefore(immichRailIcon(), wrapper.firstChild);
+    } else {
+      content.insertBefore(immichRailIcon(), content.firstChild);
+    }
     setImmichLabel(btn);
 
     // 清掉克隆带来的“选中”样式，点击只负责开面板
