@@ -2424,14 +2424,17 @@
     try {
       var st = window.app && window.app.ui && window.app.ui.settings;
       if (!st || typeof st.addSetting !== "function") return false;
+      // 和配置项同款渲染：纵向堆叠、左对齐、无感叹号、提示文字内联
       st.addSetting({
         id: "immich.entryMode",
-        name: "入口位置（sidebar = 左侧栏 / toolbar = 顶部按钮，刷新后生效）",
+        name: "",
         category: ["Immich", "6 ⚙️ 前端面板配置", "面板设置", "入口"],
-        tooltip: "切换 Immich 素材面板的入口位置。修改后请手动刷新页面生效。",
-        type: "combo",
+        type: function (name, setter, value) {
+          return wideRow("combo", "在哪里显示插件按钮", setter, value,
+                         ["sidebar", "toolbar"],
+                         "sidebar = 左侧图标栏；toolbar = 顶部按钮。刷新页面后生效。");
+        },
         defaultValue: ENTRY_MODE_DEFAULT,
-        options: ["sidebar", "toolbar"],
         onChange: function (v) {
           try { window.localStorage.setItem("immich_entry_mode", v); } catch (e) {}
         },
