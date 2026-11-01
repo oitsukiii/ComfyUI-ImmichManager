@@ -2174,8 +2174,10 @@
   // 本机来源直接放行；从别的机器访问需要面板令牌（浏览器会自动带上 Authorization 吗？不会），
   // 所以这里在非本机时会 403 —— 面板里那份配置入口仍然保留，作为兜底。
   // 官方设置项默认控件很窄，宽度由我们自己渲染控制。
+  // color-scheme:dark 让原生 <select> 的弹层和滚动条用暗色，否则是一片白。
   var WIDE = "width:520px;max-width:66vw;padding:6px 10px;border-radius:6px;" +
-             "border:1px solid #3a3f4a;background:transparent;color:inherit;font:inherit";
+             "border:1px solid #3a3f4a;background:transparent;color:inherit;font:inherit;" +
+             "color-scheme:dark";
   var BTN = "padding:6px 14px;margin-right:8px;border-radius:6px;border:1px solid #3a3f4a;" +
             "background:#252a33;color:inherit;font:inherit;cursor:pointer";
   var _statusEl = null;
@@ -2195,10 +2197,7 @@
   }
 
   function wideRow(kind, name, setter, value, options) {
-    var tr = document.createElement("tr");
-    var lab = document.createElement("label");
-    lab.textContent = name;
-    lab.style.cssText = "padding-right:16px;white-space:nowrap;vertical-align:middle";
+    // 只返回控件本身：ComfyUI 的外层已经渲染了名称列，再返回 <tr>+<label> 会出现两遍标题。
     var el;
     if (kind === "combo") {
       el = document.createElement("select");
@@ -2216,17 +2215,12 @@
       el.value = value === undefined || value === null ? "" : value;
     }
     el.addEventListener("change", function () { setter(el.value); });
-    tr.appendChild(mkTd(lab));
-    tr.appendChild(mkTd(el));
-    return tr;
+    el.addEventListener("blur", function () { setter(el.value); });
+    return el;
   }
 
-  // 一行里放若干个按钮
+  // 只返回按钮容器（同上：名称列由外层渲染）
   function buttonRow(name, buttons) {
-    var tr = document.createElement("tr");
-    var lab = document.createElement("label");
-    lab.textContent = name;
-    lab.style.cssText = "padding-right:16px;white-space:nowrap;vertical-align:middle";
     var wrap = document.createElement("div");
     buttons.forEach(function (b) {
       var el = document.createElement("button");
@@ -2236,9 +2230,7 @@
       el.onclick = b.onClick;
       wrap.appendChild(el);
     });
-    tr.appendChild(mkTd(lab));
-    tr.appendChild(mkTd(wrap));
-    return tr;
+    return wrap;
   }
 
   function apiGet(path) { return fetch("/api/immich_plus" + path).then(function (r) { return r.ok ? r.json() : null; }); }
@@ -2307,14 +2299,12 @@
       st.addSetting({
         id: "immich.status", name: "状态", category: ["Immich", "连接", "状态"],
         type: function (name) {
-          var tr = document.createElement("tr");
           var span = document.createElement("span");
           span.textContent = "—";
           span.style.fontSize = "12px";
+          span.style.colorScheme = "dark";
           _statusEl = span;
-          tr.appendChild(mkTd(name));
-          tr.appendChild(mkTd(span));
-          return tr;
+          return span;
         },
         defaultValue: "",
       });
