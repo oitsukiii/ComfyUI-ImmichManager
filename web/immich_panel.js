@@ -72,7 +72,7 @@
   var LS_DETAIL_ASSET = "immich_detail_asset"; // 上次选中的资产 id
   // 时间轴状态记忆（sessionStorage，用户需求 2026-08-16）：滚动位置 + 往期月份展开态
   var LS_TIMELINE_SCROLL = "immich_timeline_scroll";     // scrollTop（px）
-  var LS_TIMELINE_EXPANDED = "immich_timeline_expanded"; // JSON 数组：展开的月份 key（"2026-8"）+ 本期 "current"
+  var LS_TIMELINE_EXPANDED = "immich_timeline_expanded";   // 用 localStorage 持久化 // JSON 数组：展开的月份 key（"2026-8"）+ 本期 "current"
 
   var state = {
     config: null,       // GET /config 返回的半脱敏配置
@@ -424,7 +424,7 @@
     }
 
     fill("immich-sort-menu", SORTS, state.sortOrder || "desc", function (k) {
-      state.sortOrder = k; renderTimeline();
+      state.sortOrder = k; savePanelUi(); renderTimeline();
     });
     fill("immich-zoom-menu", ZOOMS, state.zoomSize, function (k) {
       state.zoomSize = k;
@@ -434,10 +434,10 @@
       buildToolMenus();
     });
     fill("immich-group-menu", GROUPS, state.groupBy || "none", function (k) {
-      state.groupBy = k; renderTimeline();
+      state.groupBy = k; savePanelUi(); renderTimeline();
     });
     fill("immich-pin-menu", PINS, state.pinRange || "", function (k) {
-      state.pinRange = k; renderTimeline();
+      state.pinRange = k; savePanelUi(); renderTimeline();
     });
 
     [[ "immich-sort-btn", "immich-sort-menu" ],
@@ -465,8 +465,31 @@
     if (cf) cf.classList.toggle("active", !!(state.conditions && state.conditions.length));
   }
 
+  // 主面板 UI 状态持久化：筛选条件 / 排序 / 置顶 / 分组
+  var LS_PANEL_UI = "immich_panel_ui";
+  function savePanelUi() {
+    try {
+      localStorage.setItem(LS_PANEL_UI, JSON.stringify({
+        conditions: state.conditions || [],
+        sortOrder: state.sortOrder || "desc",
+        pinRange: state.pinRange || "",
+        groupBy: state.groupBy || "none",
+      }));
+    } catch (e) {}
+  }
+  function loadPanelUi() {
+    try {
+      var d = JSON.parse(localStorage.getItem(LS_PANEL_UI) || "{}");
+      if (Array.isArray(d.conditions)) state.conditions = d.conditions;
+      if (d.sortOrder) state.sortOrder = d.sortOrder;
+      if (typeof d.pinRange === "string") state.pinRange = d.pinRange;
+      if (d.groupBy) state.groupBy = d.groupBy;
+    } catch (e) {}
+  }
+
   function ensureSkeleton() {
     if (document.getElementById("immich-panel-overlay")) return;
+    loadPanelUi();   // 恢复上次的筛选/排序/置顶/分组
     var overlay = document.createElement("div");
     overlay.id = "immich-panel-overlay";
     overlay.innerHTML =
@@ -906,7 +929,7 @@
       '.immich-cf-win{width:min(720px,92vw);max-height:80vh;background:#1b1e24;color:#e6e6e6;border:1px solid #3a3f4a;' +
       'border-radius:10px;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.6)}' +
       '.immich-cf-head{padding:12px 16px;border-bottom:1px solid #3a3f4a;font-weight:600}' +
-      '.immich-cf-rows{padding:12px 16px;overflow:auto;display:flex;flex-direction:column;gap:10px}' +
+      '.immich-cf-rows{padding:12px 16px;overflow:auto;display:flex;flex-direction:column;gap:10px;min-height:180px}' +
       '.immich-cf-row{display:grid;grid-template-columns:140px 110px 1fr 26px;gap:8px;align-items:center}' +
       '.immich-cf-row select,.immich-cf-row input{padding:7px 9px;border-radius:6px;border:1px solid #3a3f4a;' +
       'background:#252a33;color:#e6e6e6;font:inherit;width:100%;box-sizing:border-box;color-scheme:dark;margin-right:6px}' +
@@ -1121,6 +1144,7 @@
         state.conditions = rows.filter(function (c) {
           return c.field === "date" ? !!(c.value || c.value2) : !!c.value;
         });
+        savePanelUi();
         mask.remove();
         renderConditionChips();
         renderTimeline();
@@ -1201,6 +1225,28 @@
         return sec;
       }
 
+      // 通用可折叠分区：结构同 renderMonth，复用 expandMonth / collapseMonth
+      function collapsibleSection(title, list, mk) {
+        var sec = document.createElement("div");
+        sec.className = "immich-month";
+        sec._assets = list;
+        sec._expanded = false;
+        sec._mk = mk;
+        sec.innerHTML =
+          '<div class="immich-month-head">' +
+          '  <span class="immich-month-title">' + esc(title) + "</span>" +
+          '  <span class="immich-month-count" data-role="count">' + list.length + " 项</span>" +
+          '  <span class="immich-month-arrow" data-role="arrow">▶</span>' +
+          "</div>";
+        sec.querySelector(".immich-month-head").onclick = function () {
+          if (sec._expanded) collapseMonth(sec);
+          else expandMonth(sec);
+        };
+        timeline.appendChild(sec);
+        expandMonth(sec);
+        return sec;
+      }
+
       function section(title, list) {
         var sec = document.createElement("div");
         sec.className = "immich-month";
@@ -1229,7 +1275,7 @@
           return asc ? x - y : y - x;
         });
         var pinLabel = state.pinRange === "today" ? "今天" : "近 7 天";
-        section("📌 " + pinLabel, pinned);
+        collapsibleSection("📌 " + pinLabel, pinned, "pin");
       }
 
       // 其余：不分组 → 平铺；否则按 年/月/天 分组
@@ -1255,7 +1301,7 @@
         order.sort(function (a, b) { return asc ? a.localeCompare(b) : b.localeCompare(a); });
         order.forEach(function (k) {
           if (state.groupBy === "month") monthSection(k, buckets[k]);
-          else section(k, buckets[k]);
+          else collapsibleSection(k, buckets[k], k);   // 按天/按年也可折叠
         });
       }
 
@@ -1996,13 +2042,13 @@
 
   function getExpandedMonths() {
     try {
-      var v = JSON.parse(sessionStorage.getItem(LS_TIMELINE_EXPANDED) || "[]");
+      var v = JSON.parse(localStorage.getItem(LS_TIMELINE_EXPANDED) || "[]");
       return Array.isArray(v) ? v : [];
     } catch (e) { return []; }
   }
 
   function saveExpandedMonths(list) {
-    sessionStorage.setItem(LS_TIMELINE_EXPANDED, JSON.stringify(list));
+    localStorage.setItem(LS_TIMELINE_EXPANDED, JSON.stringify(list));
   }
 
   function setMonthExpanded(key, expanded) {
