@@ -1017,7 +1017,6 @@
       var mask = document.createElement("div");
       mask.className = "immich-cf-mask";
       var rows = (state.conditions || []).map(function (c) { return Object.assign({}, c); });
-      if (!rows.length) rows.push({ field: "album", op: "为", value: "", value2: "" });
 
       mask.innerHTML =
         '<div class="immich-cf-win">' +
@@ -1037,6 +1036,14 @@
 
       function paint() {
         rowsEl.innerHTML = "";
+        if (!rows.length) {
+          // 还没有条件：不摆空行，给一句提示（空行会显示三个「请选择」很碍眼）
+          var tip = document.createElement("div");
+          tip.style.cssText = "opacity:.6;font-size:13px;padding:16px 4px";
+          tip.textContent = "还没有筛选条件，点下方「新增条件」开始。";
+          rowsEl.appendChild(tip);
+          return;
+        }
         rows.forEach(function (c, idx) {
           var row = document.createElement("div");
           row.className = "immich-cf-row";
