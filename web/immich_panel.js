@@ -1112,15 +1112,18 @@
     restoreTimelineState();
   }
 
-  function renderFiltered(timeline) {
-    var pages = [];
-    function fetchPage(p) {
-      return api("GET", "/search?" + cfQuery(state.conditions, state.sortOrder || "desc", p, 100)).then(function (d) {
-        pages = pages.concat(d.items || []);
-        if ((d.nextPage && pages.length < 500)) return fetchPage(Number(d.nextPage));
-      });
-    }
-    return fetchPage(1).then(function () {
+  var FILTER_PAGE = 100;   // 首屏每页条数：先出图，剩下的点「加载更多」
+
+  function renderFiltered(timeline, more) {
+    if (!more) { state.filteredItems = []; state.filteredNext = "1"; }
+    var items = state.filteredItems = state.filteredItems || [];
+    return api("GET", "/search?" + cfQuery(state.conditions, state.sortOrder || "desc",
+                                           state.filteredNext || 1, FILTER_PAGE)).then(function (d) {
+      state.filteredNext = d.nextPage || "";
+      items = state.filteredItems = items.concat(d.items || []);
+      var pages = items;
+      return Promise.resolve(pages);
+    }).then(function (pages) {
       if (!pages.length) {
         timeline.innerHTML = '<div class="immich-empty">没有符合条件的资产</div>';
         return;
@@ -1213,6 +1216,20 @@
         });
         order.sort(function (a, b) { return asc ? a.localeCompare(b) : b.localeCompare(a); });
         order.forEach(function (k) { section(k, buckets[k]); });
+      }
+
+      // 还有下一页 → 底部给「加载更多」，不再一次性拉 500 条
+      if (state.filteredNext) {
+        var moreBtn = document.createElement("button");
+        moreBtn.className = "immich-btn";
+        moreBtn.style.cssText = "display:block;margin:16px auto;padding:8px 20px";
+        moreBtn.textContent = "加载更多（已显示 " + pages.length + " 项）";
+        moreBtn.onclick = function () {
+          moreBtn.textContent = "加载中…";
+          moreBtn.disabled = true;
+          renderFiltered(timeline, true);
+        };
+        timeline.appendChild(moreBtn);
       }
       restoreTimelineScroll();
     });
