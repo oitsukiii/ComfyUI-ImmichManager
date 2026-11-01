@@ -15,7 +15,7 @@ non-zero if anything is missing, so it can gate a deploy.
 import json, sys, urllib.request
 
 EXPECT = {"inputs": 5, "selects": 4,   # 4 个文本框 + 对话框搜索框
-          "buttons": ["显示", "重新生成", "清空", "连接测试"]}
+          "buttons": ["显示", "重新生成", "清空", "测试连接"]}
 
 def page_url():
     d = json.loads(urllib.request.urlopen("http://127.0.0.1:9222/json", timeout=10).read())
@@ -24,7 +24,7 @@ def page_url():
             return t["webSocketDebuggerUrl"]
     sys.exit("no ComfyUI page target on :9222")
 
-def main():
+def main():   # 注：按钮文案是「测试连接」不是「连接测试」
     try:
         import websocket
     except ImportError:
@@ -63,7 +63,7 @@ def main():
       return JSON.stringify({inputs: dlg.querySelectorAll('input').length,
         selects: dlg.querySelectorAll('select').length,
         buttons: [...dlg.querySelectorAll('button')].map(b=>b.textContent.trim())
-                   .filter(t=>['显示','重新生成','清空','连接测试','刷新相册'].includes(t))}); })()""")
+                   .filter(t=>['显示','重新生成','清空','测试连接','刷新相册'].includes(t))}); })()""")
     seen = json.loads(seen) if isinstance(seen, str) else seen
 
     fails = []
