@@ -460,6 +460,29 @@
   };
 
   // 顶栏的三个下拉菜单：排序 / 缩放 / 分组
+  // 切换语言后立即重画：侧栏标签、顶栏菜单、已打开的面板、节点悬停文案
+  function applyLanguageNow() {
+    try {
+      if (window.ImmichI18n && window.ImmichI18n.setLang) {
+        var v = null;
+        try { v = localStorage.getItem("immich_lang"); } catch (e) {}
+        window.ImmichI18n.setLang(v || "auto");
+      }
+    } catch (e) {}
+    try {
+      var rail = document.getElementById("immich-rail-btn");
+      if (rail) setImmichLabel(rail);
+      var tb = document.getElementById("immich-toolbar-btn");
+      if (tb) { tb.setAttribute("title", t("title.panel")); tb.setAttribute("aria-label", t("title.panel")); }
+    } catch (e) {}
+    try { buildToolMenus(); } catch (e) {}
+    try {
+      var overlay = document.getElementById("immich-panel-overlay");
+      if (overlay && overlay.style.display !== "none") renderTimeline();
+    } catch (e) {}
+    try { applyNodeLang(); } catch (e) {}   // 节点悬停说明也立即换语言
+  }
+
   function buildToolMenus() {
     var SORTS = [{ k: "desc", t: t("cf.sort.desc") }, { k: "asc", t: t("cf.sort.asc") }];
     var GROUPS = [
@@ -3413,6 +3436,7 @@
               _initValue = v;
               if (def.local) {
                 try { window.localStorage.setItem("immich_lang", v); } catch (e) {}
+                applyLanguageNow();          // 立即生效，不用刷新
                 setStatus(t("tok.saved", { k: "lang" }), false);
                 return;
               }
