@@ -57,8 +57,6 @@
 
 **Sorting and zoom** — newest or oldest first, and three thumbnail sizes. The icon lights up while its menu is down.
 
-![Sort menu](images/panel-sort-menu.png)
-
 **Settings** — the Immich group inside ComfyUI's own Settings dialog: connection, the panel token, the network proxy, the default album, page size, language and where the entry lives.
 
 ![Immich settings group](images/settings-immich.png)

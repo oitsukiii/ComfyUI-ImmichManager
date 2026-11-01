@@ -57,8 +57,6 @@
 
 **排序与缩放** —— 最新/最早优先，三档缩略图尺寸；菜单展开时图标高亮。
 
-![排序菜单](images/panel-sort-menu.png)
-
 **设置** —— ComfyUI 官方设置对话框里的 Immich 分组：连接、面板令牌、网络代理、默认相册、每页数量、语言、入口位置。
 
 ![Immich 设置分组](images/settings-immich.png)
