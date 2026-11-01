@@ -2017,16 +2017,26 @@
     return document.querySelector(".side-toolbar-container");
   }
 
-  function findTemplateItem(rail) {
-    for (var i = 0; i < RAIL_LABELS.length; i++) {
-      var el = rail.querySelector('[aria-label="' + RAIL_LABELS[i] + '"]');
-      if (el) return el;
+  // 插入锚点：优先放在「资产」上面。rail 按钮的可见标签只在 aria-label 里
+  // （textContent 为空），而且带快捷键提示，如 "资产（a）"，所以用前缀匹配。
+  var ANCHOR_PREFIXES = ["资产", "Assets", "アセット"];
+  var FALLBACK_LABELS = ["模板", "Templates", "テンプレート"];
+
+  function findAnchorItem(rail) {
+    for (var i = 0; i < ANCHOR_PREFIXES.length; i++) {
+      var el = rail.querySelector('[aria-label^="' + ANCHOR_PREFIXES[i] + '"]');
+      if (el) return { el: el, before: true };
     }
-    // 兜底：顶部组（资产…模板）里的最后一个按钮，模板就是最后一个
+    for (var j = 0; j < FALLBACK_LABELS.length; j++) {
+      var t = rail.querySelector('[aria-label="' + FALLBACK_LABELS[j] + '"]');
+      if (t) return { el: t, before: false };
+    }
     var group = rail.querySelector('[data-testid="sidebar-top-group"]');
     if (group) {
       var btns = group.querySelectorAll("button");
-      if (btns.length) return btns[btns.length - 1];
+      // 第一个是「菜单」，取第二个
+      if (btns.length > 1) return { el: btns[1], before: true };
+      if (btns.length) return { el: btns[0], before: false };
     }
     return null;
   }
@@ -2069,8 +2079,9 @@
     if (document.getElementById("immich-rail-btn")) return true;
     var rail = findRail();
     if (!rail) { document.documentElement.setAttribute("data-immich-rail", "norail"); return false; }
-    var tpl = findTemplateItem(rail);
-    if (!tpl) { document.documentElement.setAttribute("data-immich-rail", "notpl"); return false; }
+    var anchor = findAnchorItem(rail);
+    if (!anchor) { document.documentElement.setAttribute("data-immich-rail", "noanchor"); return false; }
+    var tpl = anchor.el;
     document.documentElement.setAttribute("data-immich-rail", "ok");
 
     var btn = tpl.cloneNode(true);
@@ -2097,7 +2108,8 @@
     btn.addEventListener("click", stop, true);
     btn.addEventListener("pointerdown", function (e) { e.stopPropagation(); }, true);
 
-    if (tpl.nextSibling) tpl.parentNode.insertBefore(btn, tpl.nextSibling);
+    if (anchor.before) tpl.parentNode.insertBefore(btn, tpl);
+    else if (tpl.nextSibling) tpl.parentNode.insertBefore(btn, tpl.nextSibling);
     else tpl.parentNode.appendChild(btn);
     return true;
   }
