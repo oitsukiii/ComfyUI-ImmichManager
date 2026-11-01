@@ -2233,12 +2233,17 @@
     return wrap;
   }
 
-  function apiGet(path) { return fetch("/api/immich_plus" + path).then(function (r) { return r.ok ? r.json() : null; }); }
+  // 复用老面板那套请求封装（它带 Authorization 头与 401 处理），
+  // 这样设置页在远程访问时也能凭 token 调敏感接口，不必各写一份 fetch。
+  function apiGet(path) {
+    return api("GET", path).catch(function () { return null; });
+  }
   function apiSend(method, path, body) {
-    return fetch("/api/immich_plus" + path, {
-      method: method,
-      headers: body === undefined ? undefined : { "Content-Type": "application/json" },
-      body: body === undefined ? undefined : JSON.stringify(body),
+    return api(method, path, body).then(function (data) {
+      return { ok: true, status: 200, json: function () { return Promise.resolve(data); } };
+    }).catch(function (e) {
+      var m = /HTTP (\d+)/.exec(e && e.message || "");
+      return { ok: false, status: m ? Number(m[1]) : 0, json: function () { return Promise.resolve(null); } };
     });
   }
 
