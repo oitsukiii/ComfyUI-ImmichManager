@@ -23,14 +23,34 @@ async function getJSON(path) {
   return r.json();
 }
 
+// 缩略图缓存：LRU 上限，超出时释放最旧的 blob URL（否则切页会一直累积内存）
+const THUMB_MAX = 120;
 const thumbCache = new Map();
+
+function evictThumbs() {
+  while (thumbCache.size > THUMB_MAX) {
+    const [oldId, oldP] = thumbCache.entries().next().value;
+    thumbCache.delete(oldId);
+    Promise.resolve(oldP)
+      .then((u) => { if (u) URL.revokeObjectURL(u); })
+      .catch(() => {});
+  }
+}
+
 async function thumbURL(assetId) {
-  if (thumbCache.has(assetId)) return thumbCache.get(assetId);
+  if (thumbCache.has(assetId)) {
+    // 命中就移到队尾，维持 LRU 顺序
+    const p = thumbCache.get(assetId);
+    thumbCache.delete(assetId);
+    thumbCache.set(assetId, p);
+    return p;
+  }
   const p = fetch(`${API}/assets/${assetId}/thumbnail`, { headers: headers() })
     .then((r) => (r.ok ? r.blob() : null))
     .then((b) => (b ? URL.createObjectURL(b) : ""))
     .catch(() => "");
   thumbCache.set(assetId, p);
+  evictThumbs();
   return p;
 }
 
@@ -112,6 +132,7 @@ async function openPicker(node) {
         cell.appendChild(img);
         cell.onclick = () => {
           setWidget(node, "asset_id", it.id);
+          applyNodePreview(node, it.id);
           close();
         };
         body.appendChild(cell);
@@ -141,6 +162,21 @@ async function openPicker(node) {
 
   prev.onclick = () => { if (page > 1) loadPage(page - 1); };
   next.onclick = () => { if (nextPage) loadPage(Number(nextPage)); };
+}
+
+// 选完立刻在节点上画缩略图 —— ui.images 只有「执行后」才渲染，
+// 这里直接用 node.imgs（LiteGraph 会画它），不等跑图。
+async function applyNodePreview(node, assetId) {
+  const url = await thumbURL(assetId);
+  if (!url) return;
+  const img = new Image();
+  img.onload = () => {
+    node.imgs = [img];
+    if (node.images) node.images = [img];
+    node.setDirtyCanvas(true, true);
+    app.graph.setDirtyCanvas(true, true);
+  };
+  img.src = url;
 }
 
 function setWidget(node, name, value) {
