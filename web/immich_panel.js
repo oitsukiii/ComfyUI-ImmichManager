@@ -1929,10 +1929,18 @@
     var openAssetBtn = document.getElementById("immich-btn-open-asset");
     if (openAssetBtn) {
       openAssetBtn.onclick = function () {
-        var base = (state.config && state.config.base_url) || "";
-        base = base.replace(/\/api\/?$/, "");
-        if (!base) { showStatus(t("error.load"), "err"); return; }
-        window.open(base + "/photos/" + encodeURIComponent(asset.id), "_blank", "noopener");
+        function openWith(baseUrl) {
+          var base = String(baseUrl || "").replace(/\/api\/?$/, "");
+          if (!base) { showStatus("未配置 Immich 地址", "err"); return; }
+          window.open(base + "/photos/" + encodeURIComponent(asset.id), "_blank", "noopener");
+        }
+        var cached = state.config && state.config.base_url;
+        if (cached) { openWith(cached); return; }
+        // 筛选/不分组路径不会预取 /config —— 这里按需取一次
+        api("GET", "/config").then(function (cfg) {
+          state.config = cfg || {};
+          openWith(state.config.base_url);
+        }).catch(function () { showStatus("读取 Immich 地址失败", "err"); });
       };
     }
     // 下载原图：走带鉴权的 /assets/{id}/original，再用 blob 触发保存
