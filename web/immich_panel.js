@@ -2330,6 +2330,21 @@
     }).catch(function () { setStatus("❌ 清空失败", true); });
   }
 
+  // 设置面板样式覆盖（一次性注入）
+  // 标题列：默认由对话框排布、随视口漂移；这里固定成左对齐的 240px 列。
+  (function immichSettingsStyle() {
+    if (document.getElementById("immich-settings-style")) return;
+    var el = document.createElement("style");
+    el.id = "immich-settings-style";
+    el.textContent =
+      '[role="dialog"] .setting-item{justify-content:flex-start!important}' +
+      '[role="dialog"] .setting-item>div:first-child{flex:0 0 240px!important;max-width:240px!important;text-align:left!important;justify-content:flex-start!important}' +
+      '[role="dialog"] .setting-item>div:last-child{flex:0 1 auto!important;justify-content:flex-start!important}' +
+      '[role="dialog"] [role="combobox"]{min-width:460px!important}' +
+      '[role="dialog"] input[type="text"],[role="dialog"] input[type="password"]{min-width:460px!important;width:460px!important}';
+    (document.head || document.documentElement).appendChild(el);
+  })();
+
   function registerConfigSettings(st) {
     function build(cfg, albums) {
       cfg = cfg || {};
