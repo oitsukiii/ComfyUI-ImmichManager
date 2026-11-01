@@ -69,14 +69,17 @@ def _check_deps() -> bool:
 
 
 if _check_deps():
+    from .picker_node import ImmichPickImage
     from .upload_node import ImmichSaveImage, ImmichSaveVideo
 
     # 节点映射（旧 ImmichUpload 已按用户决策移除，不保留 legacy）
     NODE_CLASS_MAPPINGS = {
+        "ImmichPickImage": ImmichPickImage,
         "ImmichSaveImage": ImmichSaveImage,
         "ImmichSaveVideo": ImmichSaveVideo,
     }
     NODE_DISPLAY_NAME_MAPPINGS = {
+        "ImmichPickImage": "📥 Immich Pick Image",
         "ImmichSaveImage": "🖼️ Immich Save Image",
         "ImmichSaveVideo": "🎬 Immich Save Video",
     }
