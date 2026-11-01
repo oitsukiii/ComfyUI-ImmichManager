@@ -681,6 +681,57 @@ def setup_routes(server) -> None:
 
     # ---------- 相册 ----------
 
+    @routes.get(f"{ROUTE_PREFIX}/people")
+    async def people(request: web.Request) -> web.Response:
+        if not _check_auth(request, config):
+            return _unauthorized()
+        client = _get_client(config)
+        try:
+            data = await _call(client.get_people)
+        except ImmichError as exc:
+            return _error(_safe_error(exc), 502)
+        return web.json_response(data)
+
+    @routes.get(f"{ROUTE_PREFIX}/tags")
+    async def tags(request: web.Request) -> web.Response:
+        if not _check_auth(request, config):
+            return _unauthorized()
+        client = _get_client(config)
+        try:
+            data = await _call(client.get_tags)
+        except ImmichError as exc:
+            return _error(_safe_error(exc), 502)
+        return web.json_response(data)
+
+    @routes.get(f"{ROUTE_PREFIX}/search")
+    async def search(request: web.Request) -> web.Response:
+        """按条件搜索：album / person / tag / after / before / type / order。
+
+        多个同名参数可重复（?album=a&album=b），前端按条件拼接。
+        """
+        if not _check_auth(request, config):
+            return _unauthorized()
+        q = request.query
+        album_ids = [v for v in q.getall("album", []) if _valid_asset_id(v)]
+        person_ids = [v for v in q.getall("person", []) if _valid_asset_id(v)]
+        tag_ids = [v for v in q.getall("tag", []) if _valid_asset_id(v)]
+        try:
+            page = int(q.get("page", "1"))
+            size = int(q.get("size", "24"))
+        except ValueError:
+            return _error("page/size 必须是整数", 400)
+        after = (q.get("after", "") or "").strip()
+        before = (q.get("before", "") or "").strip()
+        asset_type = (q.get("type", "") or "").upper()
+        order = (q.get("order", "desc") or "desc").lower()
+        client = _get_client(config)
+        try:
+            data = await _call(client.search_assets, album_ids, person_ids, tag_ids,
+                               after, before, asset_type, page, size, order)
+        except ImmichError as exc:
+            return _error(_safe_error(exc), 502)
+        return web.json_response(data)
+
     @routes.get(f"{ROUTE_PREFIX}/albums/{{album_id}}/assets")
     async def album_assets(request: web.Request) -> web.Response:
         if not _check_auth(request, config):

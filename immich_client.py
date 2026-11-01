@@ -342,6 +342,66 @@ class ImmichClient:
             "items": items,
         }
 
+    def get_people(self) -> list[dict]:
+        """人脸列表（按出现次数排序，前端做下拉用）。"""
+        data = self._json("GET", "/people")
+        people = (data or {}).get("people") if isinstance(data, dict) else data
+        out = []
+        for p in people or []:
+            out.append({"id": p.get("id"), "name": p.get("name"), "isHidden": p.get("isHidden")})
+        return out
+
+    def get_tags(self) -> list[dict]:
+        """标签列表。"""
+        data = self._json("GET", "/tags")
+        out = []
+        for t in data or []:
+            out.append({"id": t.get("id"), "name": t.get("value") or t.get("name")})
+        return out
+
+    def search_assets(self, album_ids=None, person_ids=None, tag_ids=None,
+                      taken_after="", taken_before="", asset_type="",
+                      page: int = 1, size: int = 24, order: str = "desc") -> dict:
+        """按条件搜索资产（服务端分页）。
+
+        Immich 的 search/metadata 只接受 id 精确匹配与时间范围，
+        没有文件名/名称模糊匹配 —— 前端因此全部用下拉，不做文本搜索。
+        """
+        page = max(1, int(page or 1))
+        size = max(1, min(200, int(size or 24)))
+        body: dict = {"page": page, "size": size, "withExif": False}
+        if album_ids:
+            body["albumIds"] = list(album_ids)
+        if person_ids:
+            body["personIds"] = list(person_ids)
+        if tag_ids:
+            body["tagIds"] = list(tag_ids)
+        if taken_after:
+            body["takenAfter"] = taken_after
+        if taken_before:
+            body["takenBefore"] = taken_before
+        if asset_type in ("IMAGE", "VIDEO"):
+            body["type"] = asset_type
+        if order in ("asc", "desc"):
+            body["order"] = order
+
+        res = self._json("POST", "/search/metadata", json=body)
+        box = (res or {}).get("assets") or {}
+        raw = box.get("items") or []
+        return {
+            "total": box.get("total") if (box.get("total") or 0) > len(raw) else None,
+            "page": page,
+            "size": size,
+            "nextPage": box.get("nextPage"),
+            "items": [{
+                "id": a.get("id"),
+                "originalFileName": a.get("originalFileName"),
+                "type": a.get("type"),
+                "fileCreatedAt": a.get("fileCreatedAt"),
+                "thumbhash": a.get("thumbhash"),
+            } for a in raw],
+        }
+
     def create_album(self, name: str) -> dict:
         """创建相册（按名幂等性由 ensure_album 的"先查后建"保证）。"""
         return self._json("POST", "/albums", json={"albumName": name})
