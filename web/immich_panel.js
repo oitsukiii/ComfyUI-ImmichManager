@@ -3240,9 +3240,17 @@
 
   var _albumRefresh = null;   // 相册下拉的重建句柄
 
+  // 上面这些 H_* 在模块加载时求值，此时 i18n 可能还没就绪 → 注册前重取
+  function refreshHints() {
+    H_BASE = t("h.base"); H_KEY = t("h.key"); H_ALBUM = t("h.album");
+    H_PROXY = t("h.proxy"); H_PAGE = t("h.page"); H_LANG = t("h.lang");
+    H_TOKEN = t("h.token");
+  }
+
   var H_TOKEN = t("h.token");
 
-  var CONFIG_SETTINGS = [
+  function configSettings() {
+    return [
     { key: "base_url", id: "immich.baseUrl", name: t("set.baseUrl"), kind: "text", cat: ["Immich", t("set.group.conn"), t("set.sub.conn"), t("set.row.addr")], hint: H_BASE },
     { key: "api_key", id: "immich.apiKey", name: t("set.apiKey"), kind: "password", cat: ["Immich", t("set.group.conn"), t("set.sub.conn"), t("set.row.key")], hint: H_KEY },
     { key: "default_album", id: "immich.defaultAlbum", name: t("set.album"), kind: "combo", cat: ["Immich", t("set.group.album"), t("set.sub.album"), t("set.row.albumTarget")], dynamic: "albums", hint: H_ALBUM },
@@ -3250,7 +3258,8 @@
     { key: "proxy_url", id: "immich.proxyUrl", name: t("set.proxyUrl"), kind: "text", cat: ["Immich", t("set.group.net"), t("set.sub.net"), t("set.row.url")], hint: H_PROXY },
     { key: "page_size", id: "immich.pageSize", name: t("set.pageSize"), kind: "number", cat: ["Immich", t("set.group.asset"), t("set.sub.asset"), t("set.row.page")], hint: H_PAGE },
     { key: "__lang", id: "immich.lang", name: t("set.lang"), kind: "combo", cat: ["Immich", t("set.group.ui"), t("set.sub.ui"), t("set.row.lang")], options: ["en", "zh", "auto"], optionLabels: { en: t("set.opt.langEn"), zh: t("set.opt.langZh"), auto: t("set.opt.langAuto") }, local: true, hint: H_LANG },
-  ];
+    ];
+  }
 
   function testConnection() {
     setStatus(t("set.testing"), false);
@@ -3365,12 +3374,14 @@
 
   function registerConfigSettings(st) {
     function build(cfg, albums) {
+      refreshHints();   // 模块加载时 i18n 可能还没就绪，这里重取一次提示文案
       cfg = cfg || {};
 
       registerButtons();
 
       // 对话框按注册顺序「倒序」显示 → 字段倒着注册，屏幕上才是正序
-      for (var i = CONFIG_SETTINGS.length - 1; i >= 0; i--) {
+      var _cfgs = configSettings();
+      for (var i = _cfgs.length - 1; i >= 0; i--) {
         (function (def) {
           var current, options = def.options;
           if (def.dynamic === "albums") {
@@ -3409,7 +3420,7 @@
               putConfig(def.key, def.kind === "number" ? Number(v) : v);
             },
           });
-        })(CONFIG_SETTINGS[i]);
+        })(_cfgs[i]);
       }
 
       // 按钮要显示在组内最后 → 必须先注册（显示是注册倒序）

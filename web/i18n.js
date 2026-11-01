@@ -517,7 +517,6 @@
       "confirm.ok": "确认",
       "confirm.cancel": "取消",
       "lang.switch.confirm": "切换语言？未保存的设置将丢失。",
-    },
     "cf.title": "筛选条件",
     "cf.add": "新增条件",
     "cf.clear": "清空条件",
@@ -660,6 +659,7 @@
     "set.row.pickClose": "选择面板",
     "h.pickClose": "开启：点一张就写回节点并关闭面板；关闭：只高亮选中项，面板保留，方便继续比较。",
 
+    },
   };
 
   function getLangSetting() {
