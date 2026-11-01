@@ -56,8 +56,30 @@ const FIELDS = [
 ];
 const TYPE_OPTIONS = [{ id: "IMAGE", name: "图片" }, { id: "VIDEO", name: "视频" }];
 
-// 跨次打开记住条件与位置
-const filterState = { conditions: [], order: "desc", page: 1 };
+// 筛选状态存两份：
+//   node.properties.immichFilters —— 随工作流 JSON 保存/还原（跨重启、跨机器）
+//   模块级 lastFilters           —— 本页会话内的兜底（新建节点时还没属性）
+const lastFilters = { conditions: [], order: "desc", page: 1 };
+
+function readFilters(node) {
+  const p = node && node.properties && node.properties.immichFilters;
+  if (p && Array.isArray(p.conditions)) {
+    return { conditions: p.conditions, order: p.order || "desc", page: p.page || 1 };
+  }
+  return lastFilters;
+}
+
+function writeFilters(node, st) {
+  lastFilters.conditions = st.conditions;
+  lastFilters.order = st.order;
+  lastFilters.page = st.page;
+  if (!node) return;
+  node.properties = node.properties || {};
+  node.properties.immichFilters = {
+    conditions: st.conditions, order: st.order, page: st.page,
+  };
+  try { node.setDirtyCanvas(true, false); } catch (e) {}
+}
 
 const CSS = `
 .immich-pick-mask{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;align-items:center;justify-content:center}
@@ -304,6 +326,8 @@ async function openPicker(node) {
   let page = 1;
   let nextPage = null;
   let lists = { albums: [], people: [], tags: [] };
+  // 从节点属性还原（工作流里存的），没有就用会话兜底
+  const filterState = readFilters(node);
 
   const close = () => mask.remove();
   mask.querySelector(".immich-close").onclick = close;
@@ -318,7 +342,7 @@ async function openPicker(node) {
       const x = document.createElement("b");
       x.textContent = "×";
       x.title = "移除这个条件";
-      x.onclick = () => { filterState.conditions.splice(i, 1); renderChips(); loadPage(1); };
+      x.onclick = () => { filterState.conditions.splice(i, 1); writeFilters(node, filterState); renderChips(); loadPage(1); };
       chip.appendChild(x);
       chipsEl.appendChild(chip);
     });
@@ -332,6 +356,7 @@ async function openPicker(node) {
       page = d.page || p;
       nextPage = d.nextPage || null;
       filterState.page = page;
+      writeFilters(node, filterState);
       prev.disabled = page <= 1;
       next.disabled = !nextPage;
       const items = d.items || [];
@@ -366,13 +391,14 @@ async function openPicker(node) {
   mask.querySelector(".immich-add-cond").onclick = () => {
     openConditionEditor(filterState.conditions, lists, (conds) => {
       filterState.conditions = conds;
+      writeFilters(node, filterState);
       renderChips();
       loadPage(1);
     });
   };
 
   orderSel.value = filterState.order || "desc";
-  orderSel.onchange = () => { filterState.order = orderSel.value; loadPage(1); };
+  orderSel.onchange = () => { filterState.order = orderSel.value; writeFilters(node, filterState); loadPage(1); };
 
   try {
     const [albums, people, tags] = await Promise.all([
