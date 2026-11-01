@@ -2339,6 +2339,19 @@
     }).catch(function () { setStatus("❌ 清空失败", true); });
   }
 
+  // 官方 combo 默认较窄，在设置对话框内统一放宽
+  (function widenSettingsCombos() {
+    if (document.getElementById("immich-wide-combo")) return;
+    var st = document.createElement("style");
+    st.id = "immich-wide-combo";
+    st.textContent =
+      '[role="dialog"] [role="combobox"]{min-width:420px!important}' +
+      '[role="dialog"] .p-select{min-width:420px!important}' +
+      '[role="dialog"] [data-pc-name="select"]{min-width:420px!important}' +
+      '[role="dialog"] [data-pc-section="label"]{min-width:360px}';
+    (document.head || document.documentElement).appendChild(st);
+  })();
+
   function registerConfigSettings(st) {
     function build(cfg, albums) {
       cfg = cfg || {};
@@ -2363,7 +2376,11 @@
             }
             st.addSetting({
               id: d.id, name: d.name, category: d.cat,
-              type: function (name, setter, value) { return wideRow(d.kind, name, setter, value, options, d.hint); },
+              // 下拉用官方内置 combo：就是「入口位置」那个 PrimeVue 样式（弹层不像原生白框）。
+              // 文本框继续自定义渲染（内置 text 行在这个版本不渲染）。
+              type: (d.kind === "combo") ? "combo" : function (name, setter, value) { return wideRow(d.kind, name, setter, value, options, d.hint); },
+              tooltip: d.hint,
+              options: (d.kind === "combo") ? options : undefined,
               defaultValue: current,
               onChange: function (v) {
                 if (d.local) {
@@ -2388,14 +2405,12 @@
       }
 
       // 1 连接
-      addStatusRow(st, "1 连接");
       fieldsOf("1 连接");
       buttonOf("immich.test.conn", "连接测试", "1 连接", [
         { text: "连接测试", onClick: testConnection }
       ]);
 
       // 2 安全
-      addStatusRow(st, "2 安全");
       buttonOf("immich.token", "面板令牌", "2 安全", [
         { text: "显示", onClick: showToken },
         { text: "重新生成", onClick: regenToken },
@@ -2403,14 +2418,12 @@
       ]);
 
       // 3 网络
-      addStatusRow(st, "3 网络");
       fieldsOf("3 网络");
       buttonOf("immich.test.net", "连接测试", "3 网络", [
         { text: "连接测试", onClick: testConnection }
       ]);
 
       // 4 相册配置
-      addStatusRow(st, "4 相册配置");
       fieldsOf("4 相册配置");
       buttonOf("immich.album.refresh", "刷新相册", "4 相册配置", [
         { text: "刷新相册", onClick: function () {
