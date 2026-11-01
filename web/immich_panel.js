@@ -2249,6 +2249,7 @@
 
   function buttonRow(name, buttons) {
     var wrap = document.createElement("div");
+    wrap.setAttribute("data-immich-row", "1");
     buttons.forEach(function (b) {
       var el = document.createElement("button");
       el.type = "button";
@@ -2293,8 +2294,8 @@
   var H_LANG     = "面板界面语言，刷新页面后生效。";
 
   var CONFIG_SETTINGS = [
-    { key: "base_url", id: "immich.baseUrl", name: "Immich 地址", kind: "text", cat: ["Immich", "1 连接", "连接设置", "服务"], hint: H_BASE },
-    { key: "api_key", id: "immich.apiKey", name: "API Key（留空不修改）", kind: "password", cat: ["Immich", "1 连接", "连接设置", "凭据"], hint: H_KEY },
+    { key: "base_url", id: "immich.baseUrl", name: "Immich 地址", kind: "text", cat: ["Immich", "1 连接", "连接设置", "3 地址"], hint: H_BASE },
+    { key: "api_key", id: "immich.apiKey", name: "API Key（留空不修改）", kind: "password", cat: ["Immich", "1 连接", "连接设置", "2 密钥"], hint: H_KEY },
     { key: "default_album", id: "immich.defaultAlbum", name: "上传到相册", kind: "combo", cat: ["Immich", "4 相册配置", "相册设置", "目标"], dynamic: "albums", hint: H_ALBUM },
     { key: "proxy_mode", id: "immich.proxyMode", name: "网络代理模式", kind: "combo", cat: ["Immich", "3 网络", "网络设置", "模式"], options: ["off", "custom", "env"], hint: H_PROXY },
     { key: "proxy_url", id: "immich.proxyUrl", name: "代理地址", kind: "text", cat: ["Immich", "3 网络", "网络设置", "地址"], hint: H_PROXY },
@@ -2350,20 +2351,6 @@
     function build(cfg, albums) {
       cfg = cfg || {};
 
-      // 状态行：所有操作的反馈都写在这里
-      st.addSetting({
-        id: "immich.status", name: "状态", category: ["Immich", "1 连接", "连接设置", "状态"],
-        type: function (name) {
-          var span = document.createElement("span");
-          span.textContent = "—";
-          span.style.fontSize = "12px";
-          span.style.colorScheme = "dark";
-          _statusEl = span;
-          return span;
-        },
-        defaultValue: "",
-      });
-
       for (var i = 0; i < CONFIG_SETTINGS.length; i++) {
         (function (def) {
           var current, options = def.options;
@@ -2393,8 +2380,8 @@
 
       // 测试连接（连接组）
       st.addSetting({
-        id: "immich.test", name: "测试连接", category: ["Immich", "1 连接", "连接设置", "诊断"],
-        type: function (name) { return buttonRow(name, [{ text: "测试连接", onClick: testConnection }]); },
+        id: "immich.test", name: "", category: ["Immich", "1 连接", "连接设置", "1 测试"],
+        type: function () { return buttonRow("", [{ text: "测试连接", onClick: testConnection }]); },
         defaultValue: "",
       });
 
