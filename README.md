@@ -30,12 +30,16 @@
 
 ## Features
 
-- **🖼️ `Immich Save Image` node** — upload generated images (PNG) with the current workflow embedded as metadata; drag the image back from Immich to restore the workflow.
-- **🎬 `Immich Save Video` node** — accepts the official ComfyUI `VIDEO` type (`Create Video` / `Load Video` / …), encodes to MP4 (H.264) with workflow metadata, and shows an in-node video preview.
-- **🗂️ Asset panel** — toolbar button opens a single-page panel: monthly timeline (foldable), lazy-loaded thumbnails, detail pane with favorite / delete / description, **selection mode with batch favorite / move-to-trash**, favorites-only filter, and per-session state persistence.
-- **⚙️ Config page** — base URL, API key, panel token, default album, timeline grouping, language, and **🌐 network proxy (no proxy / custom / follow env vars, no-proxy by default)**; saves instantly.
-- **🌐 i18n** — English & Simplified Chinese; **follows your system language by default after install** (switchable in the config page, with an option to return to auto).
-- **🎨 Theme-aware** — follows the ComfyUI light/dark theme (falls back gracefully to the original colors).
+- **🖼️ `Immich Save Image` node** — uploads generated images (PNG) with the current workflow embedded; drag the file back from Immich to restore the workflow.
+- **🎬 `Immich Save Video` node** — takes the official ComfyUI `VIDEO` type, encodes MP4 (H.264) with workflow metadata, and previews it in the node.
+- **📥 `Load Image from Immich` node** — browse your whole Immich library from inside a workflow and turn a picked asset into `IMAGE` + `MASK`, or just its `asset_id`.
+- **🗂️ Asset panel** — one panel with a toolbar button and a node button; thumbnail grid, detail pane, selection mode, filtering, sorting, grouping and pinning.
+- **🔎 Filter builder** — combine album / person / tag / type / favourite / date-range conditions; the funnel icon lights up while any are active.
+- **📐 Grouping** — month, day or year sections that fold, unfold and remember their state, plus an optional pinned section for today or the last seven days; no grouping renders one flat grid.
+- **⬇️ Detail actions** — favourite, describe, **import the embedded workflow straight into the canvas**, open the asset in Immich, download the original, or send it to the Immich trash.
+- **⚙️ Settings live in ComfyUI's own Settings dialog** under an `Immich` group, and the panel's gear button jumps there directly.
+- **🌐 i18n** — English and Simplified Chinese, following the system language on first run.
+- **🎨 Theme-aware** — follows ComfyUI's light and dark themes.
 
 ## Screenshots
 
@@ -141,22 +145,35 @@ Example wiring:
 
 ![Immich Save Video example workflow](images/video-node-usage.png)
 
-### 3. Asset panel
+### 3. 📥 Load Image from Immich
 
-- Toolbar 🖼️ **Immich** button opens the panel: **timeline** (left) + **detail pane** (right, 340px fixed).
-- Monthly buckets with "current period" (`timeline_range`) expanded and older periods collapsed.
-- Hover a thumbnail to favorite it; the detail pane offers favorite, delete (→ Immich trash), and description editing.
-- Three thumbnail zoom levels (small 64px / medium 112px / large 200px; remembered per session).
-- **Selection mode**: click **✅ Select** in the header to enter; **shift + click** selects a range (starting from the last normally-clicked thumbnail) and auto-enters selection mode. The batch bar shows **Select all · Clear selection · ♡ Favorite · 🗑 Move to Trash · ✕ (exit)**.
-  - When **all currently-visible assets are selected**, Favorite and Move to Trash ask for a second confirmation ("You selected ALL assets — continue?"); partial selections behave as before.
-  - Deletes always go to the Immich trash.
-- **Detail pane persistence**: whether the pane is open and the currently-selected asset are remembered per session — reopening the panel or switching views restores them; deleted / missing assets fall back to the placeholder page.
-- **❤️ Show Favorites** filter: shows only assets favorited in Immich (un-favoriting hides them immediately).
-- 🌐 **Open Immich** button jumps to the Immich web UI.
+| Output | Type | Description |
+|---|---|---|
+| `image` | IMAGE | The picked asset, EXIF orientation applied |
+| `mask` | MASK | Alpha channel when the asset has one, otherwise empty |
+| `asset_id` | STRING | Immich asset id, so later nodes can refer to the original |
+
+- The node's **Choose image** button opens the asset panel in pick mode: one click selects, the panel closes, and the thumbnail is drawn on the node itself.
+- Grouping, filtering, sorting and zoom work exactly as in the main panel, but the pick panel keeps **its own state inside the node**, so it travels with the workflow JSON. The main panel keeps its state on the server.
+- Reopening the picker restores the last selection, the scroll position and the preview pane.
+
+### 4. Asset panel
+
+Open it from the toolbar's 🖼️ button, or from the node's picker.
+
+- **Header** — icons rather than text: filter (lit amber while conditions are active), sort, zoom, grouping, pinning, selection mode, plus settings, open-in-Immich and close.
+- **Filtering** — build conditions from album, person, tag, type, favourite and date range. With no conditions the window says so and waits for **Add filter**.
+- **Sorting** — newest or oldest first, applied inside every section.
+- **Grouping** — month, day, year, or none. No grouping plus no pinning means one flat grid. Sections fold and remember it.
+- **Pinning** — lifts today or the last seven days into a section at the top.
+- **Selection mode** — shift-click for a range, batch favourite and move-to-trash, with a second confirmation when everything visible is selected.
+- **Detail pane** — large preview (images and videos), favourite, description, workflow import, open in Immich, download, delete.
+- **Thumbnails** — 64 / 112 / 200 px, lazy-loaded; the first page is 100 assets and **Load more** appends the rest instead of blocking on a long fetch.
+- **State** — filters, sorting, grouping and pinning survive a reload.
 
 ## Configuration
 
-Stored in `<plugin>/config.json` — **auto-generated on first save**, not part of the repo and **git-ignored** (your API key will never be committed to a public repository); file permissions are `0o600` (owner read/write only). Never commit or share it.
+Everything is configured in **ComfyUI's own Settings dialog**, under the `Immich` group — the panel's gear button takes you straight there. The values are stored in `<plugin>/config.json`, **auto-generated on first save**, **git-ignored** and written `0o600`, so your API key is never committed. The main panel's own state lives beside it in `panel_state.json`, which is git-ignored too.
 
 At the top of the config page, a **🗑 Reset config** button (with confirmation) clears the Immich URL, API key and panel token in one click, restoring the fresh-install defaults.
 
