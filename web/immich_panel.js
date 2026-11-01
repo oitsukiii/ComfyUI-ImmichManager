@@ -1990,6 +1990,63 @@
     }
   }
 
+  // ─────────────── 侧边栏入口（官方 registerSidebarTab）───────────────
+  //
+  // 侧边栏 tab 由前端自己渲染图标并注册命令 Workspace.ToggleSidebarTab.<id>，
+  // 不再需要跟工具栏重绘赛跑（旧实现靠 MutationObserver 反复补挂按钮）。
+  var ENTRY_MODE_DEFAULT = "sidebar";
+
+  function currentEntryMode() {
+    try {
+      var v = window.localStorage.getItem("immich_entry_mode");
+      if (v === "sidebar" || v === "toolbar") return v;
+    } catch (e) { /* ignore */ }
+    return ENTRY_MODE_DEFAULT;
+  }
+
+  function mountSidebarTab(app) {
+    var ext = app && app.extensionManager;
+    if (!ext || typeof ext.registerSidebarTab !== "function") return false;
+    ext.registerSidebarTab({
+      id: "immich",
+      title: "Immich",
+      icon: "pi pi-images",
+      tooltip: t("title.panel"),
+      type: "custom",
+      render: function (el) {
+        el.innerHTML = "";
+        var wrap = document.createElement("div");
+        wrap.style.cssText = "padding:12px;display:flex;flex-direction:column;gap:10px";
+        var head = document.createElement("div");
+        head.textContent = "Immich";
+        head.style.cssText = "font-weight:600;font-size:13px;opacity:.85";
+        var openBtn = document.createElement("button");
+        openBtn.className = "comfyui-button";
+        openBtn.textContent = t("btn.open");
+        openBtn.onclick = function () { openPanel(); };
+        var hint = document.createElement("div");
+        hint.textContent = "素材面板以浮层打开，关闭后回到这里。";
+        hint.style.cssText = "font-size:12px;opacity:.6;line-height:1.5";
+        wrap.appendChild(head);
+        wrap.appendChild(openBtn);
+        wrap.appendChild(hint);
+        el.appendChild(wrap);
+      },
+    });
+    return true;
+  }
+
+  function registerSidebarEntry() {
+    if (currentEntryMode() !== "sidebar") return;
+    if (!(window.app && window.app.registerExtension)) return;
+    try {
+      app.registerExtension({
+        name: "ComfyUI-ImmichManager.Sidebar",
+        setup: function (a) { mountSidebarTab(a); },
+      });
+    } catch (e) { console.warn("[Immich] sidebar tab 注册失败", e); }
+  }
+
   if (window.app && window.app.registerExtension) {
     try {
       app.registerExtension({
@@ -2011,7 +2068,9 @@
   // ─────────────── 启动 ───────────────
 
   function init() {
-    addToolbarButton();
+    // sidebar 模式由 registerSidebarTab 提供入口；toolbar 模式保留旧行为
+    if (currentEntryMode() === "toolbar") addToolbarButton();
+    else registerSidebarEntry();
     applyNodeLang();
     // graph / nodeDef store 可能尚未就绪（扩展 JS 加载时序不可控），
     // 轮询重试直到两者都可用（或达到上限）
