@@ -2054,18 +2054,25 @@
     svg.setAttribute("stroke-width", "2");
     svg.setAttribute("stroke-linecap", "round");
     svg.setAttribute("stroke-linejoin", "round");
-    svg.setAttribute("width", "16");
-    svg.setAttribute("height", "16");
-    // Lucide "image": rect + 圆点 + 斜线
-    var rect = document.createElementNS(NS, "rect");
-    rect.setAttribute("width", "18"); rect.setAttribute("height", "18");
-    rect.setAttribute("x", "3"); rect.setAttribute("y", "3");
-    rect.setAttribute("rx", "2"); rect.setAttribute("ry", "2");
+    // 官方尺寸来自 .side-bar-button-icon{font-size:var(--sidebar-icon-size)}，
+    // 那是字号规则；svg 用 1em 就能继承同一个尺寸，不必写死像素。
+    svg.setAttribute("class", "side-bar-button-icon");
+    svg.setAttribute("width", "1em");
+    svg.setAttribute("height", "1em");
+    // Lucide "file-image"
+    var paths = [
+      "M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z",
+      "M14 2v4a2 2 0 0 0 2 2h4",
+      "m20 17-1.296-1.296a2.41 2.41 0 0 0-3.408 0L9 22",
+    ];
+    for (var i = 0; i < paths.length; i++) {
+      var el = document.createElementNS(NS, "path");
+      el.setAttribute("d", paths[i]);
+      svg.appendChild(el);
+    }
     var dot = document.createElementNS(NS, "circle");
-    dot.setAttribute("cx", "8"); dot.setAttribute("cy", "8"); dot.setAttribute("r", "2");
-    var line = document.createElementNS(NS, "path");
-    line.setAttribute("d", "m21 15-5-5L5 21");
-    svg.appendChild(rect); svg.appendChild(dot); svg.appendChild(line);
+    dot.setAttribute("cx", "10"); dot.setAttribute("cy", "12"); dot.setAttribute("r", "2");
+    svg.insertBefore(dot, svg.children[2] || null);
     return svg;
   }
 
