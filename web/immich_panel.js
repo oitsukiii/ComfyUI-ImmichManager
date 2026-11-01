@@ -2170,6 +2170,67 @@
   // 让用户自己刷新，并在 tooltip 里写明。
   var _immichSettingAdded = false;
 
+  // 把面板里的配置项搬到官方 Settings。PUT /config 是 sensitive 路由：
+  // 本机来源直接放行；从别的机器访问需要面板令牌（浏览器会自动带上 Authorization 吗？不会），
+  // 所以这里在非本机时会 403 —— 面板里那份配置入口仍然保留，作为兜底。
+  var CONFIG_SETTINGS = [
+    { key: "base_url",    id: "immich.baseUrl",    name: "Immich 地址",           type: "text",   cat: ["Immich", "连接", "服务"] },
+    { key: "api_key",     id: "immich.apiKey",     name: "API Key（留空表示不修改）", type: "text",   cat: ["Immich", "连接", "凭据"] },
+    { key: "default_album", id: "immich.defaultAlbum", name: "默认相册",          type: "text",   cat: ["Immich", "上传", "相册"] },
+    { key: "page_size",   id: "immich.pageSize",   name: "每页数量",             type: "number", cat: ["Immich", "浏览", "分页"] },
+    { key: "timeline_range", id: "immich.timelineRange", name: "时间轴大组间隔", type: "combo",  cat: ["Immich", "浏览", "时间轴"],
+      options: ["today", "3d", "7d"] },
+    { key: "timeline_interval", id: "immich.timelineInterval", name: "时间轴小组间隔", type: "combo", cat: ["Immich", "浏览", "时间轴"],
+      options: ["15m", "30m", "1h", "1d"] },
+    { key: "proxy_mode",  id: "immich.proxyMode",  name: "网络代理模式",          type: "combo",  cat: ["Immich", "代理", "模式"],
+      options: ["off", "custom", "env"] },
+    { key: "proxy_url",   id: "immich.proxyUrl",   name: "代理地址（custom 模式必填）", type: "text", cat: ["Immich", "代理", "地址"] },
+  ];
+
+  function putConfig(key, value) {
+    try {
+      fetch("/api/immich_plus/config", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [key]: value }),
+      }).then(function (r) {
+        try { document.documentElement.setAttribute("data-immich-put", key + ":" + r.status); } catch (e) {}
+      }).catch(function () {
+        try { document.documentElement.setAttribute("data-immich-put", key + ":neterr"); } catch (e) {}
+      });
+    } catch (e) { /* 忽略 */ }
+  }
+
+  function registerConfigSettings(st) {
+    fetch("/api/immich_plus/config").then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (cfg) {
+        cfg = cfg || {};
+        for (var i = 0; i < CONFIG_SETTINGS.length; i++) {
+          (function (def) {
+            var d = cfg[def.key];
+            if (def.key === "api_key") d = "";              // 不回显真实 key
+            if (d === undefined || d === null) d = def.type === "number" ? 100 : "";
+            var opt = {
+              id: def.id,
+              name: def.name,
+              category: def.cat,
+              type: def.type,
+              defaultValue: d,
+              onChange: function (v) {
+                // 空字符串不提交 api_key，避免把已存的 key 覆盖掉
+                if (def.key === "api_key" && !String(v || "").trim()) return;
+                putConfig(def.key, v);
+              },
+            };
+            if (def.options) opt.options = def.options;
+            st.addSetting(opt);
+          })(CONFIG_SETTINGS[i]);
+        }
+        try { document.documentElement.setAttribute("data-immich-settings-full", String(CONFIG_SETTINGS.length)); } catch (e) {}
+      })
+      .catch(function () { /* 读配置失败就只保留 entryMode */ });
+  }
+
   function registerSettings() {
     if (_immichSettingAdded) return true;
     try {
@@ -2189,6 +2250,8 @@
       });
       _immichSettingAdded = true;
       try { document.documentElement.setAttribute("data-immich-settings", "ok"); } catch (e) {}
+      // 其余配置项：先读一次现有配置，再按表格注册（读失败就用默认值）
+      try { registerConfigSettings(st); } catch (e) { /* 不影响 entryMode */ }
       return true;
     } catch (e) {
       try { document.documentElement.setAttribute("data-immich-settings", "err"); } catch (e2) {}
