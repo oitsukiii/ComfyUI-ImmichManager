@@ -318,7 +318,10 @@ async function applyNodePreview(node, assetId) {
   if (!url) return;
   const img = new Image();
   img.onload = () => {
-    node.imgs = [img];
+    // 关键：不要设 node.imgs —— ComfyUI 的 ImageFeed 会照着它再画一份，
+    // 和下面 onDrawForeground 的自绘叠在一起就是"前后重叠"。
+    // 执行后 ui.images 那条路径仍然会自动填 node.imgs（那是官方行为，正常）。
+    delete node.imgs;
     node.__immichPreview = img;   // 只留当前这张，旧图交给 GC
     hookNodeDraw(node);
     layoutForPreview(node, img);
