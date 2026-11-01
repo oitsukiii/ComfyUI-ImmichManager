@@ -4,7 +4,6 @@
 // 后端 API：/api/immich_plus/*（详见 docs/PLAN.md）
 (function () {
   "use strict";
-  try { document.documentElement.setAttribute("data-immich-loaded", "1"); } catch (e) {}
 
   // ── 轻量 i18n（v0.6 P3）──────────────────────────────
   // 词典在独立的 web/i18n.js 里，导出到 window.ImmichI18n。
@@ -2165,44 +2164,50 @@
     boot();
   }
 
-  // ─────────────── 官方设置菜单 ───────────────
-  // app.ui.settings.addSetting 是前端启动时 $M.forEach(u.addSetting) 灌进 store 的那套，
-  // kjnodes 等插件用的同一个机制，项会出现在 ComfyUI 的 Settings 对话框里。
+  // ─────────────── 官方设置菜单（app.ui.settings.addSetting）───────────────
+  // ⚠️ onChange 里绝不能调 location.reload()：设置 store 在注册/应用默认值时可能
+  // 触发回调，那会变成无限刷新，页面直接进不去（踩过）。改成只写 localStorage，
+  // 让用户自己刷新，并在 tooltip 里写明。
+  var _immichSettingAdded = false;
+
   function registerSettings() {
+    if (_immichSettingAdded) return true;
     try {
-      var s = window.app && window.app.ui && window.app.ui.settings;
-      if (!s || typeof s.addSetting !== "function") {
-        document.documentElement.setAttribute("data-immich-settings", "noapi");
-        return false;
-      }
-      s.addSetting({
+      var st = window.app && window.app.ui && window.app.ui.settings;
+      if (!st || typeof st.addSetting !== "function") return false;
+      st.addSetting({
         id: "immich.entryMode",
-        name: "Immich 入口位置（sidebar = 左侧栏 / toolbar = 顶部按钮）",
+        name: "入口位置（sidebar = 左侧栏 / toolbar = 顶部按钮，刷新后生效）",
+        category: ["Immich", "面板", "入口"],
+        tooltip: "切换 Immich 素材面板的入口位置。修改后请手动刷新页面生效。",
         type: "combo",
         defaultValue: ENTRY_MODE_DEFAULT,
         options: ["sidebar", "toolbar"],
         onChange: function (v) {
           try { window.localStorage.setItem("immich_entry_mode", v); } catch (e) {}
-          // 两种入口挂载方式不同，切完刷新最稳
-          window.location.reload();
         },
       });
-      document.documentElement.setAttribute("data-immich-settings", "ok");
+      _immichSettingAdded = true;
+      try { document.documentElement.setAttribute("data-immich-settings", "ok"); } catch (e) {}
       return true;
     } catch (e) {
-      document.documentElement.setAttribute("data-immich-settings", "err");
+      try { document.documentElement.setAttribute("data-immich-settings", "err"); } catch (e2) {}
       return false;
     }
   }
 
+  function waitForSettingsApi(n) {
+    if (registerSettings()) return;
+    if (n <= 0) {
+      try { document.documentElement.setAttribute("data-immich-settings", "timeout"); } catch (e) {}
+      return;
+    }
+    setTimeout(function () { waitForSettingsApi(n - 1); }, 500);
+  }
+
   function registerSidebarEntry() {
     try { document.documentElement.setAttribute("data-immich-entry", "sidebar"); } catch (e) {}
-    // 有限次重试：无限定时器会让 --virtual-time-budget 永远排不空（调试时踩过），
-    // 而且在真实浏览器里也没必要一直轮询。
-    (function retrySettings(n) {
-      if (registerSettings() || n <= 0) return;
-      setTimeout(function () { retrySettings(n - 1); }, 600);
-    })(5);
+    waitForSettingsApi(60);   // 有界：最多 30s
     watchRail();
   }
 
