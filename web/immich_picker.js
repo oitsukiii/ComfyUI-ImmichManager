@@ -24,7 +24,7 @@ async function getJSON(path) {
 }
 
 // 缩略图缓存：LRU 上限，超出时释放最旧的 blob URL（否则切页会一直累积内存）
-const lastPickState = { albumId: "", page: 1 };   // 跨次打开记住相册与页码
+const filterState = { albumId: "", type: "", order: "desc", page: 1 };  // 跨次打开记住筛选与页码
 
 const THUMB_MAX = 120;
 const thumbCache = new Map();
@@ -60,7 +60,14 @@ const CSS = `
 .immich-pick-mask{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;align-items:center;justify-content:center}
 .immich-pick-win{width:min(920px,92vw);max-height:84vh;background:#1b1e24;color:#e6e6e6;border:1px solid #3a3f4a;
   border-radius:10px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.6)}
-.immich-pick-head{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid #3a3f4a}
+.immich-pick-filters{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid #3a3f4a;flex-wrap:wrap}
+.immich-pick-filters label{display:flex;align-items:center;gap:6px;font-size:12px;opacity:.9}
+.immich-pick-filters select{padding:6px 8px;border-radius:6px;border:1px solid #3a3f4a;background:#252a33;color:inherit;font:inherit}
+.immich-pick-chips{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
+.immich-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;
+  background:#2a3038;border:1px solid #3a3f4a;font-size:12px}
+.immich-chip b{cursor:pointer;opacity:.7;font-weight:400}
+.immich-chip b:hover{opacity:1;color:#ff6b6b}
 .immich-pick-head select{flex:1;padding:8px 10px;border-radius:6px;border:1px solid #3a3f4a;background:#252a33;color:inherit;font:inherit}
 .immich-pick-body{padding:12px;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
 .immich-pick-cell{aspect-ratio:1;background:#252a33;border-radius:6px;overflow:hidden;cursor:pointer;border:2px solid transparent}
@@ -88,8 +95,15 @@ async function openPicker(node) {
   mask.className = "immich-pick-mask";
   mask.innerHTML = `
     <div class="immich-pick-win">
-      <div class="immich-pick-head">
-        <select class="immich-pick-album"></select>
+      <div class="immich-pick-filters">
+        <label>相册<select class="f-album"></select></label>
+        <label>类型<select class="f-type">
+          <option value="">全部</option><option value="IMAGE">图片</option><option value="VIDEO">视频</option>
+        </select></label>
+        <label>排序<select class="f-order">
+          <option value="desc">最新优先</option><option value="asc">最早优先</option>
+        </select></label>
+        <span class="immich-pick-chips"></span>
         <button class="immich-pick-btn immich-pick-close">关闭</button>
       </div>
       <div class="immich-pick-body"></div>
@@ -103,30 +117,75 @@ async function openPicker(node) {
     </div>`;
   document.body.appendChild(mask);
 
-  const sel = mask.querySelector(".immich-pick-album");
+  const selAlbum = mask.querySelector(".f-album");
+  const selType = mask.querySelector(".f-type");
+  const selOrder = mask.querySelector(".f-order");
+  const chips = mask.querySelector(".immich-pick-chips");
   const body = mask.querySelector(".immich-pick-body");
   const info = mask.querySelector(".immich-pick-info");
   const prev = mask.querySelector(".immich-pick-prev");
   const next = mask.querySelector(".immich-pick-next");
 
-  let albumId = "";
+  // 与上次打开保持一致的筛选状态
+  selType.value = filterState.type || "";
+  selOrder.value = filterState.order || "desc";
+
+  const selectedId = getWidget(node, "asset_id") || "";
   let page = 1;
   let nextPage = null;
-  const selectedId = getWidget(node, "asset_id") || "";
 
   const close = () => mask.remove();
   mask.querySelector(".immich-pick-close").onclick = close;
   mask.addEventListener("click", (e) => { if (e.target === mask) close(); });
 
+  function syncState() {
+    filterState.albumId = selAlbum.value;
+    filterState.type = selType.value;
+    filterState.order = selOrder.value;
+    filterState.page = page;
+  }
+
+  // 已生效的筛选条件，每个带 ×
+  function renderChips() {
+    chips.innerHTML = "";
+    const add = (text, onRemove) => {
+      const c = document.createElement("span");
+      c.className = "immich-chip";
+      c.textContent = text;
+      const x = document.createElement("b");
+      x.textContent = "×";
+      x.title = "移除这个条件";
+      x.onclick = onRemove;
+      c.appendChild(x);
+      chips.appendChild(c);
+    };
+    const alb = selAlbum.options[selAlbum.selectedIndex];
+    if (alb) add("相册: " + alb.textContent, () => { selAlbum.selectedIndex = 0; onChange(); });
+    if (selType.value) {
+      add("类型: " + (selType.value === "IMAGE" ? "图片" : "视频"),
+          () => { selType.value = ""; onChange(); });
+    }
+    if (selOrder.value !== "desc") {
+      add("排序: 最早优先", () => { selOrder.value = "desc"; onChange(); });
+    }
+  }
+
+  function onChange() {
+    syncState();
+    renderChips();
+    loadPage(1);
+  }
+
   async function loadPage(p) {
     body.innerHTML = "";
     info.textContent = "加载中…";
     try {
-      const d = await getJSON(`/albums/${albumId}/assets?page=${p}&size=24`);
+      const q = [`page=${p}`, "size=24", `order=${selOrder.value}`];
+      if (selType.value) q.push(`type=${selType.value}`);
+      const d = await getJSON(`/albums/${selAlbum.value}/assets?${q.join("&")}`);
       page = d.page || p;
-      lastPickState.albumId = albumId;      // 记住位置，下次打开还在这儿
-      lastPickState.page = page;
       nextPage = d.nextPage || null;
+      syncState();
       prev.disabled = page <= 1;
       next.disabled = !nextPage;
       const items = d.items || [];
@@ -153,20 +212,21 @@ async function openPicker(node) {
 
   try {
     const albums = await getJSON("/albums");
-    sel.innerHTML = "";
+    selAlbum.innerHTML = "";
     for (const a of albums) {
       const o = document.createElement("option");
       o.value = a.id;
       o.textContent = `${a.albumName}（${a.assetCount ?? "?"}）`;
-      sel.appendChild(o);
+      selAlbum.appendChild(o);
     }
     if (!albums.length) { info.textContent = "Immich 里还没有相册"; return; }
-    // 恢复上次的相册；找不到就退回第一个
-    const remembered = lastPickState.albumId;
-    albumId = (remembered && albums.some((a) => a.id === remembered)) ? remembered : albums[0].id;
-    sel.value = albumId;
-    sel.onchange = () => { albumId = sel.value; loadPage(1); };
-    loadPage(lastPickState.page || 1);
+    const remembered = filterState.albumId;
+    selAlbum.value = (remembered && albums.some((a) => a.id === remembered)) ? remembered : albums[0].id;
+    selAlbum.onchange = onChange;
+    selType.onchange = onChange;
+    selOrder.onchange = onChange;
+    renderChips();
+    loadPage(filterState.page || 1);
   } catch (e) {
     info.textContent = "读取相册失败：" + e.message;
   }

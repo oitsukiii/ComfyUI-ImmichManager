@@ -695,7 +695,9 @@ def setup_routes(server) -> None:
             return _error("page/size 必须是整数", 400)
         client = _get_client(config)
         try:
-            data = await _call(client.get_album_assets, album_id, page, size)
+            asset_type = (request.query.get("type", "") or "").upper()
+            order = (request.query.get("order", "desc") or "desc").lower()
+            data = await _call(client.get_album_assets, album_id, page, size, asset_type, order)
         except ImmichError as exc:
             return _error(_safe_error(exc), 502)
         return web.json_response(data)

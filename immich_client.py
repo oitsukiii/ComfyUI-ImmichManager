@@ -302,7 +302,8 @@ class ImmichClient:
                 return album
         return None
 
-    def get_album_assets(self, album_id: str, page: int = 1, size: int = 24) -> dict:
+    def get_album_assets(self, album_id: str, page: int = 1, size: int = 24,
+                         asset_type: str = "", order: str = "desc") -> dict:
         """相册内的资产（服务端分页）。
 
         不用 GET /albums/{id}（那个默认不展开 assets），改用 search/metadata
@@ -310,10 +311,12 @@ class ImmichClient:
         """
         page = max(1, int(page or 1))
         size = max(1, min(200, int(size or 24)))
-        res = self._json(
-            "POST", "/search/metadata",
-            json={"albumIds": [album_id], "page": page, "size": size, "withExif": False},
-        )
+        body: dict = {"albumIds": [album_id], "page": page, "size": size, "withExif": False}
+        if asset_type in ("IMAGE", "VIDEO"):
+            body["type"] = asset_type          # 类型筛选：图片 / 视频
+        if order in ("asc", "desc"):
+            body["order"] = order              # 排序：按拍摄时间
+        res = self._json("POST", "/search/metadata", json=body)
         box = (res or {}).get("assets") or {}
         raw = box.get("items") or []
         # 这版 Immich 的 assets.total 等于本页条数，不是总数；
