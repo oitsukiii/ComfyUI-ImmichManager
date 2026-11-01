@@ -62,7 +62,7 @@ const CSS = `
   border-radius:10px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.6)}
 .immich-pick-filters{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid #3a3f4a;flex-wrap:wrap}
 .immich-pick-filters label{display:flex;align-items:center;gap:6px;font-size:12px;opacity:.9}
-.immich-pick-filters select{padding:6px 8px;border-radius:6px;border:1px solid #3a3f4a;background:#252a33;color:inherit;font:inherit}
+.immich-pick-filters select{width:auto;min-width:150px;padding:8px 12px;border-radius:6px;border:1px solid #3a3f4a;background:#1b1e24;color:#e6e6e6;font:inherit;color-scheme:dark}
 .immich-pick-chips{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
 .immich-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;
   background:#2a3038;border:1px solid #3a3f4a;font-size:12px}

@@ -2288,6 +2288,9 @@
     return box;
   }
 
+  // 供其它前端模块复用同一套控件（选图窗口等）
+  try { window.__immichUI = Object.assign(window.__immichUI || {}, { dropdown: dropdown }); } catch (e) {}
+
   function wideRow(kind, label, setter, value, options, hint) {
     var col = document.createElement("div");
     col.style.cssText = "display:flex;flex-direction:column;align-items:flex-start;width:100%";
