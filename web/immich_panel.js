@@ -2206,6 +2206,58 @@
   var HINT_TEXT = "max-width:520px;margin-top:6px;font-size:11px;line-height:1.5;" +
                   "color:#8a8f98;opacity:.9";
   var LABEL_CSS  = "display:block;margin-bottom:6px;font-size:15px;opacity:.9";
+  var FIELD_CSS  = "width:520px;max-width:66vw;padding:8px 12px;border-radius:6px;" +
+                   "border:1px solid #3a3f4a;background:#1b1e24;color:#e6e6e6;font:inherit;" +
+                   "text-align:left;box-sizing:border-box";
+
+  // 自绘下拉：原生 select 的弹层是浏览器画的，无法可靠染色（Windows 上是白的）
+  function dropdown(options, value, setter) {
+    var box = document.createElement("div");
+    box.style.cssText = "position:relative;width:520px;max-width:66vw";
+
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.style.cssText = FIELD_CSS + ";cursor:pointer;display:flex;justify-content:space-between;align-items:center";
+    var cur = document.createElement("span");
+    cur.textContent = value || (options && options[0]) || "";
+    var arrow = document.createElement("span");
+    arrow.textContent = "▾";
+    arrow.style.cssText = "opacity:.6;margin-left:8px";
+    btn.appendChild(cur);
+    btn.appendChild(arrow);
+
+    var list = document.createElement("div");
+    list.style.cssText = "display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:9999;" +
+                         "background:#1b1e24;border:1px solid #3a3f4a;border-radius:6px;overflow:hidden;" +
+                         "box-shadow:0 8px 24px rgba(0,0,0,.5)";
+
+    (options || []).forEach(function (o) {
+      var item = document.createElement("div");
+      item.textContent = o || "（不指定）";
+      item.style.cssText = "padding:8px 12px;cursor:pointer;font:inherit;color:#e6e6e6";
+      if (String(o) === String(value)) item.style.background = "#2a3038";
+      item.addEventListener("mouseenter", function () { item.style.background = "#2a3038"; });
+      item.addEventListener("mouseleave", function () {
+        item.style.background = (String(o) === String(cur.textContent)) ? "#2a3038" : "transparent";
+      });
+      item.addEventListener("click", function () {
+        cur.textContent = o;
+        list.style.display = "none";
+        setter(o);
+      });
+      list.appendChild(item);
+    });
+
+    btn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      list.style.display = list.style.display === "none" ? "block" : "none";
+    });
+    document.addEventListener("click", function () { list.style.display = "none"; });
+
+    box.appendChild(btn);
+    box.appendChild(list);
+    return box;
+  }
 
   function wideRow(kind, label, setter, value, options, hint) {
     var col = document.createElement("div");
@@ -2219,19 +2271,11 @@
     }
     var el;
     if (kind === "combo") {
-      el = document.createElement("select");
-      el.style.cssText = WIDE;
-      (options || []).forEach(function (o) {
-        var op = document.createElement("option");
-        op.value = o; op.textContent = o || "（不指定）";
-        if (String(o) === String(value)) op.selected = true;
-        el.appendChild(op);
-      });
-      el.addEventListener("change", function () { setter(el.value); });
+      el = dropdown(options, value, setter);
     } else {
       el = document.createElement("input");
       el.type = kind === "number" ? "number" : (kind === "password" ? "password" : "text");
-      el.style.cssText = WIDE;
+      el.style.cssText = FIELD_CSS;
       el.value = value === undefined || value === null ? "" : value;
       el.addEventListener("change", function () { setter(el.value); });
       el.addEventListener("blur", function () { setter(el.value); });
@@ -2353,6 +2397,19 @@
     el.id = "immich-group-style";
     el.textContent = '.setting-group:has([data-immich-row])>h3{' +
                      'font-size:1.35rem!important;font-weight:600!important;margin-bottom:14px!important}';
+    (document.head || document.documentElement).appendChild(el);
+  })();
+
+  // 原生 select 的弹层由浏览器绘制，只能用 color-scheme 影响；
+  // 挂在对话框层级上（不是只在 select 上），有的版本只有这样才能吃进去。
+  (function immichColorScheme() {
+    if (document.getElementById("immich-color-scheme")) return;
+    var el = document.createElement("style");
+    el.id = "immich-color-scheme";
+    el.textContent =
+      '[role="dialog"]{color-scheme:dark!important}' +
+      '[role="dialog"] select{color-scheme:dark!important;background-color:#1b1e24!important}' +
+      '[role="dialog"] select option{background-color:#1b1e24!important;color:#e6e6e6!important}';
     (document.head || document.documentElement).appendChild(el);
   })();
 

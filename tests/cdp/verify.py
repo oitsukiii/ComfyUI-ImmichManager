@@ -14,7 +14,7 @@ non-zero if anything is missing, so it can gate a deploy.
 """
 import json, sys, urllib.request
 
-EXPECT = {"inputs": 5, "selects": 6, "hints": 10,  # 4 文本框 + 搜索框；6 下拉（含入口位置）；10 条提示
+EXPECT = {"inputs": 5, "selects": 0, "hints": 10, "dropdowns": 6,  # 4 文本框 + 搜索框；下拉改为自绘；10 条提示
           "buttons": ["显示", "重新生成", "清空", "测试连接"]}
 
 def page_url():
@@ -63,6 +63,7 @@ def main():   # 注：按钮文案是「测试连接」不是「连接测试」
       return JSON.stringify({inputs: dlg.querySelectorAll('input').length,
         selects: dlg.querySelectorAll('select').length,
         hints: dlg.querySelectorAll('[data-immich-hint]').length,
+        dropdowns: [...dlg.querySelectorAll('[data-immich-row] button')].filter(b=>b.textContent.indexOf('▾')>=0).length,
         buttons: [...dlg.querySelectorAll('button')].map(b=>b.textContent.trim())
                    .filter(t=>['显示','重新生成','清空','测试连接','刷新相册'].includes(t))}); })()""")
     seen = json.loads(seen) if isinstance(seen, str) else seen
@@ -79,6 +80,8 @@ def main():   # 注：按钮文案是「测试连接」不是「连接测试」
         fails.append(f"selects {seen.get('selects')} != {EXPECT['selects']}")
     if seen.get("hints") != EXPECT["hints"]:
         fails.append(f"hints {seen.get('hints')} != {EXPECT['hints']}")
+    if seen.get("dropdowns") != EXPECT["dropdowns"]:
+        fails.append(f"dropdowns {seen.get('dropdowns')} != {EXPECT['dropdowns']}")
     for b in EXPECT["buttons"]:
         if b not in seen.get("buttons", []):
             fails.append(f"button missing: {b}")
