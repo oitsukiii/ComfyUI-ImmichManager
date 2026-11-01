@@ -68,7 +68,10 @@ async def _get_ext_map(client: ImmichClient) -> dict:
     if getter is None:
         return {}
     now = time.monotonic()
-    if now - _ext_cache["ts"] <= _EXT_CACHE_TTL:
+    # ts 为 0 表示从未成功拉过。不能直接参与比较：刚启动的机器 time.monotonic()
+    # 可能还小于 TTL，那样"从未拉过"会被误判成"缓存新鲜"，第一次 /bucket 就会
+    # 返回空的角标映射（CI runner 上就是这么暴露的）。
+    if _ext_cache["ts"] and now - _ext_cache["ts"] <= _EXT_CACHE_TTL:
         return _ext_cache["map"]
     try:
         mapping = await asyncio.to_thread(getter)

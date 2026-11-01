@@ -108,7 +108,9 @@ def build_app(tmpdir, fake_client=None):
         fake_client = FakeClient()
     server_routes._get_client = lambda cfg: fake_client
     # 重置模块级 ext 缓存：不同测试段用不同 FakeClient，缓存不能跨段共享
-    server_routes._ext_cache.update({"ts": 0.0, "map": {}})
+    # -1e9 而不是 0.0：0.0 在刚启动的 runner 上和 monotonic() 相差不到 TTL，
+    # 会被当成"缓存新鲜"（见 server_routes._get_ext_map 的注释）。
+    server_routes._ext_cache.update({"ts": -1e9, "map": {}})
     return app, fake_client
 
 
@@ -265,7 +267,7 @@ async def main():
     # server_routes 的 _ext_cache 是模块级 + 60s TTL，前面几个测试段也打过 /bucket，
     # 不清掉这里会读到过期（空）映射，结果取决于整份测试跑了多久 —— 本地慢刚好过期、
     # CI 快就命中。显式重置，让断言与运行速度无关。
-    server_routes._ext_cache["ts"] = 0.0
+    server_routes._ext_cache["ts"] = -1e9
     server_routes._ext_cache["map"] = {}
     with tempfile.TemporaryDirectory() as tmp:
         fc = FakeClient(ext_map={"asset-1": "png"})
