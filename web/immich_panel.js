@@ -2209,8 +2209,8 @@
 
   function wideRow(kind, label, setter, value, options, hint) {
     var col = document.createElement("div");
-    col.style.cssText = "display:flex;flex-direction:column;align-items:flex-start;width:100%;" +
-                          "padding-right:32px;box-sizing:border-box";
+    col.style.cssText = "display:flex;flex-direction:column;align-items:flex-start;width:100%";
+    col.setAttribute("data-immich-row", "1");
 
     var el;
     if (kind === "combo") {
@@ -2288,9 +2288,6 @@
   var H_PAGE     = "面板一次加载多少个资产。越大滚动越省事，首次加载越慢。";
   var H_LANG     = "面板界面语言，刷新页面后生效。";
 
-  // 标题缩进用不间断空格，避免被 HTML 折叠；只作用于我们自己的设置行
-  var INDENT = "\u00a0\u00a0\u00a0\u00a0";
-
   var CONFIG_SETTINGS = [
     { key: "base_url", id: "immich.baseUrl", name: "Immich 地址", kind: "text", cat: ["Immich", "1 连接", "连接设置", "服务"], hint: H_BASE },
     { key: "api_key", id: "immich.apiKey", name: "API Key（留空不修改）", kind: "password", cat: ["Immich", "1 连接", "连接设置", "凭据"], hint: H_KEY },
@@ -2332,6 +2329,20 @@
     }).catch(function () { setStatus("❌ 清空失败", true); });
   }
 
+  // 版式：只在「包含我们行标记」的设置行上生效（:has 作用域化，不影响其它插件）
+  (function immichRowStyle() {
+    if (document.getElementById("immich-row-style")) return;
+    var el = document.createElement("style");
+    el.id = "immich-row-style";
+    el.textContent =
+      '.setting-item:has([data-immich-row]){justify-content:flex-start!important;gap:0!important}' +
+      '.setting-item:has([data-immich-row])>div:first-child{padding-left:32px!important;text-align:left!important;flex:0 0 auto!important;max-width:none!important}' +
+      '.setting-item:has([data-immich-row])>div:last-child{padding-right:32px!important;box-sizing:border-box!important;flex:0 1 auto!important;justify-content:flex-start!important}' +
+      '[data-immich-row] [role="combobox"]{min-width:460px!important}' +
+      '[data-immich-row] input[type="text"],[data-immich-row] input[type="password"]{min-width:460px!important;width:460px!important}';
+    (document.head || document.documentElement).appendChild(el);
+  })();
+
   function registerConfigSettings(st) {
     function build(cfg, albums) {
       cfg = cfg || {};
@@ -2365,7 +2376,7 @@
             if (current === undefined || current === null) current = def.kind === "number" ? 100 : "";
           }
           st.addSetting({
-            id: def.id, name: INDENT + def.name, category: def.cat,
+            id: def.id, name: def.name, category: def.cat,
             type: function (name, setter, value) { return wideRow(def.kind, def.name, setter, value, options, def.hint); },
             defaultValue: current,
             onChange: function (v) {
