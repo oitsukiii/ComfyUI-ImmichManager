@@ -38,7 +38,7 @@
 - **📐 Grouping** — month, day or year sections that fold, unfold and remember their state, plus an optional pinned section for today or the last seven days; no grouping renders one flat grid.
 - **⬇️ Detail actions** — favourite, describe, **import the embedded workflow straight into the canvas**, open the asset in Immich, download the original, or send it to the Immich trash.
 - **⚙️ Settings live in ComfyUI's own Settings dialog** under an `Immich` group, and the panel's gear button jumps there directly.
-- **🌐 i18n** — English and Simplified Chinese, following the system language on first run.
+- **🌐 i18n** — English and Simplified Chinese. A fresh install starts in English; "follow system" is opt-in. Switching applies immediately, no reload.
 - **🎨 Theme-aware** — follows ComfyUI's light and dark themes.
 
 ## Screenshots
@@ -135,7 +135,7 @@ and restart ComfyUI. The `[ComfyUI-ImmichManager]` log prefix always reports the
 2. Restart ComfyUI, click **🖼️ Immich** in the toolbar → **⚙️ Configure**.
 3. Fill in the Immich server URL (default `http://127.0.0.1:2283/api`; use `http://192.168.x.x:2283/api` for LAN) and the API key, then **Save**.
 4. Click **Test Connection** to verify (shows the Immich version).
-5. Browse assets in the timeline; add `🖼️ Immich Save Image` / `🎬 Immich Save Video` to your workflow to upload.
+5. Open the panel from the sidebar's flower button to browse; add `🖼️ Immich Save Image` / `🎬 Immich Save Video` to your workflow to upload, or drag `📥 Load Image from Immich` in to pull assets back out.
 
 ## Usage
 
@@ -213,23 +213,21 @@ Open it from the toolbar's 🖼️ button, or from the node's picker.
 
 Everything is configured in **ComfyUI's own Settings dialog**, under the `Immich` group — the panel's gear button takes you straight there. The values are stored in `<plugin>/config.json`, **auto-generated on first save**, **git-ignored** and written `0o600`, so your API key is never committed. The main panel's own state lives beside it in `panel_state.json`, which is git-ignored too.
 
-At the top of the config page, a **🗑 Reset config** button (with confirmation) clears the Immich URL, API key and panel token in one click, restoring the fresh-install defaults.
+The old standalone config page is gone; its reset button went with it. Settings live in the dialog, and the panel remembers its own filters, sorting, grouping and pinning on the server.
 
 | Field | Description |
 |---|---|
 | `base_url` | Immich API URL. **http/https only** (SSRF checks: rejects IP-obfuscation / link-local / reserved ranges / redirects — see Security). |
 | `api_key` | Immich API key. **Stored only in the backend config.json; never sent to the browser** — the frontend only sees `api_key_configured: true/false`. |
-| `panel_token` | Panel access token. When set, every `/api/immich_plus/*` request must send `Authorization: Bearer <token>`. **Auto-generated when you save the connection config**; the 🔒 Security group in the config page lets you **show / regenerate / clear** it. |
+| `panel_token` | Panel access token. When set, every `/api/immich_plus/*` request must send `Authorization: Bearer <token>`. **Auto-generated when you save the connection config**; the 🔒 Security group in the Settings dialog lets you **check / copy / regenerate / clear** it. |
 | `default_album` | Default album for upload nodes (nodes have no album input; configured here). |
-| `timeline_range` | "Current period" of the timeline: `today` / `3d` / `7d` (default `today`); older assets collapse into past periods. |
-| `timeline_interval` | Grouping interval inside the current period: `15m` / `30m` / `1h` / `1d` (default `1h`). |
 | `page_size` | Pagination size (min 1, max 1000). |
 | `proxy_mode` | Network proxy mode: `off` (default) / `custom` / `env`. See below. |
 | `proxy_url` | Proxy address for `proxy_mode=custom`, e.g. `http://127.0.0.1:7897` (Clash / mihomo Mixed Port). **http/https only; username/password not supported.** Outside `custom` mode it is kept as a standby value; **saving an empty field clears it.** |
 
 ### 🌐 Network proxy (`proxy_mode` / `proxy_url`)
 
-The **🌐 Network proxy** group in the config page controls **how this plugin reaches Immich over the network**:
+The **🌐 Network proxy** group in the Settings dialog controls **how this plugin reaches Immich over the network**:
 
 | Mode | Meaning | When to use |
 | --- | --- | --- |
@@ -246,18 +244,18 @@ The **🌐 Network proxy** group in the config page controls **how this plugin r
 
 Proxy address validation follows the same discipline as `base_url`: http/https only, host required, **no username/password** (credentials are never written to `config.json`), no path/query, and link-local / reserved addresses plus IP-obfuscation literals are rejected.
 
-When a proxy variable is detected in the process environment, the config page shows a hint (`proxy_env`, **always credential-masked**) so you can tell why an env var seems to have no effect.
+When a proxy variable is detected in the process environment, the settings group shows a hint (`proxy_env`, **always credential-masked**) so you can tell why an env var seems to have no effect.
 
 ## Security
 
 The threat model — trust boundaries, a per-route table of who can call what with which secret, and the accepted risks — is in [THREAT_MODEL.md](THREAT_MODEL.md).
 
 
-This section starts from the **panel access token** you actually see in the 🔒 Security group of the config page, and explains it step by step.
+This section starts from the **panel access token** you actually see in the 🔒 Security group of the Settings dialog, and explains it step by step.
 
 ### 1. What is the panel access token?
 
-Open the plugin config page — at the bottom is the 🔒 **Security** group with the **panel access token**:
+Open ComfyUI's Settings dialog, pick the `Immich` group, and find 🔒 **Security** with the **panel access token**:
 
 - It is **auto-generated when you save the connection config**; normally you don't have to think about it;
 - The Security group has **Show / Regenerate / Clear** buttons so you can view or rotate it anytime.
@@ -309,7 +307,7 @@ Whoever holds the token can: view/delete your Immich assets, change the plugin c
 ## FAQ
 
 **Q: The panel is slow / takes long on first open?**
-A: The first open pulls the full metadata set per time bucket (lightweight fields; ~100 paginated requests for 100k assets) to build the timeline grouping and format badges; cached for 60s afterwards. Large libraries are slower on first open — expected.
+A: The panel asks for one page of a hundred assets and draws it straight away; **Load more** at the bottom fetches the next page, so the first paint no longer waits on a long walk through the library. Thumbnails are lazy-loaded as you scroll.
 
 **Q: Video preview stutters / very large videos won't play?**
 A: The panel downloads the video into browser memory (fetch + blob) before playing — the security cost of keeping the token out of URLs. For very large videos, use the 🌐 **Open Immich** button and play in the Immich web UI.
@@ -321,7 +319,7 @@ A: Yes. Images (PNG) and videos (MP4) carry the current `prompt` / `workflow` me
 A: Deletes always go to the Immich trash (tested on v2.x); restore from the Immich web UI. The plugin does not offer "empty trash".
 
 **Q: Upload fails with `ProxyError ... [WinError 10061] No connection could be made...` or cannot reach a LAN Immich?**
-A: Your ComfyUI process environment carries proxy variables (typically `HTTP_PROXY=http://127.0.0.1:7897`, set by your launch script for ComfyUI-Manager) while that proxy client is not running — so requests to a **LAN** Immich get pushed through it too. Set **🌐 Network proxy → No proxy** in the config page (the default; takes effect right after saving) to go direct. If you really reach Immich through a proxy, pick "Custom proxy" and fill in the address, or "Follow environment variables". The config page shows the detected env var as a hint.
+A: Your ComfyUI process environment carries proxy variables (typically `HTTP_PROXY=http://127.0.0.1:7897`, set by your launch script for ComfyUI-Manager) while that proxy client is not running — so requests to a **LAN** Immich get pushed through it too. Set **🌐 Network proxy → No proxy** in the Settings dialog (the default; takes effect right after saving) to go direct. If you really reach Immich through a proxy, pick "Custom proxy" and fill in the address, or "Follow environment variables". The settings group shows the detected env var as a hint.
 
 ## Development
 
