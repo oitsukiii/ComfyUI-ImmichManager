@@ -1024,8 +1024,10 @@
         '  <div class="immich-cf-head">筛选条件</div>' +
         '  <div class="immich-cf-rows"></div>' +
         '  <div class="immich-cf-foot">' +
-        '    <button class="immich-btn" data-role="add">新增条件</button>' +
-        '    <button class="immich-btn" data-role="clear">清空条件</button>' +
+        '    <span style="display:flex;gap:8px">' +
+        '      <button class="immich-btn" data-role="add">新增条件</button>' +
+        '      <button class="immich-btn" data-role="clear">清空条件</button>' +
+        "    </span>" +
         '    <span><button class="immich-btn" data-role="cancel">取消</button>' +
         '    <button class="immich-btn primary" data-role="ok">确定</button></span>' +
         '  </div>' +
