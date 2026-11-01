@@ -311,17 +311,44 @@ async function openPicker(node) {
 }
 
 // 选完立刻在节点上画缩略图（ui.images 只有执行后才渲染）
+// 只设 node.imgs 不够——自定义节点没有内置的绘制钩子，这里自己挂在
+// onDrawForeground 上画，尺寸也按图片比例撑开节点。
 async function applyNodePreview(node, assetId) {
   const url = await thumbURL(assetId);
   if (!url) return;
   const img = new Image();
   img.onload = () => {
     node.imgs = [img];
-    if (node.images) node.images = [img];
+    node.__immichPreview = img;
+    hookNodeDraw(node);
+    layoutForPreview(node, img);
     node.setDirtyCanvas(true, true);
     app.graph.setDirtyCanvas(true, true);
   };
   img.src = url;
+}
+
+function hookNodeDraw(node) {
+  if (node.__immichDrawHooked) return;
+  node.__immichDrawHooked = true;
+  const orig = node.onDrawForeground;
+  node.onDrawForeground = function (ctx) {
+    if (orig) orig.call(this, ctx);
+    const im = this.__immichPreview;
+    if (!im || !im.complete || !im.width) return;
+    // 在节点内框下方按比例画，宽度吃满节点
+    const pad = 6;
+    const x = pad, y = this.size[1] - this.__immichImgH - pad;
+    const w = this.size[0] - pad * 2;
+    try { ctx.drawImage(im, x, y, w, this.__immichImgH); } catch (e) {}
+  };
+}
+
+function layoutForPreview(node, img) {
+  const w = Math.max(node.size[0], 240);
+  const h = Math.round(Math.min(220, (w - 12) * (img.height / img.width)));
+  node.__immichImgH = h;
+  node.setSize([w, node.computeSize()[1] + h + 10]);
 }
 
 function getWidget(node, name) {
@@ -336,6 +363,9 @@ function setWidget(node, name, value) {
   node.setDirtyCanvas(true, true);
   app.graph.setDirtyCanvas(true, true);
 }
+
+// 便于排查/测试：把绘制与布局钩子暴露出来
+try { window.__immichPreview = { applyNodePreview, hookNodeDraw, layoutForPreview }; } catch (e) {}
 
 app.registerExtension({
   name: "Immich.PickImage",
