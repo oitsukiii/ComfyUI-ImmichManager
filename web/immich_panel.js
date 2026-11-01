@@ -2834,7 +2834,7 @@
   }
 
   // rail 按钮的可见标签不是文本节点，只有 aria-label —— 必须按 aria 找。
-  var RAIL_LABELS = ["模板", "Templates", "テンプレート"];
+  var RAIL_LABELS = ["模板", "Templates", "テンプレート", "资产", "Assets", "アセット"];
   var _railObserver = null;
 
   function findRail() {
@@ -2883,11 +2883,12 @@
     svg.setAttribute("class", "side-bar-button-icon");
     svg.setAttribute("width", "1em");
     svg.setAttribute("height", "1em");
-    // Lucide "file-image"
+    // Lucide "flower"
     var paths = [
-      "M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z",
-      "M14 2v4a2 2 0 0 0 2 2h4",
-      "m20 17-1.296-1.296a2.41 2.41 0 0 0-3.408 0L9 22",
+      "M12 16.5A4.5 4.5 0 1 1 7.5 12 4.5 4.5 0 1 1 12 7.5a4.5 4.5 0 1 1 4.5 4.5 4.5 4.5 0 1 1-4.5 4.5",
+      "M12 7.5V9", "M7.5 12H9", "M16.5 12H15", "M12 16.5V15",
+      "m8 8 1.88 1.88", "M14.12 9.88 16 8",
+      "m8 16 1.88-1.88", "M14.12 14.12 16 16",
     ];
     for (var i = 0; i < paths.length; i++) {
       var el = document.createElementNS(NS, "path");
@@ -2895,8 +2896,8 @@
       svg.appendChild(el);
     }
     var dot = document.createElementNS(NS, "circle");
-    dot.setAttribute("cx", "10"); dot.setAttribute("cy", "12"); dot.setAttribute("r", "2");
-    svg.insertBefore(dot, svg.children[2] || null);
+    dot.setAttribute("cx", "12"); dot.setAttribute("cy", "12"); dot.setAttribute("r", "3");
+    svg.insertBefore(dot, svg.children[0] || null);
     return svg;
   }
 
