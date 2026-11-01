@@ -319,7 +319,7 @@ async function applyNodePreview(node, assetId) {
   const img = new Image();
   img.onload = () => {
     node.imgs = [img];
-    node.__immichPreview = img;
+    node.__immichPreview = img;   // 只留当前这张，旧图交给 GC
     hookNodeDraw(node);
     layoutForPreview(node, img);
     node.setDirtyCanvas(true, true);
@@ -347,8 +347,12 @@ function hookNodeDraw(node) {
 function layoutForPreview(node, img) {
   const w = Math.max(node.size[0], 240);
   const h = Math.round(Math.min(220, (w - 12) * (img.height / img.width)));
+  // 首次记录"不含预览图"的高度；换图时从基准重算，否则每换一次就再加一截
+  if (node.__immichBaseH == null) {
+    node.__immichBaseH = node.computeSize()[1];
+  }
   node.__immichImgH = h;
-  node.setSize([w, node.computeSize()[1] + h + 10]);
+  node.setSize([w, node.__immichBaseH + h + 10]);
 }
 
 function getWidget(node, name) {
