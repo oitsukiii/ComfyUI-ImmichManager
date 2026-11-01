@@ -43,21 +43,37 @@
 
 ## 截图
 
-1. **入口按钮位置** — ComfyUI 工具栏上的 Immich 按钮入口（图中已标注）。
+**资产面板** —— 左侧缩略图墙，右侧详情栏。顶栏全是图标：筛选、排序、缩放、分组、置顶、多选，末尾是设置、在 Immich 打开、关闭。
 
-![入口按钮位置](images/entry-point.png)
+![资产面板与详情栏](images/panel-detail.png)
 
-2. **资产时间线页面** — 浏览图库，缩略图懒加载、详情与批量操作。
+**详情栏** —— 大图预览、资产信息、描述编辑，以及收藏、导入工作流、在 Immich 打开、下载原图、删除。
 
-![资产时间线页面](images/timeline.png)
+**条件筛选** —— 相册 / 人脸 / 标签 / 类型 / 收藏 / 时间段任意组合；没有条件时窗口只给提示，不摆空行。
 
-3. **配置详情页面** — 连接测试、面板令牌、语言设置。
+![筛选条件](images/panel-filters.png)
 
-![配置详情页面](images/config-page.png)
+**分组** —— 按月 / 按天 / 按年分区，可折叠并记住状态；也可以完全不分组。
 
-4. **查找节点** — 在新建节点菜单搜索 "immich" 即可看到两个节点。
+![分组菜单与月份分区](images/panel-grouping.png)
 
-![查找节点](images/node-search.png)
+**排序与缩放** —— 最新/最早优先，三档缩略图尺寸；菜单展开时图标高亮。
+
+![排序菜单](images/panel-sort-menu.png)
+
+![缩放菜单](images/panel-toolbar.png)
+
+**大缩略图** —— 同一个库放到最大尺寸的样子。
+
+![大缩略图](images/panel-zoom-large.png)
+
+**入口** —— 花朵图标在 ComfyUI 侧栏。
+
+![入口](images/entry-point.png)
+
+**找节点** —— 在「添加节点」菜单里搜 immich。
+
+![找节点](images/node-search.png)
 
 ## 安装
 

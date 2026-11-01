@@ -43,19 +43,35 @@
 
 ## Screenshots
 
-1. **Entry point** — the Immich button in the ComfyUI toolbar (marked in the screenshot).
+**The panel** — thumbnail grid on the left, detail pane on the right. The header is all icons: filter, sort, zoom, grouping, pinning, selection mode, then settings, open-in-Immich and close.
+
+![Asset panel with the detail pane open](images/panel-detail.png)
+
+**Detail pane** — large preview, asset facts, description editing, and the actions: favourite, import the embedded workflow, open in Immich, download the original, delete.
+
+**Filtering** — combine album, person, tag, type, favourite and date range. With no conditions the window says so instead of showing an empty row.
+
+![Filter builder](images/panel-filters.png)
+
+**Grouping** — month, day or year sections that fold and remember it, or one flat grid.
+
+![Grouping menu and a month section](images/panel-grouping.png)
+
+**Sorting and zoom** — newest or oldest first, and three thumbnail sizes. The icon lights up while its menu is down.
+
+![Sort menu](images/panel-sort-menu.png)
+
+![Zoom menu](images/panel-toolbar.png)
+
+**Large thumbnails** — the same library at the largest size.
+
+![Large thumbnails](images/panel-zoom-large.png)
+
+**Entry point** — the flower button sits in ComfyUI's sidebar.
 
 ![Entry point](images/entry-point.png)
 
-2. **Asset timeline page** — browse your library, lazy-loaded thumbnails, details & batch actions.
-
-![Asset timeline page](images/timeline.png)
-
-3. **Configuration page** — connection test, panel token, language settings.
-
-![Configuration page](images/config-page.png)
-
-4. **Find the nodes** — search "immich" in the Add Node menu to see both nodes.
+**Finding the nodes** — search "immich" in the Add Node menu.
 
 ![Find the nodes](images/node-search.png)
 
