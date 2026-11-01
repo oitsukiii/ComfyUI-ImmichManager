@@ -57,6 +57,10 @@
 
 ![分组菜单与月份分区](images/panel-grouping.png)
 
+**置顶** —— 把「今天」或「近 7 天」提到顶部单独成区。
+
+![置顶菜单与置顶区](images/panel-pin.png)
+
 **排序** —— 最新/最早优先；菜单展开时图标高亮。
 
 ![排序菜单](images/panel-sort-menu.png)

@@ -57,6 +57,10 @@
 
 ![Grouping menu and a month section](images/panel-grouping.png)
 
+**Pinning** — lifts today, or the last seven days, into a section at the top.
+
+![Pin menu and a pinned section](images/panel-pin.png)
+
 **Sorting** — newest or oldest first. The icon lights up while its menu is down.
 
 ![Sort menu](images/panel-sort-menu.png)
