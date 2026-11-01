@@ -2224,10 +2224,17 @@
                    "margin-left:10px;border-radius:50%;border:1px solid currentColor;opacity:.6;" +
                    "font-size:11px;line-height:1;cursor:help;flex:0 0 auto";
 
+  // 参考实现（pysssss / rgthree 都在用）：自定义 type 返回 <tr> + <td>，
+  // 第一格是标签、第二格是控件。返回裸 <div> 时这个前端会跳过整行。
   function wideRow(kind, name, setter, value, options, hint) {
-    // 只返回控件（+ 感叹号）：名称列由设置表格渲染，返回整行会让标题出现两遍
-    var wrap = document.createElement("div");
-    wrap.style.cssText = "display:flex;align-items:center";
+    var tr = document.createElement("tr");
+    var td1 = document.createElement("td");
+    var lab = document.createElement("label");
+    lab.textContent = name || "";
+    lab.setAttribute("for", "immich-" + String(name || "").replace(/[^\w]/g, "-"));
+    td1.appendChild(lab);
+
+    var td2 = document.createElement("td");
     var el;
     if (kind === "combo") {
       el = document.createElement("select");
@@ -2238,38 +2245,47 @@
         if (String(o) === String(value)) op.selected = true;
         el.appendChild(op);
       });
+      el.addEventListener("change", function () { setter(el.value); });
     } else {
       el = document.createElement("input");
       el.type = kind === "number" ? "number" : (kind === "password" ? "password" : "text");
       el.style.cssText = WIDE;
       el.value = value === undefined || value === null ? "" : value;
+      el.addEventListener("change", function () { setter(el.value); });
+      el.addEventListener("blur", function () { setter(el.value); });
     }
-    el.addEventListener("change", function () { setter(el.value); });
-    el.addEventListener("blur", function () { setter(el.value); });
-    wrap.appendChild(el);
+    td2.appendChild(el);
     if (hint) {
       var h = document.createElement("span");
       h.textContent = "!";
       h.style.cssText = HINT_STYLE;
-      h.title = hint;                 // 原生 tooltip：悬停显示注释
-      h.setAttribute("aria-label", hint);
-      wrap.appendChild(h);
+      h.title = hint;
+      td2.appendChild(h);
     }
-    return wrap;
+    tr.appendChild(td1);
+    tr.appendChild(td2);
+    return tr;
   }
 
-  // 只返回按钮容器（同上：名称列由外层渲染）
+  // 同 wideRow：<tr> + <td>label</td><td>buttons</td>
   function buttonRow(name, buttons) {
-    var wrap = document.createElement("div");
+    var tr = document.createElement("tr");
+    var td1 = document.createElement("td");
+    var lab = document.createElement("label");
+    lab.textContent = name || "";
+    td1.appendChild(lab);
+    var td2 = document.createElement("td");
     buttons.forEach(function (b) {
       var el = document.createElement("button");
       el.type = "button";
       el.textContent = b.text;
       el.style.cssText = BTN;
       el.onclick = b.onClick;
-      wrap.appendChild(el);
+      td2.appendChild(el);
     });
-    return wrap;
+    tr.appendChild(td1);
+    tr.appendChild(td2);
+    return tr;
   }
 
   function apiGet(path) { return fetch("/api/immich_plus" + path).then(function (r) { return r.ok ? r.json() : null; }); }
@@ -2375,7 +2391,7 @@
               if (current === undefined || current === null) current = d.kind === "number" ? 100 : "";
             }
             st.addSetting({
-              id: d.id, name: d.name, category: d.cat,
+              id: d.id, name: "", category: d.cat,
               // 下拉用官方内置 combo：就是「入口位置」那个 PrimeVue 样式（弹层不像原生白框）。
               // 文本框继续自定义渲染（内置 text 行在这个版本不渲染）。
               type: (d.kind === "combo") ? "combo" : function (name, setter, value) { return wideRow(d.kind, name, setter, value, options, d.hint); },
