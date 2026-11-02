@@ -1,5 +1,7 @@
 // Immich 选图节点：节点上一个「选择图片」按钮 → 弹窗选图 → 写回 asset_id
 // 筛选模型：一组「条件」，每条对应顶部一个胶囊，也对应条件窗口里的一行。
+// Immich picker node: a "Choose image" button on the node → dialog to pick → writes back asset_id
+// Filter model: a set of "conditions", each mapped to a chip at the top and to one row in the condition dialog.
 import { app } from "../../scripts/app.js";
 
 const API = "/api/immich_plus";
@@ -21,7 +23,7 @@ async function getJSON(path) {
   return r.json();
 }
 
-// ── 缩略图缓存（LRU 上限，超出释放 blob URL）──
+// ── 缩略图缓存（LRU 上限，超出释放 blob URL）── // ── Thumbnail cache (LRU cap; evicted entries release their blob URL) ──
 const THUMB_MAX = 120;
 const thumbCache = new Map();
 function evictThumbs() {
@@ -46,7 +48,7 @@ async function thumbURL(assetId) {
   return p;
 }
 
-// ── 筛选字段定义 ──
+// ── 筛选字段定义 ── // ── Filter field definitions ──
 const FIELDS = [
   { key: "album",  label: "相册",   ops: ["为"],                     value: "albumList" },
   { key: "person", label: "人脸",   ops: ["为"],                     value: "personList" },
@@ -61,6 +63,9 @@ const BOOL_OPTIONS = [{ id: "1", name: "是" }, { id: "0", name: "否" }];
 // 筛选状态存两份：
 //   node.properties.immichFilters —— 随工作流 JSON 保存/还原（跨重启、跨机器）
 //   模块级 lastFilters           —— 本页会话内的兜底（新建节点时还没属性）
+// Filter state is kept in two places:
+//   node.properties.immichFilters —— saved/restored with the workflow JSON (across restarts and machines)
+//   module-level lastFilters      —— per-page-session fallback (a new node has no properties yet)
 const lastFilters = { conditions: [], order: "desc", page: 1 };
 
 function readFilters(node) {
@@ -166,7 +171,7 @@ function buildQuery(conditions, order, page, size) {
   return q.join("&");
 }
 
-// ── 条件编辑窗口：一行 = 一个胶囊 ──
+// ── 条件编辑窗口：一行 = 一个胶囊 ── // ── Condition editor: one row = one chip ──
 function openConditionEditor(initial, lists, onApply) {
   ensureCSS();
   const mask = document.createElement("div");
@@ -204,7 +209,7 @@ function openConditionEditor(initial, lists, onApply) {
       const row = document.createElement("div");
       row.className = "immich-cond-row";
 
-      // A 字段
+      // A 字段 // A: field
       const selA = document.createElement("select");
       FIELDS.forEach((f) => {
         const o = document.createElement("option");
@@ -219,7 +224,7 @@ function openConditionEditor(initial, lists, onApply) {
         render();
       };
 
-      // B 判断
+      // B 判断 // B: operator
       const selB = document.createElement("select");
       fieldDef(c.field).ops.forEach((op) => {
         const o = document.createElement("option");
@@ -229,7 +234,7 @@ function openConditionEditor(initial, lists, onApply) {
       });
       selB.onchange = () => { c.op = selB.value; render(); };
 
-      // C 值
+      // C 值 // C: value
       const wrapC = document.createElement("div");
       const def = fieldDef(c.field);
       if (def.value === "date") {
@@ -262,7 +267,7 @@ function openConditionEditor(initial, lists, onApply) {
         wrapC.appendChild(sel);
       }
 
-      // 删除本行
+      // 删除本行 // Delete this row
       const del = document.createElement("span");
       del.className = "immich-cond-del";
       del.textContent = "×";
@@ -293,7 +298,7 @@ function openConditionEditor(initial, lists, onApply) {
   render();
 }
 
-// 节点按钮文案（跟随面板语言）
+// 节点按钮文案（跟随面板语言） // Node button label (follows the panel language)
 function pickLabel() {
   const I = window.ImmichI18n;
   const v = I && typeof I.t === "function" ? I.t("node.pick.button") : "";
@@ -302,6 +307,8 @@ function pickLabel() {
 
 // 「选择图片」= 打开主面板的选择模式；点一张图就回填 asset_id 并关闭。
 // 资产展示、详情、缩放、时间轴全部复用主面板，节点这边不再自建列表。
+// "Choose image" = open the main panel's pick mode; clicking one asset writes back asset_id and closes it.
+// Asset display, details, zoom and timeline all reuse the main panel; the node no longer builds its own list.
 async function openPicker(node) {
   const P = window.__immichPanel;
   if (!P || typeof P.openForPick !== "function") {
@@ -309,17 +316,23 @@ async function openPicker(node) {
     return;
   }
   // 只回填，不关闭 —— 关不关由面板按设置（immich.pickClose）决定
+  // Write back only, do not close — closing is decided by the panel setting (immich.pickClose)
   // 把节点当前选中的 id 传进去，重开面板时能高亮上次那张
+  // Pass the node's current id so reopening the panel highlights the previous asset
   P.openForPick((asset) => {
     if (!asset || !asset.id) return;
     setWidget(node, "asset_id", asset.id);
     applyNodePreview(node, asset.id);
   }, getWidget(node, "asset_id") || "", node);   // 传节点：筛选状态存它身上（进工作流）
+  // Pass the node: filter state lives on it (goes into the workflow)
 }
 
 // 选完立刻在节点上画缩略图（ui.images 只有执行后才渲染）
 // 只设 node.imgs 不够——自定义节点没有内置的绘制钩子，这里自己挂在
 // onDrawForeground 上画，尺寸也按图片比例撑开节点。
+// Draw the thumbnail on the node right after picking (ui.images only renders after execution)
+// Setting node.imgs alone is not enough — custom nodes have no built-in draw hook, so it is hooked
+// onto onDrawForeground here, and the node is resized to the image's aspect ratio.
 async function applyNodePreview(node, assetId) {
   const url = await thumbURL(assetId);
   if (!url) return;
@@ -328,8 +341,11 @@ async function applyNodePreview(node, assetId) {
     // 关键：不要设 node.imgs —— ComfyUI 的 ImageFeed 会照着它再画一份，
     // 和下面 onDrawForeground 的自绘叠在一起就是"前后重叠"。
     // 执行后 ui.images 那条路径仍然会自动填 node.imgs（那是官方行为，正常）。
+    // Important: do not set node.imgs — ComfyUI's ImageFeed would draw another copy from it,
+    // stacking on top of the custom onDrawForeground drawing below ("overlapping" duplicates).
+    // After execution the ui.images path still fills node.imgs automatically (that is official behaviour and expected).
     delete node.imgs;
-    node.__immichPreview = img;   // 只留当前这张，旧图交给 GC
+    node.__immichPreview = img;   // 只留当前这张，旧图交给 GC // Keep only the current image; the old one is left to the GC
     hookNodeDraw(node);
     layoutForPreview(node, img);
     node.setDirtyCanvas(true, true);
@@ -347,12 +363,13 @@ function hookNodeDraw(node) {
     const im = this.__immichPreview;
     if (!im || !im.complete || !im.width) return;
     // 按预先算好的等比尺寸居中画（不做任何拉伸），底部留 pad
+    // Draw centred at the pre-computed aspect-ratio size (no stretching), leaving pad at the bottom
     const pad = PAD;
     const dw = this.__immichImgW;
     const dh = this.__immichImgH;
     const x = (this.size[0] - dw) / 2;
     const y = this.size[1] - dh - pad;
-    // 裁剪到节点矩形内：无论尺寸怎么变，都不会画到边框外面
+    // 裁剪到节点矩形内：无论尺寸怎么变，都不会画到边框外面 // Clip to the node rectangle: whatever the size, nothing is drawn outside the border
     try {
       ctx.save();
       ctx.beginPath();
@@ -366,11 +383,14 @@ function hookNodeDraw(node) {
   };
 }
 
-const PAD = 6;          // 图片四周留白
+const PAD = 6;          // 图片四周留白 // Padding around the image
 const MAX_IMG_H = 420;  // 图片区高度上限（超出则按比例缩宽度，不裁剪不变形）
+// Max image-area height (beyond this, width shrinks proportionally; no cropping, no distortion)
 
 // 等比布局：宽度吃满节点内宽 → 按图片比例算高度 → 超上限则整体缩放。
 // 节点高度 = 基础高度 + 图片高度 + 上下留白，保证图片正好落在节点内。
+// Aspect-ratio layout: fill the node's inner width → derive the height from the image ratio → scale down when over the cap.
+// Node height = base height + image height + top/bottom padding, so the image lands exactly inside the node.
 function layoutForPreview(node, img) {
   const w = Math.max(node.size[0], 240);
   const availW = w - PAD * 2;
@@ -403,6 +423,8 @@ function setWidget(node, name, value) {
 
 // 便于排查/测试：把绘制与布局钩子暴露出来
 // 语言切换后刷新已存在节点上的按钮文案
+// Easy debugging/testing: expose the draw and layout hooks
+// Refresh the button label on existing nodes after a language switch
 function refreshPickLabels() {
   const g = window.app && app.graph;
   if (!g || !g._nodes) return;
@@ -424,7 +446,7 @@ app.registerExtension({
     nodeType.prototype.onNodeCreated = function () {
       const r = onCreated ? onCreated.apply(this, arguments) : undefined;
       const btn = this.addWidget("button", pickLabel(), null, () => openPicker(this));
-      btn.__immichPickBtn = true;   // 供语言切换时改写文案
+      btn.__immichPickBtn = true;   // 供语言切换时改写文案 // Lets a language switch rewrite the label
       btn.serialize = false;
       return r;
     };

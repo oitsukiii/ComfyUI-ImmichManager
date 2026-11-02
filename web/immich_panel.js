@@ -1,22 +1,22 @@
-// 🐾 ComfyUI-ImmichManager 前端面板
-// 功能：工具栏按钮 → 资产时间轴面板（月桶折叠/展开、缩略图懒加载、详情浮层、
-// 收藏/删除/描述） + 配置页（连接测试、保存）+ 打开 Immich 网页。
-// 后端 API：/api/immich_plus/*（详见 docs/PLAN.md）
+// 🐾 ComfyUI-ImmichManager 前端面板 // front-end panel
+// 功能：侧栏入口 → 资产面板（筛选/分组/置顶、缩略图懒加载、详情浮层、 // Features: sidebar entry → asset panel (filters/grouping/pinning, lazy-loaded thumbnails, detail overlay,
+// 收藏/删除/描述/导入工作流）+ 设置对话框 + 打开 Immich 网页。 // favorite/delete/description/import workflow) + Settings dialog + open the Immich web UI.
+// 后端 API：/api/immich_plus/*（见 server_routes.py） // Backend API: /api/immich_plus/* (see server_routes.py)
 (function () {
   "use strict";
 
-  // ── 轻量 i18n（v0.6 P3）──────────────────────────────
-  // 词典在独立的 web/i18n.js 里，导出到 window.ImmichI18n。
+  // ── 轻量 i18n（v0.6 P3） / Lightweight i18n (v0.6 P3) ──────────────────────────────
+  // 词典在独立的 web/i18n.js 里，导出到 window.ImmichI18n。 // The dictionary lives in a separate web/i18n.js and is exported to window.ImmichI18n.
   //
-  // ⚠️ 不能在加载时就把 window.ImmichI18n 抓下来当成本地变量：
-  // ComfyUI 用 glob 加载 WEB_DIRECTORY 下的 js（server.py 里没有排序），
-  // 两个文件的先后顺序取决于文件系统的返回顺序，不可控。
-  // 一旦 immich_panel.js 先执行，window.ImmichI18n 还是 undefined，
-  // 抓下来的就是下面的 fallback —— 表现为整个面板显示 "cfg.base_url.label"
-  // 这种原始 key（2026-10-24 实际出现过）。
+  // ⚠️ 不能在加载时就把 window.ImmichI18n 抓下来当成本地变量： // Never capture window.ImmichI18n as a local variable at load time:
+  // ComfyUI 用 glob 加载 WEB_DIRECTORY 下的 js（server.py 里没有排序）， // ComfyUI loads the js files under WEB_DIRECTORY via glob (server.py does not sort them),
+  // 两个文件的先后顺序取决于文件系统的返回顺序，不可控。 // so the order of the two files depends on the filesystem's return order and cannot be controlled.
+  // 一旦 immich_panel.js 先执行，window.ImmichI18n 还是 undefined， // If immich_panel.js runs first, window.ImmichI18n is still undefined,
+  // 抓下来的就是下面的 fallback —— 表现为整个面板显示 "cfg.base_url.label" // and what gets captured is the fallback below — the whole panel then shows raw keys like
+  // 这种原始 key（2026-10-24 实际出现过）。 // "cfg.base_url.label" (this actually happened on 2026-10-24).
   //
-  // ⇒ 改成每次调用时现取，加载顺序就无所谓了。
-  // 语言切换入口：配置页「语言」下拉 → setLang() → localStorage("immich_lang")。
+  // ⇒ 改成每次调用时现取，加载顺序就无所谓了。 // ⇒ fetch it on every call instead, then load order does not matter.
+  // 语言切换入口：设置对话框「面板语言」下拉 → setLang() → localStorage("immich_lang")。 // Language switch entry: "Panel language" dropdown in the Settings dialog → setLang() → localStorage("immich_lang").
   var I18N = {
     t: function (key, params) {
       var i = window.ImmichI18n;
@@ -32,9 +32,9 @@
     },
     getLangSetting: function () {
       var i = window.ImmichI18n;
-      // Before i18n.js has loaded, report the same default it would: English.
-      // Returning "auto" here made the very first paint follow the browser
-      // language, which is exactly what the default-English change avoids.
+      // Before i18n.js has loaded, report the same default it would: English. // i18n.js 还没加载时，报告它自己会给的同一个默认值：英文。
+      // Returning "auto" here made the very first paint follow the browser // 这里返回 "auto" 会让首屏跟随浏览器
+      // language, which is exactly what the default-English change avoids. // 语言，而这正是「默认英文」这次改动要避免的。
       return i ? i.getLangSetting() : "en";
     },
     langs: function () {
@@ -45,9 +45,9 @@
   var t = function (key, params) { return I18N.t(key, params); };
   function setLang(l) { I18N.setLang(l); }
 
-  // ComfyUI 的 WEB_DIRECTORY 机制只自动加载 .js 扩展，.css 不会自动注入，
-  // 必须由 JS 手动挂 <link>，否则浮窗所有样式（fixed 定位/z-index/遮罩）都不生效，
-  // overlay 只是 body 末尾的普通 div，会被 canvas 盖住或落在视口外。
+  // ComfyUI 的 WEB_DIRECTORY 机制只自动加载 .js 扩展，.css 不会自动注入， // ComfyUI's WEB_DIRECTORY mechanism only auto-loads .js extensions; .css is never injected automatically,
+  // 必须由 JS 手动挂 <link>，否则浮窗所有样式（fixed 定位/z-index/遮罩）都不生效， // so the JS must attach <link> manually — otherwise none of the overlay styles (fixed positioning/z-index/mask) apply,
+  // overlay 只是 body 末尾的普通 div，会被 canvas 盖住或落在视口外。 // and the overlay is just a plain div at the end of body, hidden under the canvas or out of the viewport.
   function injectCss() {
     if (document.getElementById("immich-css")) return;
     var src = "";
@@ -63,43 +63,43 @@
   injectCss();
 
   var API = "/api/immich_plus";
-  // token 存储：默认 sessionStorage（当前标签页会话，关标签页即失效）；
-  // 用户勾选「记住令牌到本机」后存 localStorage（跨会话持久化，需主动选择）。
+  // token 存储：默认 sessionStorage（当前标签页会话，关标签页即失效）； // Token storage: sessionStorage by default (current tab session, gone when the tab closes);
+  // 用户勾选「记住令牌到本机」后存 localStorage（跨会话持久化，需主动选择）。 // if the user ticks "Remember token on this machine", store it in localStorage (persists across sessions, opt-in).
   var LS_TOKEN = "immich_panel_token";
   var token = sessionStorage.getItem(LS_TOKEN) || localStorage.getItem(LS_TOKEN) || "";
-  // 详情页状态记忆（sessionStorage）：开关状态 + 选中资产（用户需求 2026-08-16）
-  var LS_DETAIL_OPEN = "immich_detail_open";   // "1" 详情开着 / "0" 用户主动关闭
-  var LS_DETAIL_ASSET = "immich_detail_asset"; // 上次选中的资产 id
-  // 时间轴状态记忆（sessionStorage，用户需求 2026-08-16）：滚动位置 + 往期月份展开态
-  var LS_TIMELINE_SCROLL = "immich_timeline_scroll";     // scrollTop（px）
-  var LS_TIMELINE_EXPANDED = "immich_timeline_expanded";   // 用 localStorage 持久化 // JSON 数组：展开的月份 key（"2026-8"）+ 本期 "current"
+  // 详情页状态记忆（sessionStorage）：开关状态 + 选中资产（用户需求 2026-08-16） // Detail state memory (sessionStorage): open/closed state + selected asset (user request 2026-08-16)
+  var LS_DETAIL_OPEN = "immich_detail_open";   // "1" 详情开着 / "0" 用户主动关闭 // "1" = detail open / "0" = user closed it
+  var LS_DETAIL_ASSET = "immich_detail_asset"; // 上次选中的资产 id // id of the last selected asset
+  // 时间轴状态记忆（sessionStorage，用户需求 2026-08-16）：滚动位置 + 往期月份展开态 // Timeline state memory (sessionStorage, user request 2026-08-16): scroll position + expanded past months
+  var LS_TIMELINE_SCROLL = "immich_timeline_scroll";     // scrollTop（px） // scrollTop (px)
+  var LS_TIMELINE_EXPANDED = "immich_timeline_expanded";   // 用 localStorage 持久化 // JSON 数组：展开的月份 key（"2026-8"）+ 本期 "current" // JSON array: expanded month keys ("2026-8") + "current" for the current period
 
   var state = {
-    config: null,       // GET /config 返回的半脱敏配置
-    buckets: [],        // 时间桶列表
-    currentAsset: null, // 详情浮层当前资产
-    assetsById: {},     // 时间线已渲染资产的 {id: asset} 索引（还原详情选中用）
-    blobUrls: [],       // 缩略图 blob objectURL，面板重建时统一 revoke
-    zoomSize: "preview",// 三挡缩放：thumbnail / preview / original（sessionStorage 持久化）
-    videoAbort: null,   // 视频下载 AbortController（关闭详情时中止大视频下载）
-    favOnly: false,     // "仅显示收藏"开关（需求 2.6）
-    pickMode: false,     // 选择面板模式（由选图节点打开）
-    pickSelected: "",    // 选择面板里当前高亮的资产 id
-    pickNode: null,      // 选择面板对应的节点（状态存它身上）
-    onPick: null,        // 选中资产的回调
-    sortOrder: "desc",   // 排序：最新优先 / 最早优先
-    groupBy: "none",     // 分组间隔：none / day / month / year
-    pinRange: "",        // 置顶分组："" / today / 3d / 7d
-    conditions: [],      // 条件筛选（空 = 走时间轴分桶）
-    cfLists: null,       // 相册/人脸/标签下拉数据
+    config: null,       // GET /config 返回的半脱敏配置 // semi-redacted config returned by GET /config
+    buckets: [],        // 时间桶列表 // list of time buckets
+    currentAsset: null, // 详情浮层当前资产 // asset currently shown in the detail overlay
+    assetsById: {},     // 时间线已渲染资产的 {id: asset} 索引（还原详情选中用） // {id: asset} index of assets already rendered on the timeline (to restore the detail selection)
+    blobUrls: [],       // 缩略图 blob objectURL，面板重建时统一 revoke // thumbnail blob objectURLs, revoked together when the panel is rebuilt
+    zoomSize: "preview",// 三挡缩放：thumbnail / preview / original（sessionStorage 持久化） // three zoom levels: thumbnail / preview / original (persisted in sessionStorage)
+    videoAbort: null,   // 视频下载 AbortController（关闭详情时中止大视频下载） // video download AbortController (aborts a large video download when the detail closes)
+    favOnly: false,     // "仅显示收藏"开关（需求 2.6） // "favorites only" toggle (requirement 2.6)
+    pickMode: false,     // 选择面板模式（由选图节点打开） // pick mode (opened by the image-picker node)
+    pickSelected: "",    // 选择面板里当前高亮的资产 id // id of the currently highlighted asset in pick mode
+    pickNode: null,      // 选择面板对应的节点（状态存它身上） // node that opened pick mode (state lives on it)
+    onPick: null,        // 选中资产的回调 // callback for the picked asset
+    sortOrder: "desc",   // 排序：最新优先 / 最早优先 // sort order: newest first / oldest first
+    groupBy: "none",     // 分组间隔：none / day / month / year // group interval: none / day / month / year
+    pinRange: "",        // 置顶分组："" / today / 3d / 7d // pinned group: "" / today / 3d / 7d
+    conditions: [],      // 条件筛选（空 = 走时间轴分桶） // condition filters (empty = use timeline buckets)
+    cfLists: null,       // 相册/人脸/标签下拉数据 // dropdown data for albums/people/tags
     cfListsPromise: null,
-    selectMode: false,  // 批量选择模式（v0.6：勾选多个资产批量收藏/删除）
-    selectedIds: {},    // 选中资产 id 集合 {id: true}（对象查重 O(1)）
-    detailBeforeSelect: null, // 进入选择模式前详情状态快照（退出时还原）
-    shiftAnchorCell: null,    // shift 范围选择锚点 cell（资源管理器风格：非 shift 点击重置）
+    selectMode: false,  // 批量选择模式（v0.6：勾选多个资产批量收藏/删除） // multi-select mode (v0.6: tick several assets to favorite/delete in bulk)
+    selectedIds: {},    // 选中资产 id 集合 {id: true}（对象查重 O(1)） // set of selected asset ids {id: true} (O(1) object lookup)
+    detailBeforeSelect: null, // 进入选择模式前详情状态快照（退出时还原） // snapshot of the detail state before entering select mode (restored on exit)
+    shiftAnchorCell: null,    // shift 范围选择锚点 cell（资源管理器风格：非 shift 点击重置） // anchor cell for shift range selection (Explorer style: a non-shift click resets it)
   };
 
-  // 三挡缩放记忆（sessionStorage，不跨会话残留）
+  // 三挡缩放记忆（sessionStorage，不跨会话残留） // Zoom level memory (sessionStorage, does not survive sessions)
   (function () {
     var z = sessionStorage.getItem("immich_zoom");
     if (z === "thumbnail" || z === "preview" || z === "original") state.zoomSize = z;
@@ -111,13 +111,13 @@
     { key: "original", labelKey: "zoom.large" },
   ];
 
-  // 全屏图标（SVG，仿视频播放器右下角控制条样式）
+  // 全屏图标（SVG，仿视频播放器右下角控制条样式） // Fullscreen icon (SVG, styled like the control bar in the bottom-right of a video player)
   var FULLSCREEN_ICON =
     '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
     '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>' +
     "</svg>";
 
-  // 爱心图标（SVG）：填充/空心共用同一 path，尺寸完全一致（P2-2）
+  // 爱心图标（SVG）：填充/空心共用同一 path，尺寸完全一致（P2-2） // Heart icon (SVG): one path shared by filled/outline so the sizes match exactly (P2-2)
   var HEART_PATH = "M12 21s-8-4.6-8-10a4.6 4.6 0 0 1 8-3.1A4.6 4.6 0 0 1 20 11c0 5.4-8 10-8 10z";
   function heartIcon(filled) {
     return filled
@@ -125,7 +125,7 @@
       : '<svg class="immich-heart" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#fff" stroke-width="2" aria-hidden="true"><path d="' + HEART_PATH + '"/></svg>';
   }
 
-  // ─────────────── 基础请求 ───────────────
+  // ─────────────── 基础请求 / Basic request ───────────────
 
   function headers(extra) {
     var h = Object.assign({ "Content-Type": "application/json" }, extra || {});
@@ -133,12 +133,12 @@
     return h;
   }
 
-  // 统一后端 API 调用（全部走 /api/immich_plus/*，前端不直接碰 Immich）。
-  // 401 → 抛 AUTH_REQUIRED（调用方弹令牌输入）；其他错误解析后端 {error} 文案。
-  // 解析 PNG 的文本块（ComfyUI 把 prompt / workflow 写在这里）
+  // 统一后端 API 调用（全部走 /api/immich_plus/*，前端不直接碰 Immich）。 // Unified backend API call (everything goes through /api/immich_plus/*; the frontend never talks to Immich directly).
+  // 401 → 抛 AUTH_REQUIRED（调用方弹令牌输入）；其他错误解析后端 {error} 文案。 // 401 → throw AUTH_REQUIRED (caller prompts for the token); other errors parse the backend {error} message.
+  // 解析 PNG 的文本块（ComfyUI 把 prompt / workflow 写在这里） // Parse the PNG text chunks (ComfyUI writes prompt / workflow there)
   function readPngText(u8) {
     var out = {};
-    // PNG 签名 8 字节
+    // PNG 签名 8 字节 // PNG signature, 8 bytes
     var sig = [137, 80, 78, 71, 13, 10, 26, 10];
     for (var k = 0; k < 8; k++) if (u8[k] !== sig[k]) return out;
     var pos = 8;
@@ -159,9 +159,9 @@
         if (z1 > 0) {
           var key2 = dec.decode(data.subarray(0, z1));
           var comp = data[z1 + 1];
-          var p2 = z1 + 3;                 // 跳过 compFlag/compMethod
-          var z2 = data.indexOf(0, p2);    // 语言标签
-          var z3 = data.indexOf(0, z2 + 1); // 翻译标签
+          var p2 = z1 + 3;                 // 跳过 compFlag/compMethod // skip compFlag/compMethod
+          var z2 = data.indexOf(0, p2);    // 语言标签 // language tag
+          var z3 = data.indexOf(0, z2 + 1); // 翻译标签 // translated keyword
           if (!comp) out[key2] = dec.decode(data.subarray(z3 + 1));
         }
       } else if (type === "IEND") break;
@@ -170,7 +170,7 @@
     return out;
   }
 
-  // 「导入 ComfyUI」：后端统一提取工作流（图片读 PNG 文本块，视频读容器 metadata）
+  // 「导入 ComfyUI」：后端统一提取工作流（图片读 PNG 文本块，视频读容器 metadata） // "Import to ComfyUI": the backend extracts the workflow uniformly (images read PNG text chunks, videos read container metadata)
   function importAssetToCanvas(asset, btn) {
     var old = btn.textContent;
     btn.disabled = true; btn.textContent = t("detail.reading");
@@ -193,8 +193,8 @@
     });
   }
 
-  // 拿 Immich 网页地址（去掉结尾 /api）。没缓存就现取 /config，
-  // 绝不用 127.0.0.1 之类猜的默认值——那会把人带到错误的机器。
+  // 拿 Immich 网页地址（去掉结尾 /api）。没缓存就现取 /config， // Get the Immich web URL (strip the trailing /api). If not cached, fetch /config first;
+  // 绝不用 127.0.0.1 之类猜的默认值——那会把人带到错误的机器。 // never fall back to a guessed default like 127.0.0.1 — that sends people to the wrong machine.
   function withImmichBase(cb) {
     var cached = state.config && state.config.base_url;
     if (cached) { cb(String(cached).replace(/\/api\/?$/, "")); return; }
@@ -206,7 +206,7 @@
     }).catch(function () { showStatus(t("detail.readBaseFail"), "err"); });
   }
 
-  // 取二进制（原图下载用）：带鉴权头，返回 Blob
+  // 取二进制（原图下载用）：带鉴权头，返回 Blob // Fetch binary data (for original downloads): with the auth header, returns a Blob
   function apiBlob(path) {
     return fetch(API + path, { headers: headers() }).then(function (r) {
       if (r.status === 401) throw new Error("AUTH_REQUIRED");
@@ -232,13 +232,13 @@
     });
   }
 
-  // 缩略图加载：fetch 带 Authorization header → blob → objectURL。
-  // 不用 <img src=...?token=>：token 进 URL 会泄入访问日志。
-  // 懒加载保证只拉可见区域的图，内存峰值可控。
-  // size: thumbnail(250px WEBP) / preview(原尺寸 JPEG) / original(原文件，仅图片)
+  // 缩略图加载：fetch 带 Authorization header → blob → objectURL。 // Thumbnail loading: fetch with Authorization header → blob → objectURL.
+  // 不用 <img src=...?token=>：token 进 URL 会泄入访问日志。 // Not <img src=...?token=>: a token in the URL leaks into access logs.
+  // 懒加载保证只拉可见区域的图，内存峰值可控。 // Lazy loading keeps it to the visible area only, so peak memory stays bounded.
+  // size: thumbnail(250px WEBP) / preview(原尺寸 JPEG) / original(原文件，仅图片) // size: thumbnail(250px WEBP) / preview(original-size JPEG) / original(original file, images only)
   function loadThumbInto(img, id, size) {
     size = size || "preview";
-    // 视频网格缩略图永远用视频帧（preview），不拉原文件当缩略图
+    // 视频网格缩略图永远用视频帧（preview），不拉原文件当缩略图 // Video grid thumbnails always use a video frame (preview); never fetch the original file as a thumbnail
     if (size === "original" && img.getAttribute("data-is-video") === "1") size = "preview";
     var path = size === "original"
       ? "/assets/" + encodeURIComponent(id) + "/original"
@@ -281,20 +281,20 @@
   }
 
   function monthLabel(tb) {
-    // timeBucket 形如 "2026-08-01" → "2026年8月"
+    // timeBucket 形如 "2026-08-01" → "2026年8月" // timeBucket looks like "2026-08-01" → "2026年8月"
     var m = /^(\d{4})-(\d{2})/.exec(tb || "");
     if (!m) return esc(tb || "");
     return t("month.format", { y: m[1], m: parseInt(m[2], 10) });
   }
 
-  // ─────────────── 状态提示 ───────────────
+  // ─────────────── 状态提示 / Status hints ───────────────
 
-  // 消息提示：toast 小窗（需求 P2-6），右下角固定、2s 后自动消失。
-  // ok/err/warn 颜色样式沿用原状态条（.immich-toast.ok/.err/.warn）。
-  // 可选 action：actionLabel + actionFn（如"去回收站"）；带 action 的 toast 停留 4s，
-  // 避免用户来不及点按钮（v0.6 批量删除场景）。
+  // 消息提示：toast 小窗（需求 P2-6），右下角固定、2s 后自动消失。 // Message toast: small popup (requirement P2-6), pinned bottom-right, auto-dismisses after 2s.
+  // ok/err/warn 颜色样式沿用原状态条（.immich-toast.ok/.err/.warn）。 // ok/err/warn colours follow the old status bar (.immich-toast.ok/.err/.warn).
+  // 可选 action：actionLabel + actionFn（如"去回收站"）；带 action 的 toast 停留 4s， // Optional action: actionLabel + actionFn (e.g. "go to trash"); a toast with an action stays 4s,
+  // 避免用户来不及点按钮（v0.6 批量删除场景）。 // so the user has time to hit the button (v0.6 bulk delete case).
   function showStatus(text, cls, actionLabel, actionFn) {
-    // 统一走 ComfyUI 官方 toast（之前是自绘的「上方居中」提示条）
+    // 统一走 ComfyUI 官方 toast（之前是自绘的「上方居中」提示条） // Always use ComfyUI's official toast (previously a self-drawn "top centre" bar)
     try {
       var _t = window.app && window.app.extensionManager && window.app.extensionManager.toast;
       if (_t && typeof _t.add === "function" && !actionLabel) {
@@ -332,7 +332,7 @@
       };
       t.appendChild(btn);
     }
-    // P3（代码审查）：toast 堆叠上限 5 条，超出移除最旧
+    // P3（代码审查）：toast 堆叠上限 5 条，超出移除最旧 // P3 (code review): at most 5 toasts stacked; overflow removes the oldest
     while (box.children.length > 5) box.firstChild.remove();
     if (cls === "err") console.error("[ComfyUI-ImmichManager]", text);
     setTimeout(function () {
@@ -346,13 +346,13 @@
     if (box) box.innerHTML = "";
   }
 
-  // 自定义确认弹窗（v0.6 批量删除/单条删除用）。
-  // 不用原生 confirm：原生 confirm 同步阻塞，用户按 Esc 取消时同一个 keydown
-  // 会在 confirm 返回后继续冒泡到全局 Esc 处理器，把面板误关（无法可靠拦截）。
-  // 自定义弹窗是异步的：_confirming 期间 Esc 由弹窗消费（全局处理器跳过），
-  // 弹窗关闭（点按钮/遮罩/Esc）时再重置 _confirming。
-  // 返回 Promise<boolean>：true=确认，false=取消。
-  // okClass 可选：确认按钮样式类（默认 "danger" 红字红框；清空配置传 "danger-outline" 白字红框与主按钮统一）。
+  // 自定义确认弹窗（v0.6 批量删除/单条删除用）。 // Custom confirm dialog (used by v0.6 bulk delete / single delete).
+  // 不用原生 confirm：原生 confirm 同步阻塞，用户按 Esc 取消时同一个 keydown // Not the native confirm: native confirm blocks synchronously, so when the user presses Esc to cancel, the same keydown
+  // 会在 confirm 返回后继续冒泡到全局 Esc 处理器，把面板误关（无法可靠拦截）。 // keeps bubbling to the global Esc handler after confirm returns and closes the panel by mistake (cannot be reliably intercepted).
+  // 自定义弹窗是异步的：_confirming 期间 Esc 由弹窗消费（全局处理器跳过）， // The custom dialog is async: while _confirming, Esc is consumed by the dialog (the global handler skips it),
+  // 弹窗关闭（点按钮/遮罩/Esc）时再重置 _confirming。 // and _confirming is reset when the dialog closes (button/mask/Esc).
+  // 返回 Promise<boolean>：true=确认，false=取消。 // Returns Promise<boolean>: true = confirm, false = cancel.
+  // okClass 可选：确认按钮样式类（默认 "danger" 红字红框；清空配置传 "danger-outline" 白字红框与主按钮统一）。 // okClass optional: confirm button style class (default "danger" red text/red border; clearing config passes "danger-outline" white text/red border to match the primary button).
   function confirmDialog(message, okLabel, okClass) {
     return new Promise(function (resolve) {
       var overlay = document.createElement("div");
@@ -374,19 +374,19 @@
       overlay.querySelector('[data-act="cancel"]').onclick = function () { close(false); };
       overlay.querySelector('[data-act="ok"]').onclick = function () { close(true); };
       overlay.addEventListener("click", function (e) {
-        if (e.target === overlay) close(false); // 点遮罩 = 取消
+        if (e.target === overlay) close(false); // 点遮罩 = 取消 // click on the mask = cancel
       });
       state._confirming = true;
       document.body.appendChild(overlay);
       var box = overlay.querySelector(".immich-confirm-box");
       var okBtn = overlay.querySelector('[data-act="ok"]');
-      if (okBtn) okBtn.focus(); // 焦点进弹窗，Enter 可确认
+      if (okBtn) okBtn.focus(); // 焦点进弹窗，Enter 可确认 // focus moves into the dialog so Enter confirms
     });
   }
 
-  // ─────────────── 工具栏按钮 ───────────────
+  // ─────────────── 工具栏按钮 / Toolbar button ───────────────
 
-  // 创建工具栏按钮（幂等：重复调用只创建元素，不重复插入）
+  // 创建工具栏按钮（幂等：重复调用只创建元素，不重复插入） // Create the toolbar button (idempotent: repeated calls only create the element, never insert twice)
   function createImmichBtn() {
     var btn = document.createElement("button");
     btn.id = "immich-toolbar-btn";
@@ -394,7 +394,7 @@
     btn.innerHTML = "🖼️ Immich";
     btn.className = "comfyui-button";
     btn.onclick = togglePanel;
-    // 面板正开着时被重绘补回，恢复 active 高亮
+    // 面板正开着时被重绘补回，恢复 active 高亮 // put back after a repaint while the panel is open, restoring the active highlight
     var overlay = document.getElementById("immich-panel-overlay");
     if (overlay && overlay.style.display === "flex") btn.classList.add("active");
     return btn;
@@ -408,15 +408,15 @@
     watchToolbar();
   }
 
-  // ComfyUI 0.30 切换「属性面板」等操作会重绘顶部工具栏，把 appendChild 进去的
-  // 自定义按钮清掉（只有刷新页面才回来）。MutationObserver 兜底：按钮被移除时
-  // 自动补回，用户感知不到。
+  // ComfyUI 0.30 切换「属性面板」等操作会重绘顶部工具栏，把 appendChild 进去的 // In ComfyUI 0.30, switching the "properties panel" and similar actions repaint the top toolbar and wipe out the
+  // 自定义按钮清掉（只有刷新页面才回来）。MutationObserver 兜底：按钮被移除时 // custom button appended to it (it only comes back on a page refresh). A MutationObserver fallback puts the button back
+  // 自动补回，用户感知不到。 // when it is removed, so the user never notices.
   var __immichToolbarWatched = false;
   function watchToolbar() {
     if (__immichToolbarWatched) return;
     __immichToolbarWatched = true;
     var observer = new MutationObserver(function () {
-      // 延迟一拍再补：避免和 ComfyUI 的重绘/虚拟 DOM 更新竞争导致反复插入
+      // 延迟一拍再补：避免和 ComfyUI 的重绘/虚拟 DOM 更新竞争导致反复插入 // delay one tick before re-adding: avoids fighting ComfyUI's repaint / virtual DOM update and inserting repeatedly
       setTimeout(function () {
         if (document.getElementById("immich-toolbar-btn")) return;
         var actionBar = document.querySelector(".actionbar-container");
@@ -427,15 +427,15 @@
     observer.observe(document.body, { childList: true, subtree: true });
   }
 
-  // 供「Load Image from Immich」节点打开：进入选择面板模式，点图即回调
+  // 供「Load Image from Immich」节点打开：进入选择面板模式，点图即回调 // "Load Image from Immich" node opens this: enter pick mode, clicking an image fires the callback
   window.__immichPanel = {
     openForPick: function (cb, currentId, node) {
       state.pickMode = true;
       state.onPick = cb;
       state.pickNode = node || null;
-      state.pickSelected = currentId || "";   // 记住上次选的，重新打开时高亮它
+      state.pickSelected = currentId || "";   // 记住上次选的，重新打开时高亮它 // remember the last pick and highlight it when reopened
       var btn = document.getElementById("immich-btn-select");
-      if (btn) btn.style.display = "none";     // 选择面板没有批量选择
+      if (btn) btn.style.display = "none";     // 选择面板没有批量选择 // pick mode has no multi-select
       openPanel();
       renderTimeline();
     },
@@ -450,15 +450,15 @@
 
   function togglePanel() {
     var overlay = document.getElementById("immich-panel-overlay");
-    // 判断可见性而不是存在性：closePanel 只置 display:none 不移除元素，
-    // 若按存在性判断，第二次关闭后按钮就永远打不开了
+    // 判断可见性而不是存在性：closePanel 只置 display:none 不移除元素， // Check visibility rather than existence: closePanel only sets display:none and does not remove the element,
+    // 若按存在性判断，第二次关闭后按钮就永远打不开了 // so an existence check would make the button unusable after the second close
     if (overlay && overlay.style.display !== "none") closePanel();
     else openPanel();
   }
 
-  // ─────────────── 面板骨架 ───────────────
+  // ─────────────── 面板骨架 / Panel skeleton ───────────────
 
-  // Lucide 图标（内联 SVG，UnoCSS 的 icon-[...] 在运行时注入没有对应 CSS）
+  // Lucide 图标（内联 SVG，UnoCSS 的 icon-[...] 在运行时注入没有对应 CSS） // Lucide icons (inline SVG; UnoCSS's icon-[...] has no matching CSS when injected at runtime)
   var IC = {
     funnelPlus: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.354 3H3a1 1 0 0 0-.742 1.67l7.225 7.989A2 2 0 0 1 10 14v6a1 1 0 0 0 .553.895l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .517-1.341l1.218-1.348"/><path d="M16 6h6"/><path d="M19 3v6"/></svg>',
     sort: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 16 4 4 4-4"/><path d="M7 20V4"/><path d="M11 4h10"/><path d="M11 8h7"/><path d="M11 12h4"/></svg>',
@@ -472,8 +472,8 @@
     group: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M3 12h18"/><path d="M3 18h18"/></svg>',
   };
 
-  // 顶栏的三个下拉菜单：排序 / 缩放 / 分组
-  // 切换语言后立即重画：侧栏标签、顶栏菜单、已打开的面板、节点悬停文案
+  // 顶栏的三个下拉菜单：排序 / 缩放 / 分组 // The three dropdowns in the top bar: sort / zoom / group
+  // 切换语言后立即重画：侧栏标签、顶栏菜单、已打开的面板、节点悬停文案 // Repaint immediately after a language switch: sidebar labels, top-bar menus, open panel, node hover text
   function applyLanguageNow() {
     try {
       if (window.ImmichI18n && window.ImmichI18n.setLang) {
@@ -490,22 +490,22 @@
     } catch (e) {}
     try { buildToolMenus(); } catch (e) {}
     try {
-      // 预取配置：让"在 Immich 打开"和 base_url 相关功能不用等到点击才发请求
+      // 预取配置：让"在 Immich 打开"和 base_url 相关功能不用等到点击才发请求 // Prefetch the config: "Open in Immich" and base_url features then need no request on click
       if (!state.config) {
         api("GET", "/config").then(function (cfg) { state.config = cfg || {}; }).catch(function () {});
       }
       var overlay = document.getElementById("immich-panel-overlay");
       if (overlay && overlay.style.display !== "none") renderTimeline();
     } catch (e) {}
-    try { applyNodeLang(); } catch (e) {}   // 节点悬停说明也立即换语言
+    try { applyNodeLang(); } catch (e) {}   // 节点悬停说明也立即换语言 // node hover descriptions also switch language immediately
     try {
       if (window.__immichPreview && window.__immichPreview.refreshPickLabels) {
-        window.__immichPreview.refreshPickLabels();   // 选图节点上的按钮文案
+        window.__immichPreview.refreshPickLabels();   // 选图节点上的按钮文案 // button labels on the picker node
       }
     } catch (e) {}
   }
 
-  // 收起所有下拉，并清掉按钮上的「菜单开着」高亮
+  // 收起所有下拉，并清掉按钮上的「菜单开着」高亮 // Close all dropdowns and clear the "menu open" highlight on the buttons
   function closeAllMenus() {
     document.querySelectorAll(".immich-menu").forEach(function (m) { m.classList.remove("open"); });
     document.querySelectorAll(".immich-icon-btn.menu-open").forEach(function (b) { b.classList.remove("menu-open"); });
@@ -552,7 +552,7 @@
       try { sessionStorage.setItem("immich_zoom", k); } catch (e) {}
       var p = document.getElementById("immich-panel");
       if (p) p.setAttribute("data-zoom", k);
-      buildToolMenus();   // 重建以便高亮新选中项
+      buildToolMenus();   // 重建以便高亮新选中项 // rebuild to highlight the new selection
     });
     fill("immich-group-menu", GROUPS, state.groupBy || "none", function (k) {
       state.groupBy = k; savePanelUi(); buildToolMenus(); renderTimeline();
@@ -574,7 +574,7 @@
         closeAllMenus();
         if (!open) {
           menu.classList.add("open");
-          btn.classList.add("menu-open");   // 菜单开着时图标也高亮
+          btn.classList.add("menu-open");   // 菜单开着时图标也高亮 // the icon is highlighted while the menu is open
         }
       };
     });
@@ -582,7 +582,7 @@
       window.__immichMenuCloser = true;
       document.addEventListener("click", closeAllMenus);
     }
-    // 非默认配置时图标高亮（和漏斗图标一致的做法）
+    // 非默认配置时图标高亮（和漏斗图标一致的做法） // Highlight the icon for non-default config (same approach as the funnel icon)
     var cf = document.getElementById("immich-cf-add");
     if (cf) cf.classList.toggle("active", !!(state.conditions && state.conditions.length));
 
@@ -593,9 +593,9 @@
     if (pb) pb.classList.toggle("active", !!state.pinRange);
   }
 
-  // 两套记忆：
-  //   主面板 → 存服务器（GET/POST /panel-state），跟着服务器走
-  //   选择面板 → 存 node.properties.immichUi，跟着工作流 JSON 走
+  // 两套记忆： // Two memories:
+  //   主面板 → 存服务器（GET/POST /panel-state），跟着服务器走 // main panel → stored on the server (GET/POST /panel-state), follows the server
+  //   选择面板 → 存 node.properties.immichUi，跟着工作流 JSON 走 // pick mode → stored in node.properties.immichUi, travels with the workflow JSON
   function uiSnapshot() {
     return {
       conditions: state.conditions || [],
@@ -614,7 +614,7 @@
   function savePanelUi() {
     var snap = uiSnapshot();
     if (state.pickMode) {
-      // 选择面板：写回节点（序列化时进工作流 JSON）
+      // 选择面板：写回节点（序列化时进工作流 JSON） // pick mode: write back to the node (ends up in the workflow JSON on serialise)
       if (state.pickNode) {
         state.pickNode.properties = state.pickNode.properties || {};
         state.pickNode.properties.immichUi = snap;
@@ -632,7 +632,7 @@
     return api("GET", "/panel-state").then(function (d) {
       var before = JSON.stringify(uiSnapshot());
       applyUiSnapshot(d);
-      // 服务器状态与本地默认不同 → 用服务端的重画一次
+      // 服务器状态与本地默认不同 → 用服务端的重画一次 // server state differs from the local default → repaint once from the server copy
       if (JSON.stringify(uiSnapshot()) !== before) {
         try { renderTimeline(); } catch (e) {}
       }
@@ -641,7 +641,7 @@
 
   function ensureSkeleton() {
     if (document.getElementById("immich-panel-overlay")) return;
-    loadPanelUi();   // 主面板从服务器恢复（异步），选择面板从节点属性恢复
+    loadPanelUi();   // 主面板从服务器恢复（异步），选择面板从节点属性恢复 // main panel restored from the server (async), pick mode restored from node properties
     var overlay = document.createElement("div");
     overlay.id = "immich-panel-overlay";
     overlay.innerHTML =
@@ -711,7 +711,7 @@
     var settingsBtn = document.getElementById("immich-btn-settings");
     if (settingsBtn) {
       settingsBtn.onclick = function () {
-        // 官方设置对话框没有公开的 show()，用它自己的按钮/快捷键拉起
+        // 官方设置对话框没有公开的 show()，用它自己的按钮/快捷键拉起 // The official settings dialog exposes no public show(), so trigger it via its own button/shortcut
         var btn = Array.prototype.slice.call(document.querySelectorAll("button,[role=button]"))
           .filter(function (b) {
             var lab = b.getAttribute("aria-label") || "";
@@ -721,7 +721,7 @@
         else document.dispatchEvent(new KeyboardEvent("keydown", {
           key: ",", code: "Comma", ctrlKey: true, bubbles: true,
         }));
-        // 打开后自动定位到 Immich 分组
+        // 打开后自动定位到 Immich 分组 // jump to the Immich group once it opens
         var tries = 0;
         var timer = setInterval(function () {
           tries += 1;
@@ -734,7 +734,7 @@
             (hit.closest("button,[role=button],li,a") || hit).click();
             clearInterval(timer);
           } else if (tries > 40) {
-            clearInterval(timer);   // 4 秒没等到就放弃
+            clearInterval(timer);   // 4 秒没等到就放弃 // give up after 4 seconds
           }
         }, 100);
       };
@@ -744,20 +744,20 @@
         window.open(base, "_blank", "noopener");
       });
     };
-    // 配置操作栏（顶栏下方横条，复用批量栏样式）：测试连接 / 保存 / 清空
+    // 配置操作栏（顶栏下方横条，复用批量栏样式）：测试连接 / 保存 / 清空 // Config action bar (strip under the top bar, reusing the bulk bar styles): test connection / save / clear
     document.getElementById("immich-btn-test").onclick = testConnection;
     document.getElementById("immich-btn-save").onclick = saveConfig;
     document.getElementById("immich-btn-reset").onclick = resetConfig;
-    // "仅显示收藏"开关（需求 2.6）：切换后按现有时间大组/小组样式只显示收藏项
-    // 批量操作栏（v0.6：选择模式下的批量收藏/删除；用户需求 2026-08-16：
-    // 「取消选择」清空选中保留选择模式，原「取消」改「✕」退出选择模式）
+    // "仅显示收藏"开关（需求 2.6）：切换后按现有时间大组/小组样式只显示收藏项 // "Favorites only" toggle (requirement 2.6): keeps the existing big-group/small-group layout but shows only favorites
+    // 批量操作栏（v0.6：选择模式下的批量收藏/删除；用户需求 2026-08-16： // Bulk action bar (v0.6: bulk favorite/delete in select mode; user request 2026-08-16:
+    // 「取消选择」清空选中保留选择模式，原「取消」改「✕」退出选择模式） // "Clear selection" empties the selection but stays in select mode; the old "Cancel" became "✕" to leave select mode)
     document.getElementById("immich-btn-bulk-all").onclick = bulkSelectAll;
     document.getElementById("immich-btn-bulk-fav").onclick = bulkFavorite;
     document.getElementById("immich-btn-bulk-del").onclick = bulkDelete;
     document.getElementById("immich-btn-bulk-unselect").onclick = clearSelection;
     document.getElementById("immich-btn-bulk-clear").onclick = exitSelectMode;
     updateFavOnlyButton();
-    // 三挡缩放切换（分辨率 + 显示大小联动）
+    // 三挡缩放切换（分辨率 + 显示大小联动） // Three zoom levels (resolution + display size together)
     overlay.querySelectorAll(".immich-zoom-btn").forEach(function (btn) {
       btn.onclick = function () {
         var z = btn.getAttribute("data-zoom");
@@ -767,28 +767,28 @@
         updateZoomButtons();
         var panel = document.getElementById("immich-panel");
         if (panel) panel.setAttribute("data-zoom", z);
-        refreshAll(); // 重拉缩略图（懒加载只拉可见区，挡位切换成本可控）
+        refreshAll(); // 重拉缩略图（懒加载只拉可见区，挡位切换成本可控） // re-fetch thumbnails (lazy loading only fetches the visible area, so switching levels is cheap)
       };
     });
     updateZoomButtons();
     overlay.addEventListener("mousedown", function (e) {
       if (e.target === overlay) closePanel();
     });
-    // 时间轴滚动位置记忆（防抖保存，用户需求 2026-08-16）——ensureSkeleton 只执行一次
+    // 时间轴滚动位置记忆（防抖保存，用户需求 2026-08-16）——ensureSkeleton 只执行一次 // Timeline scroll position memory (debounced save, user request 2026-08-16) — ensureSkeleton runs only once
     var tlEl = document.getElementById("immich-timeline");
     if (tlEl) tlEl.addEventListener("scroll", scheduleSaveTimelineScroll);
   }
 
-  // 视图模式切换：header 当前页按钮 active 提示 + 配置操作栏显隐 +
-  // 时间线导航组滑动动画（纯 CSS transition）——切配置时「时间线+小中大+选择+
-  // 只看收藏」四件套一起向右滑：时间线按钮 margin 滑一小段，三按钮 transform 滑出，
-  // nav 容器 max-width 同步收窄，h2(flex:1) 推动时间线按钮平滑滑到最终位置停住
-  // （不被遮住）；缩放/选择/只看收藏 在分隔线处被裁剪 + 渐变羽化；切回时反向。
+  // 视图模式切换：header 当前页按钮 active 提示 + 配置操作栏显隐 + // View switch: active highlight on the current header button + show/hide of the config action bar +
+  // 时间线导航组滑动动画（纯 CSS transition）——切配置时「时间线+小中大+选择+ // slide animation of the timeline nav group (pure CSS transition) — when switching to config, the "timeline + S/M/L + select +
+  // 只看收藏」四件套一起向右滑：时间线按钮 margin 滑一小段，三按钮 transform 滑出， // favorites only" set slides right together: the timeline button's margin slides a little, the three buttons transform out,
+  // nav 容器 max-width 同步收窄，h2(flex:1) 推动时间线按钮平滑滑到最终位置停住 // the nav container's max-width shrinks in step, and h2 (flex:1) pushes the timeline button smoothly to its final resting position
+  // （不被遮住）；缩放/选择/只看收藏 在分隔线处被裁剪 + 渐变羽化；切回时反向。 // (so the timeline button is not obscured); zoom/select/favorites-only are clipped at the divider + faded; reversed when switching back.
   function setViewMode(mode) {
     var overlay = document.getElementById("immich-panel-overlay");
     if (!overlay) return;
     var isConfig = mode === "config";
-    var tl = null;   // 「时间线」按钮已移除
+    var tl = null;   // 「时间线」按钮已移除 // the "timeline" button has been removed
     var cfg = document.getElementById("immich-btn-config");
     if (tl) tl.classList.toggle("active", !isConfig);
     if (cfg) cfg.classList.toggle("active", isConfig);
@@ -796,7 +796,7 @@
     if (bar) bar.style.display = isConfig ? "flex" : "none";
     var header = document.getElementById("immich-panel-header");
     if (header) header.classList.toggle("config-mode", isConfig);
-    // 选择面板（节点打开）不提供批量选择
+    // 选择面板（节点打开）不提供批量选择 // pick mode (opened from a node) offers no multi-select
     var sel = document.getElementById("immich-btn-select");
     if (sel) sel.style.display = state.pickMode ? "none" : "";
     overlay.classList.toggle("pick-mode", !!state.pickMode);
@@ -813,26 +813,26 @@
   function updateFavOnlyButton() {
     var overlay = document.getElementById("immich-panel-overlay");
     if (!overlay) return;
-    var btn = null;   // 「只看收藏」已移除（改用条件筛选）
+    var btn = null;   // 「只看收藏」已移除（改用条件筛选） // "favorites only" has been removed (replaced by condition filters)
     if (!btn) return;
     btn.classList.toggle("active", state.favOnly);
     btn.textContent = state.favOnly ? t("btn.favonly.active") : t("btn.favonly");
   }
 
-  // ─────────────── 批量选择模式（v0.6） ───────────────
+  // ─────────────── 批量选择模式（v0.6） / Multi-select mode (v0.6) ───────────────
 
   function enterSelectMode() {
     state.selectMode = true;
     state.selectedIds = {};
-    state.shiftAnchorCell = null; // 进入选择模式清 shift 锚
-    // 进入选择模式前快照详情状态（退出时还原，用户需求 2026-08-16）
-    // 存 id 而非对象引用：批量删除后引用会指向已删资产（P2，代码审查 2026-08-16）
+    state.shiftAnchorCell = null; // 进入选择模式清 shift 锚 // clear the shift anchor when entering select mode
+    // 进入选择模式前快照详情状态（退出时还原，用户需求 2026-08-16） // Snapshot the detail state before entering select mode (restored on exit, user request 2026-08-16)
+    // 存 id 而非对象引用：批量删除后引用会指向已删资产（P2，代码审查 2026-08-16） // Store the id, not an object reference: after a bulk delete the reference points at a deleted asset (P2, code review 2026-08-16)
     var pane = document.getElementById("immich-detail-pane");
     state.detailBeforeSelect = {
       visible: !!pane && pane.style.display !== "none",
       assetId: (state.currentAsset && state.currentAsset.id) || null,
     };
-    closeDetail(); // 选择模式专注勾选，不保留详情
+    closeDetail(); // 选择模式专注勾选，不保留详情 // select mode focuses on ticking, so drop the detail pane
     updateSelectUI();
     showStatus(t("select.mode.hint"), "warn");
   }
@@ -840,16 +840,16 @@
   function exitSelectMode() {
     state.selectMode = false;
     state.selectedIds = {};
-    state.shiftAnchorCell = null; // 退出选择模式清 shift 锚
+    state.shiftAnchorCell = null; // 退出选择模式清 shift 锚 // clear the shift anchor when leaving select mode
     var saved = state.detailBeforeSelect;
     state.detailBeforeSelect = null;
     updateSelectUI();
-    // 还原进入选择模式前的详情状态（开着资产 → 恢复；开着占位 → 占位；关闭 → 关闭）
+    // 还原进入选择模式前的详情状态（开着资产 → 恢复；开着占位 → 占位；关闭 → 关闭） // Restore the detail state from before select mode (open on asset → restore; open on placeholder → placeholder; closed → closed)
     if (saved) {
       if (saved.assetId) {
         var asset = state.assetsById[saved.assetId];
         if (asset) openDetail(asset);
-        else showDetailPlaceholder(); // 批量删除等：资产已不在时间线 → 占位
+        else showDetailPlaceholder(); // 批量删除等：资产已不在时间线 → 占位 // bulk delete etc.: the asset is no longer on the timeline → placeholder
       } else if (saved.visible) showDetailPlaceholder();
       else closeDetail();
     }
@@ -862,13 +862,13 @@
     updateSelectUI();
   }
 
-  // shift 范围选择（资源管理器风格）：从 shift 锚点 cell 到当前点击 cell 之间
-  // 的所有已渲染 cell 全部选中（追加，不清已有选择）；锚点由非 shift 点击重置
+  // shift 范围选择（资源管理器风格）：从 shift 锚点 cell 到当前点击 cell 之间 // Shift range selection (Explorer style): from the shift anchor cell to the clicked cell
+  // 的所有已渲染 cell 全部选中（追加，不清已有选择）；锚点由非 shift 点击重置 // all rendered cells in between get selected (added, existing selection kept); the anchor is reset by a non-shift click
   function shiftSelect(cell) {
     var cells = Array.prototype.slice.call(document.querySelectorAll("#immich-timeline .immich-cell"));
     var cur = cells.indexOf(cell);
     if (cur < 0) return;
-    if (!state.shiftAnchorCell) state.shiftAnchorCell = cell; // 首个 shift：以当前为锚起点，后续保持
+    if (!state.shiftAnchorCell) state.shiftAnchorCell = cell; // 首个 shift：以当前为锚起点，后续保持 // first shift: the current cell becomes the anchor; later shifts keep it
     var anchor = cells.indexOf(state.shiftAnchorCell);
     if (anchor < 0) anchor = cur;
     var lo = Math.min(anchor, cur), hi = Math.max(anchor, cur);
@@ -879,8 +879,8 @@
     updateSelectUI();
   }
 
-  // 全选：当前时间轴已加载（DOM 已渲染）的所有资产。
-  // 折叠的月份没有 DOM，不参与；已渲染的含本期/溢出/已展开月份。
+  // 全选：当前时间轴已加载（DOM 已渲染）的所有资产。 // Select all: every asset currently loaded on the timeline (already rendered in the DOM).
+  // 折叠的月份没有 DOM，不参与；已渲染的含本期/溢出/已展开月份。 // Collapsed months have no DOM and are excluded; rendered ones include current/overflow/expanded months.
   function bulkSelectAll() {
     if (!state.selectMode) return;
     var ids = {};
@@ -892,16 +892,16 @@
     updateSelectUI();
   }
 
-  // 同步时间轴每个 cell 的选中态（用户需求 2026-08-16）：
-  // 选择模式 → selectedIds 勾选的；普通模式 → 详情当前资产（黄框，无复选框）
-  // 选择面板：只高亮一个 cell（不进入批量选择）
+  // 同步时间轴每个 cell 的选中态（用户需求 2026-08-16）： // Sync the selected state of every cell on the timeline (user request 2026-08-16):
+  // 选择模式 → selectedIds 勾选的；普通模式 → 详情当前资产（黄框，无复选框） // select mode → what selectedIds ticks; normal mode → the detail's current asset (yellow border, no checkbox)
+  // 选择面板：只高亮一个 cell（不进入批量选择） // pick mode: highlight exactly one cell (no multi-select)
   function syncPickSelected(id) {
     document.querySelectorAll("#immich-timeline .immich-cell").forEach(function (c) {
       c.classList.toggle("selected", !!id && c.getAttribute("data-cell-id") === id);
     });
   }
 
-  // 设置项：选中后是否立即关闭选择面板（默认否）
+  // 设置项：选中后是否立即关闭选择面板（默认否） // Setting: whether picking closes the pick panel immediately (default: no)
   function pickCloseAfterSelect() {
     try { return localStorage.getItem("immich_pick_close") === "1"; } catch (e) { return false; }
   }
@@ -917,16 +917,16 @@
     });
   }
 
-  // 同步选择模式 UI：面板 class、header 选择按钮态、bulkbar 显隐与计数、cell 选中态
+  // 同步选择模式 UI：面板 class、header 选择按钮态、bulkbar 显隐与计数、cell 选中态 // Sync select-mode UI: panel class, header select button state, bulk bar visibility and count, cell selected state
   function updateSelectUI() {
     var overlay = document.getElementById("immich-panel-overlay");
     if (!overlay) return;
     overlay.classList.toggle("select-mode", state.selectMode);
     var selBtn = document.getElementById("immich-btn-select");
-    if (selBtn) selBtn.style.display = state.pickMode ? "none" : "";   // 选择面板没有批量选择
+    if (selBtn) selBtn.style.display = state.pickMode ? "none" : "";   // 选择面板没有批量选择 // pick mode has no multi-select
     if (selBtn) {
       selBtn.classList.toggle("active", state.selectMode);
-      // 图标按钮：只在没有 svg 时才写文本（之前这里写 textContent 会把图标冲掉）
+      // 图标按钮：只在没有 svg 时才写文本（之前这里写 textContent 会把图标冲掉） // icon button: only write text when there is no svg (writing textContent here used to wipe the icon)
       if (!selBtn.querySelector("svg")) selBtn.textContent = t("btn.select");
       selBtn.title = state.selectMode ? t("btn.select.title.active") : t("btn.select.title");
     }
@@ -944,17 +944,17 @@
     syncCellSelectedState();
   }
 
-  // 取消选择：清空当前选中，但保留在选择模式（用户需求 2026-08-16）
+  // 取消选择：清空当前选中，但保留在选择模式（用户需求 2026-08-16） // Clear selection: empty the selection but stay in select mode (user request 2026-08-16)
   function clearSelection() {
     if (!state.selectMode) return;
     state.selectedIds = {};
     updateSelectUI();
   }
 
-  // 选中所有资产判断：当前时间轴已渲染的全部 cell（全选/逐点都算；折叠月份无 DOM 不参与）。
-  // 集合相等判断（代码审查 P2 2026-08-16）：数量相等 + 逐 cell 比对 data-cell-id，
-  // 防「数量巧合相等」误判——折叠月份移除 cell 时 selectedIds 有残留（既有设计），
-  // 若只比数量，展开/折叠组合可能让选中数恰好等于可见数，误弹全选警告。
+  // 选中所有资产判断：当前时间轴已渲染的全部 cell（全选/逐点都算；折叠月份无 DOM 不参与）。 // Select-all check: every cell currently rendered on the timeline (select-all or one-by-one; collapsed months have no DOM and are excluded).
+  // 集合相等判断（代码审查 P2 2026-08-16）：数量相等 + 逐 cell 比对 data-cell-id， // Set equality (code review P2 2026-08-16): equal counts + a per-cell comparison of data-cell-id,
+  // 防「数量巧合相等」误判——折叠月份移除 cell 时 selectedIds 有残留（既有设计）， // to avoid a false "counts happen to match" verdict — selectedIds keeps leftovers when collapsed months drop their cells (existing design),
+  // 若只比数量，展开/折叠组合可能让选中数恰好等于可见数，误弹全选警告。 // and comparing counts only could make the selection count equal the visible count and pop the select-all warning by mistake.
   function isAllAssetsSelected() {
     var cells = document.querySelectorAll("#immich-timeline .immich-cell");
     if (!cells.length) return false;
@@ -967,12 +967,12 @@
     return true;
   }
 
-  // 批量收藏（set 语义：全部置为收藏，非 toggle）
+  // 批量收藏（set 语义：全部置为收藏，非 toggle） // Bulk favorite (set semantics: mark all as favorite, not a toggle)
   function bulkFavorite() {
     var ids = Object.keys(state.selectedIds);
     if (!ids.length) return;
-    // 全选二级确认（用户需求 2026-08-16）：选中所有资产时提示，防误操作。
-    // 收藏非破坏性，确认按钮用 primary（琥珀）区分删除的 danger（代码审查 P3）
+    // 全选二级确认（用户需求 2026-08-16）：选中所有资产时提示，防误操作。 // Select-all second confirmation (user request 2026-08-16): warn when everything is selected, to prevent mistakes.
+    // 收藏非破坏性，确认按钮用 primary（琥珀）区分删除的 danger（代码审查 P3） // Favoriting is non-destructive, so the confirm button uses primary (amber) to distinguish it from delete's danger (code review P3)
     if (isAllAssetsSelected()) {
       confirmDialog(t("bulk.all.confirm.fav", { n: ids.length }), t("btn.bulk.fav"), "primary").then(function (confirmed) {
         if (confirmed) doBulkFavorite(ids);
@@ -991,7 +991,7 @@
       var idsSet = {};
       ids.forEach(function (i) { idsSet[i] = true; });
       failed.forEach(function (f) { delete idsSet[f]; });
-      // 同步 cell 爱心态（未失败的置为已收藏）
+      // 同步 cell 爱心态（未失败的置为已收藏） // sync the cell hearts (mark the ones that did not fail as favorited)
       Object.keys(idsSet).forEach(function (id) {
         document.querySelectorAll('[data-cell-id="' + CSS.escape(id) + '"]').forEach(function (c) {
           c.classList.add("fav");
@@ -1013,8 +1013,8 @@
     });
   }
 
-  // 批量删除：二次确认（破坏性动词 + 数量 + 可恢复），删除进回收站
-  // 全选时替换为全选警告（用户需求 2026-08-16）
+  // 批量删除：二次确认（破坏性动词 + 数量 + 可恢复），删除进回收站 // Bulk delete: second confirmation (destructive verb + count + recoverable), moves to trash
+  // 全选时替换为全选警告（用户需求 2026-08-16） // replaced by the select-all warning when everything is selected (user request 2026-08-16)
   function bulkDelete() {
     var ids = Object.keys(state.selectedIds);
     if (!ids.length) return;
@@ -1031,7 +1031,7 @@
       api("DELETE", "/assets", { ids: ids, force: false }).then(function () {
         state.selectedIds = {};
         refreshAll();
-        updateSelectUI(); // 重置批量栏计数/按钮态（refreshAll 是异步重建 DOM）
+        updateSelectUI(); // 重置批量栏计数/按钮态（refreshAll 是异步重建 DOM） // reset the bulk bar count/button state (refreshAll rebuilds the DOM asynchronously)
         showStatus(t("bulk.del.done", { n: ids.length }), "ok");
       }).catch(function (e) {
         showStatus(t("bulk.del.fail", { msg: e.message }), "err");
@@ -1050,36 +1050,36 @@
   }
 
   function closePanel() {
-    viewToken++; // 关面板：在跑的异步链作废，避免迟到回调操作隐藏面板
-    // P2（代码审查）：关面板前清理详情内容——视频 loop 会后台无限循环播放，
-    // blob 不回收；复用 closeDetail 的 abort+pause+revoke
+    viewToken++; // 关面板：在跑的异步链作废，避免迟到回调操作隐藏面板 // closing the panel: invalidate the running async chain so late callbacks cannot touch a hidden panel
+    // P2（代码审查）：关面板前清理详情内容——视频 loop 会后台无限循环播放， // P2 (code review): clear the detail content before closing — a looping video keeps playing in the background,
+    // blob 不回收；复用 closeDetail 的 abort+pause+revoke // the blob is never released; reuse closeDetail's abort+pause+revoke
     closeDetail();
-    // 关面板：丢弃选择模式快照（不还原详情，下次打开按 sessionStorage 记忆还原）
+    // 关面板：丢弃选择模式快照（不还原详情，下次打开按 sessionStorage 记忆还原） // closing the panel: drop the select-mode snapshot (no detail restore; the next open restores from sessionStorage memory)
     state.detailBeforeSelect = null;
-    exitSelectMode(); // v0.6：关面板退出选择模式，避免下次打开残留勾选态
+    exitSelectMode(); // v0.6：关面板退出选择模式，避免下次打开残留勾选态 // v0.6: leave select mode on close so the next open has no leftover ticks
     var overlay = document.getElementById("immich-panel-overlay");
     if (overlay) overlay.style.display = "none";
     var btn = document.getElementById("immich-toolbar-btn");
     if (btn) btn.classList.remove("active");
   }
 
-  // ─────────────── 时间轴视图 ───────────────
+  // ─────────────── 时间轴视图 / Timeline view ───────────────
 
-  // 视图代际令牌：renderTimeline / renderConfig 共用 #immich-timeline 容器，
-  // 切换视图时 ++viewToken 使旧异步链失效（每个回调先比对令牌），防止
-  // 加载成功/失败的迟到回调覆盖当前视图（修复：加载资产中切到配置页，
-  // 失败提醒强制覆盖回时间轴的问题）。
+  // 视图代际令牌：renderTimeline / renderConfig 共用 #immich-timeline 容器， // View generation token: renderTimeline / renderConfig share the #immich-timeline container;
+  // 切换视图时 ++viewToken 使旧异步链失效（每个回调先比对令牌），防止 // switching views does ++viewToken to invalidate the old async chain (every callback compares the token first), preventing
+  // 加载成功/失败的迟到回调覆盖当前视图（修复：加载资产中切到设置对话框， // late success/failure callbacks from overwriting the current view (fix: switching to the settings dialog while assets load,
+  // 失败提醒强制覆盖回时间轴的问题）。 // the failure notice forced the timeline back over it).
   var viewToken = 0;
 
-  // 大组间隔（需求 8/10：本期范围由配置 timeline_range 控制）
+  // 大组间隔（需求 8/10：本期范围由配置 timeline_range 控制） // Big group interval (requirements 8/10: the current period range is controlled by config timeline_range)
   var RANGE_DAYS = { today: 0, "3d": 3, "7d": 7 };
   var RANGE_LABEL = { today: "range.today", "3d": "range.3d", "7d": "range.7d" };
-  // 小组间隔（需求 8：组内按 timeline_interval 分块）
+  // 小组间隔（需求 8：组内按 timeline_interval 分块） // Small group interval (requirement 8: split each group by timeline_interval)
   var INTERVAL_MS = { "15m": 15 * 60 * 1000, "30m": 30 * 60 * 1000, "1h": 60 * 60 * 1000, "1d": 24 * 60 * 60 * 1000 };
 
-  // 渲染时间轴视图：拉桶列表 → 分桶渲染 → 还原滚动/展开记忆。
-  // viewToken 用于废弃过期异步结果（快速切换视图时旧请求不覆盖新 DOM）。
-  // 图标按钮与下拉菜单
+  // 渲染时间轴视图：拉桶列表 → 分桶渲染 → 还原滚动/展开记忆。 // Render the timeline view: fetch buckets → render the groups → restore scroll/expanded memory.
+  // viewToken 用于废弃过期异步结果（快速切换视图时旧请求不覆盖新 DOM）。 // viewToken discards stale async results (a quick view switch never lets an old request overwrite new DOM).
+  // 图标按钮与下拉菜单 // Icon buttons and dropdown menus
   (function iconStyle() {
     if (document.getElementById("immich-icon-css")) return;
     var el = document.createElement("style");
@@ -1099,7 +1099,7 @@
     (document.head || document.documentElement).appendChild(el);
   })();
 
-  // 空日期输入：把浏览器自带的「yyyy/mm/日」文字透明掉，露出我们自绘的占位
+  // 空日期输入：把浏览器自带的「yyyy/mm/日」文字透明掉，露出我们自绘的占位 // Empty date input: make the browser's own "yyyy/mm/dd" text transparent so our own placeholder shows through
   (function datePhCss() {
     if (document.getElementById("immich-date-ph-css")) return;
     var el = document.createElement("style");
@@ -1108,7 +1108,7 @@
     (document.head || document.documentElement).appendChild(el);
   })();
 
-  // ─────────────── 条件筛选 ───────────────
+  // ─────────────── 条件筛选 / Condition filters ───────────────
   (function cfStyle() {
     if (document.getElementById("immich-cf-css")) return;
     var el = document.createElement("style");
@@ -1133,7 +1133,7 @@
     (document.head || document.documentElement).appendChild(el);
   })();
 
-  // 全部用下拉：Immich 的 search 只支持 id 精确匹配与时间范围，没有文本模糊匹配。
+  // 全部用下拉：Immich 的 search 只支持 id 精确匹配与时间范围，没有文本模糊匹配。 // Everything is a dropdown: Immich search only supports exact id matching and time ranges, no fuzzy text search.
   var CF_FIELDS = [
     { key: "album",    label: "相册",     ops: ["为"],                  value: "albumList" },
     { key: "person",   label: "人脸",     ops: ["为"],                  value: "personList" },
@@ -1142,7 +1142,7 @@
     { key: "favorite", label: "是否收藏", ops: ["为"],                  value: "boolList" },
     { key: "date",     label: "时间段",   ops: ["早于", "晚于", "介于"], value: "date" },
   ];
-  // 显示用文案映射：内部值保持中文（参与比较），只翻译渲染出来的文字
+  // 显示用文案映射：内部值保持中文（参与比较），只翻译渲染出来的文字 // Display text mapping: internal values stay Chinese (they are compared), only the rendered text is translated
   var CF_DISPLAY = {
     "相册": "cf.field.album", "人脸": "cf.field.person", "标签": "cf.field.tag",
     "类型": "cf.field.type", "是否收藏": "cf.field.favorite", "时间段": "cf.field.date",
@@ -1218,7 +1218,7 @@
   }
 
   function renderConditionChips() {
-    // 顶栏不再显示条件胶囊，条件只通过漏斗图标高亮体现；这里只刷新图标状态
+    // 顶栏不再显示条件胶囊，条件只通过漏斗图标高亮体现；这里只刷新图标状态 // The top bar no longer shows condition chips; conditions only show as a highlighted funnel icon, so just refresh the icon state
     var cf = document.getElementById("immich-cf-add");
     if (cf) cf.classList.toggle("active", !!(state.conditions && state.conditions.length));
     var host = document.getElementById("immich-cf-chips");
@@ -1266,7 +1266,7 @@
       function paint() {
         rowsEl.innerHTML = "";
         if (!rows.length) {
-          // 还没有条件：不摆空行，给一句提示（空行会显示三个「请选择」很碍眼）
+          // 还没有条件：不摆空行，给一句提示（空行会显示三个「请选择」很碍眼） // no conditions yet: skip the empty rows and show a hint instead (three "select…" rows look bad)
           var tip = document.createElement("div");
           tip.style.cssText = "opacity:.6;font-size:13px;padding:16px 4px";
           tip.textContent = t("cf.empty");
@@ -1300,8 +1300,8 @@
 
           var wrap = document.createElement("div");
           if (def.value === "date") {
-            // 原生 <input type="date"> 的空值占位由浏览器语言决定，lang 属性在
-            // Chrome 上不生效 —— 用「透明原生文字 + 自绘占位」解决
+            // 原生 <input type="date"> 的空值占位由浏览器语言决定，lang 属性在 // The empty placeholder of a native <input type="date"> follows the browser language, and the lang attribute has
+            // Chrome 上不生效 —— 用「透明原生文字 + 自绘占位」解决 // no effect in Chrome — solved with "transparent native text + self-drawn placeholder"
             function dateField(init, onSet) {
               var box = document.createElement("div");
               box.style.cssText = "position:relative;display:inline-flex;align-items:center;flex:1 1 0;min-width:0";
@@ -1352,11 +1352,11 @@
         rows.push({ field: "album", op: "为", value: "", value2: "" }); paint();
       };
       mask.querySelector('[data-role="clear"]').onclick = function () {
-        rows = [];                       // 清空所有行
+        rows = [];                       // 清空所有行 // clear all rows
         paint();
       };
       mask.querySelector('[data-role="cancel"]').onclick = function () { mask.remove(); };
-      // 点空白处也能关（之前必须点取消）
+      // 点空白处也能关（之前必须点取消） // clicking empty space also closes it (previously you had to hit Cancel)
       mask.addEventListener("click", function (e) { if (e.target === mask) mask.remove(); });
       mask.querySelector('[data-role="ok"]').onclick = function () {
         state.conditions = rows.filter(function (c) {
@@ -1371,9 +1371,9 @@
     });
   }
 
-  // 有条件时走 /search：把结果按月分组，复用 renderCell 渲染
-  // 时间轴滚动位置：复用已有的 sessionStorage 机制（LS_TIMELINE_SCROLL），
-  // 两条渲染通路（分桶 / 条件筛选）共用同一个位置。
+  // 有条件时走 /search：把结果按月分组，复用 renderCell 渲染 // With conditions, go through /search: group the results by month and render them with the same renderCell
+  // 时间轴滚动位置：复用已有的 sessionStorage 机制（LS_TIMELINE_SCROLL）， // Timeline scroll position: reuse the existing sessionStorage mechanism (LS_TIMELINE_SCROLL),
+  // 两条渲染通路（分桶 / 条件筛选）共用同一个位置。 // both render paths (buckets / condition filter) share the same position.
   function rememberTimelineScroll() {
     var tl = document.getElementById("immich-timeline");
     if (tl) { try { sessionStorage.setItem(LS_TIMELINE_SCROLL, String(tl.scrollTop)); } catch (e) {} }
@@ -1383,7 +1383,7 @@
     restoreTimelineState();
   }
 
-  var FILTER_PAGE = 100;   // 首屏每页条数：先出图，剩下的点「加载更多」
+  var FILTER_PAGE = 100;   // 首屏每页条数：先出图，剩下的点「加载更多」 // rows per page on first paint: show images fast, "Load more" for the rest
 
   function renderFiltered(timeline, more) {
     if (!more) { state.filteredItems = []; state.filteredNext = "1"; }
@@ -1409,7 +1409,7 @@
       });
       timeline.innerHTML = "";
 
-      // 分组键：year → 2026 / month → 2026-8 / day → 2026-8-27 / none → ""
+      // 分组键：year → 2026 / month → 2026-8 / day → 2026-8-27 / none → "" // group key: year → 2026 / month → 2026-8 / day → 2026-8-27 / none → ""
       function groupKey(ts) {
         var d = new Date(ts);
         var g = state.groupBy || "none";
@@ -1419,7 +1419,7 @@
         return "";
       }
 
-      // 置顶起点
+      // 置顶起点 // start of the pinned section
       var pinDays = state.pinRange === "today" ? 0 : state.pinRange === "7d" ? 7 : -1;
       var pinStart = 0;
       if (pinDays >= 0) {
@@ -1434,16 +1434,16 @@
         else rest.push(a);
       });
 
-      // 按月分组：复用时间轴原有的月份组件（折叠/展开 + 展开态记忆）
+      // 按月分组：复用时间轴原有的月份组件（折叠/展开 + 展开态记忆） // group by month: reuse the timeline's month component (collapse/expand + expanded-state memory)
       function monthSection(key, list) {
         var sec = renderMonth({ timeBucket: key + "-01", count: list.length });
-        sec._assets = list;                       // 资产已就绪，展开时不再发请求
-        expandMonth(sec);   // 搜索结果默认展开，点标题可折叠
+        sec._assets = list;                       // 资产已就绪，展开时不再发请求 // assets are ready, expanding needs no extra request
+        expandMonth(sec);   // 搜索结果默认展开，点标题可折叠 // search results start expanded; clicking the title collapses them
         timeline.appendChild(sec);
         return sec;
       }
 
-      // 通用可折叠分区：结构同 renderMonth，复用 expandMonth / collapseMonth
+      // 通用可折叠分区：结构同 renderMonth，复用 expandMonth / collapseMonth // Generic collapsible section: same structure as renderMonth, reusing expandMonth / collapseMonth
       function collapsibleSection(title, list, mk) {
         var sec = document.createElement("div");
         sec.className = "immich-month";
@@ -1486,8 +1486,8 @@
 
       var asc = (state.sortOrder || "desc") === "asc";
 
-      // 置顶区
-      // 置顶范围内没有资产时说明一下，否则看起来像"点了没反应"
+      // 置顶区 // pinned section
+      // 置顶范围内没有资产时说明一下，否则看起来像"点了没反应" // explain when the pinned range has no assets, otherwise it looks like "clicked and nothing happened"
       if (pinStart && !pinned.length && !state.__pinWarned) {
         state.__pinWarned = true;
         showStatus(t("cf.pin.empty"), "warn");
@@ -1501,7 +1501,7 @@
         collapsibleSection("📌 " + pinLabel, pinned, "pin");
       }
 
-      // 其余：不分组 → 平铺；否则按 年/月/天 分组
+      // 其余：不分组 → 平铺；否则按 年/月/天 分组 // rest: no grouping → flat list; otherwise group by year/month/day
       if (!(state.groupBy && state.groupBy !== "none")) {
         if (rest.length) {
           var flat = document.createElement("div");
@@ -1524,11 +1524,11 @@
         order.sort(function (a, b) { return asc ? a.localeCompare(b) : b.localeCompare(a); });
         order.forEach(function (k) {
           if (state.groupBy === "month") monthSection(k, buckets[k]);
-          else collapsibleSection(k, buckets[k], k);   // 按天/按年也可折叠
+          else collapsibleSection(k, buckets[k], k);   // 按天/按年也可折叠 // day/year grouping is collapsible too
         });
       }
 
-      // 还有下一页 → 底部给「加载更多」，不再一次性拉 500 条
+      // 还有下一页 → 底部给「加载更多」，不再一次性拉 500 条 // more pages left → "Load more" at the bottom instead of fetching 500 at once
       if (state.filteredNext) {
         var moreBtn = document.createElement("button");
         moreBtn.className = "immich-btn";
@@ -1556,18 +1556,18 @@
       if (tl0) {
         revokeBlobs();
         state.assetsById = {};
-        // 筛选通路也要恢复详情面板显隐 —— 之前漏了这一步，
-        // 结果「有条件时」重开面板右侧预览区一直保持上一次的隐藏状态。
+        // 筛选通路也要恢复详情面板显隐 —— 之前漏了这一步， // the filter path must also restore detail pane visibility — this step used to be missing,
+        // 结果「有条件时」重开面板右侧预览区一直保持上一次的隐藏状态。 // so after reopening the panel with conditions the preview area on the right stayed hidden from the previous time.
         var paneF = document.getElementById("immich-detail-pane");
         if (paneF) {
-          // 选择模式下详情面板保持隐藏（筛选后也不该自动弹出来）
+          // 选择模式下详情面板保持隐藏（筛选后也不该自动弹出来） // keep the detail pane hidden in select mode (it should not pop up automatically after filtering either)
           paneF.style.display = state.selectMode
             ? "none"
             : ((sessionStorage.getItem(LS_DETAIL_OPEN) === "0") ? "none" : "flex");
         }
         tl0.innerHTML = '<div class="immich-loading">筛选中…</div>';
         renderFiltered(tl0).then(function () {
-          if (!state.selectMode) restoreDetailState();   // 选择模式不还原详情
+          if (!state.selectMode) restoreDetailState();   // 选择模式不还原详情 // select mode does not restore the detail pane
         }).catch(function () {
           tl0.innerHTML = '<div class="immich-empty">' + t("cf.failed") + "</div>";
         });
@@ -1575,15 +1575,15 @@
       }
     }
     clearStatus();
-    revokeBlobs(); // 旧缩略图 blob 统一回收
+    revokeBlobs(); // 旧缩略图 blob 统一回收 // revoke all old thumbnail blobs
     var timeline = document.getElementById("immich-timeline");
     timeline.innerHTML = '<div class="immich-loading">' + t("loading.config") + "</div>";
-    // 详情 pane 显隐先按记忆快速还原（内容等数据加载完 restoreDetailState 完整还原）
+    // 详情 pane 显隐先按记忆快速还原（内容等数据加载完 restoreDetailState 完整还原） // Detail pane visibility is restored quickly from memory first (content follows once data loads via restoreDetailState)
     var pane0 = document.getElementById("immich-detail-pane");
     if (pane0) pane0.style.display = (sessionStorage.getItem(LS_DETAIL_OPEN) === "0") ? "none" : "flex";
-    state.assetsById = {}; // 重建资产索引（时间线刷新后旧对象作废）
+    state.assetsById = {}; // 重建资产索引（时间线刷新后旧对象作废） // Rebuild the asset index (old objects are invalid after a timeline refresh)
 
-    // 先取配置（含 timeline_range / timeline_interval / base_url），再取时间桶
+    // 先取配置（含 timeline_range / timeline_interval / base_url），再取时间桶 // Fetch the config first (timeline_range / timeline_interval / base_url), then the time buckets
     api("GET", "/config").then(function (cfg) {
       if (token !== viewToken) return;
       state.config = cfg;
@@ -1594,30 +1594,30 @@
       state.buckets = Array.isArray(buckets) ? buckets : [];
       if (!state.buckets.length) {
         timeline.innerHTML = '<div class="immich-empty">' + t("empty.noassets") + "</div>";
-        restoreDetailState(); // 无资产也还原详情显隐（关闭态隐藏，其他显示占位）
+        restoreDetailState(); // 无资产也还原详情显隐（关闭态隐藏，其他显示占位） // restore detail visibility even with no assets (hidden when closed, placeholder otherwise)
         return;
       }
       timeline.innerHTML = "";
 
-      // 本期起点：由 timeline_range 决定（今天 0 点 / 3 天前 / 7 天前）
-      // 置顶范围改由顶栏「置顶」菜单控制（不再是设置里的 timeline_range）
+      // 本期起点：由 timeline_range 决定（今天 0 点 / 3 天前 / 7 天前） // Start of the current period: determined by timeline_range (today 00:00 / 3 days ago / 7 days ago)
+      // 置顶范围改由顶栏「置顶」菜单控制（不再是设置里的 timeline_range） // The pinned range is now controlled by the top-bar "Pin" menu (no longer setup's timeline_range)
       var rangeKey = state.pinRange || "";
       var rangeDays = RANGE_DAYS[rangeKey] != null ? RANGE_DAYS[rangeKey] : -1;
       var now = new Date();
       var periodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - rangeDays, 0, 0, 0, 0);
 
-      // 拆分本期桶（覆盖 periodStart 的桶）与往期桶
+      // 拆分本期桶（覆盖 periodStart 的桶）与往期桶 // Split the current-period buckets (those covering periodStart) from the past buckets
       var periodBuckets = [], pastBuckets = [];
       state.buckets.forEach(function (b) {
         var y = parseInt(String(b.timeBucket).slice(0, 4), 10);
         var m = parseInt(String(b.timeBucket).slice(5, 7), 10);
-        // 桶的结束时刻 = 下月 1 号 0 点
+        // 桶的结束时刻 = 下月 1 号 0 点 // a bucket ends at 00:00 on the 1st of the next month
         var end = new Date(y, m, 1, 0, 0, 0, 0);
         if (end.getTime() > periodStart.getTime()) periodBuckets.push(b);
         else pastBuckets.push(b);
       });
 
-      // 本期桶拉资产（跨月边界可能 2 个桶，Promise.all 合并）
+      // 本期桶拉资产（跨月边界可能 2 个桶，Promise.all 合并） // fetch assets for the current-period buckets (may be 2 across a month boundary; merge with Promise.all)
       var fetches = periodBuckets.map(function (b) {
         return api("GET", "/bucket?timeBucket=" + encodeURIComponent(b.timeBucket) + "&order=desc").then(function (assets) {
           return { tb: b.timeBucket, assets: assets };
@@ -1628,10 +1628,10 @@
         var merged = [];
         results.forEach(function (r) { merged = merged.concat(r.assets || []); });
 
-        // P1 修复（代码审查）：跨界桶拆分——periodStart 落在上月中间时，
-        // 上月 1 号~periodStart-1 的资产会被本期 filter 掉，但桶已不在 pastBuckets，
-        // 导致"既不在本期也不在往期"彻底不可见。把溢出资产按月份重组为往期折叠块。
-        // 需求 2.6：favOnly 开启时，本期与溢出都只保留收藏项。
+        // P1 修复（代码审查）：跨界桶拆分——periodStart 落在上月中间时， // P1 fix (code review): cross-boundary bucket split — when periodStart falls in the middle of last month,
+        // 上月 1 号~periodStart-1 的资产会被本期 filter 掉，但桶已不在 pastBuckets， // last month's assets from the 1st to periodStart-1 are filtered out of the current period, but the bucket is no longer in pastBuckets,
+        // 导致"既不在本期也不在往期"彻底不可见。把溢出资产按月份重组为往期折叠块。 // so they are "neither current nor past" and completely invisible. Rebuild the overflow assets into past-month collapse blocks by month.
+        // 需求 2.6：favOnly 开启时，本期与溢出都只保留收藏项。 // Requirement 2.6: with favOnly on, both the current period and the overflow keep favorites only.
         var fav = function (a) { return !state.favOnly || a.isFavorite; };
         var inPeriod = [], overflow = [];
         merged.forEach(function (a) {
@@ -1642,7 +1642,7 @@
 
         if (rangeDays >= 0) timeline.appendChild(renderPeriodSection(rangeKey, periodStart, inPeriod));
 
-        // 溢出资产按月份折叠（资产已随整桶拉回，无需额外请求）
+        // 溢出资产按月份折叠（资产已随整桶拉回，无需额外请求） // overflow assets collapse by month (the assets came with the whole bucket, so no extra request)
         var overflowByMonth = {};
         overflow.forEach(function (a) {
           var ts = Date.parse(a.fileCreatedAt || a.createdAt);
@@ -1659,29 +1659,29 @@
             return Date.parse(b.fileCreatedAt || b.createdAt) - Date.parse(a.fileCreatedAt || a.createdAt);
           });
           var sec = renderMonth({ timeBucket: mk + "-01", count: assets.length });
-          sec._assets = assets; // 预加载：展开时直接显示，不重复请求
-          if (getExpandedMonths().indexOf(sec._mk) >= 0) expandMonth(sec);   // 记忆展开态还原
+          sec._assets = assets; // 预加载：展开时直接显示，不重复请求 // preload: expanding shows them directly, no duplicate request
+          if (getExpandedMonths().indexOf(sec._mk) >= 0) expandMonth(sec);   // 记忆展开态还原 // restore the remembered expanded state
           timeline.appendChild(sec);
         });
 
-        // 异步展开月份（pastBuckets）完成前不还原滚动位置（P2-1 代码审查 2026-08-16）
+        // 异步展开月份（pastBuckets）完成前不还原滚动位置（P2-1 代码审查 2026-08-16） // Do not restore the scroll position before the async month expansion (pastBuckets) finishes (P2-1 code review 2026-08-16)
         var restorePromises = [];
         pastBuckets.forEach(function (b) {
           var sec = renderMonth(b);
-          if (getExpandedMonths().indexOf(sec._mk) >= 0) restorePromises.push(expandMonth(sec)); // 记忆展开态还原（拉取月份资产）
+          if (getExpandedMonths().indexOf(sec._mk) >= 0) restorePromises.push(expandMonth(sec)); // 记忆展开态还原（拉取月份资产） // restore the remembered expanded state (fetches the month's assets)
           timeline.appendChild(sec);
         });
-        // 时间线渲染完成后还原详情状态（选中资产在 assetsById 里则恢复，否则占位/保持关闭）
+        // 时间线渲染完成后还原详情状态（选中资产在 assetsById 里则恢复，否则占位/保持关闭） // After the timeline renders, restore the detail state (asset in assetsById → restore, otherwise placeholder/stay closed)
         restoreDetailState();
-        // 滚动位置还原（代码审查 P2-1 2026-08-16）：等所有异步展开月份加载完再设 scrollTop，
-        // 否则内容未撑开时被浏览器 clamp 到旧高度；溢出月份同步展开已含在 Promise 里
+        // 滚动位置还原（代码审查 P2-1 2026-08-16）：等所有异步展开月份加载完再设 scrollTop， // Scroll position restore (code review P2-1 2026-08-16): set scrollTop only after every async month has expanded,
+        // 否则内容未撑开时被浏览器 clamp 到旧高度；溢出月份同步展开已含在 Promise 里 // otherwise the browser clamps it to the old height while the content has not grown; synchronously expanded overflow months are already in the Promise
         Promise.all(restorePromises).then(function () {
-          if (token !== viewToken) return; // 视图已切走（如配置页），放弃还原
+          if (token !== viewToken) return; // 视图已切走（如配置页），放弃还原 // the view already switched (e.g. to config), skip the restore
           restoreTimelineState();
         });
       });
     }).catch(function (e) {
-      // 视图已切走（如配置页）：失败提醒不覆盖当前视图，只放弃
+      // 视图已切走（如设置对话框）：失败提醒不覆盖当前视图，只放弃 // the view already switched (e.g. to settings): do not let the failure notice overwrite the current view, just give up
       if (token !== viewToken) return;
       if (e.message === "AUTH_REQUIRED") {
         timeline.innerHTML = '<div class="immich-empty">' + t("error.auth") + "</div>" +
@@ -1691,17 +1691,17 @@
         timeline.innerHTML = '<div class="immich-empty">' + t("error.load") + "</div>";
         showStatus(t("error.load.fail", { msg: e.message }), "err");
       }
-      // 加载失败也还原详情显隐（关闭态保持隐藏，其他显示占位）
+      // 加载失败也还原详情显隐（关闭态保持隐藏，其他显示占位） // also restore detail visibility on load failure (hidden stays hidden, otherwise placeholder)
       restoreDetailState();
     });
   }
 
-  // 本期大组：组内按 timeline_interval 分块（15m/30m/1h/1d）。
-  // head 可点击折叠/展开（P2-1 代码审查：原版只有 ▼ 无交互）。
+  // 本期大组：组内按 timeline_interval 分块（15m/30m/1h/1d）。 // Current-period big group: split by timeline_interval (15m/30m/1h/1d).
+  // head 可点击折叠/展开（P2-1 代码审查：原版只有 ▼ 无交互）。 // head is clickable to collapse/expand (P2-1 code review: the original only had a ▼ and no interaction).
   function renderPeriodSection(rangeKey, periodStart, inPeriod) {
     var sec = document.createElement("div");
     sec.className = "immich-month is-current";
-    // 本期默认展开；记忆里 "current" = 用户折叠过 → 初始折叠（用户需求 2026-08-16）
+    // 本期默认展开；记忆里 "current" = 用户折叠过 → 初始折叠（用户需求 2026-08-16） // current period starts expanded; "current" in memory = user collapsed it → start collapsed (user request 2026-08-16)
     sec._expanded = getExpandedMonths().indexOf("current") < 0;
     sec._assets = inPeriod;
 
@@ -1726,7 +1726,7 @@
     sec._expanded = true;
     var arrow = sec.querySelector('[data-role="arrow"]');
     if (arrow) arrow.textContent = "▼";
-    setMonthExpanded("current", false); // 本期默认展开："current" 在集合 = 折叠标记，展开时移除
+    setMonthExpanded("current", false); // 本期默认展开："current" 在集合 = 折叠标记，展开时移除 // current period starts expanded: "current" in the set = collapsed marker, removed when expanding
     buildPeriodGroups(sec, sec._assets);
   }
 
@@ -1734,12 +1734,12 @@
     sec._expanded = false;
     var arrow = sec.querySelector('[data-role="arrow"]');
     if (arrow) arrow.textContent = "▶";
-    setMonthExpanded("current", true); // 本期折叠 → 集合加 "current" 标记
+    setMonthExpanded("current", true); // 本期折叠 → 集合加 "current" 标记 // current period collapsed → add the "current" marker to the set
     sec.querySelectorAll(".immich-interval, .immich-empty").forEach(function (el) { el.remove(); });
   }
 
   function buildPeriodGroups(sec, assets) {
-    // 小组分块：同一 interval 桶内的资产放一块，标题显示块起始时间
+    // 小组分块：同一 interval 桶内的资产放一块，标题显示块起始时间 // Sub-grouping: assets within the same interval bucket go together, the title shows the block start time
     var intervalKey = (state.config && state.config.timeline_interval) || "1h";
     var intervalMs = INTERVAL_MS[intervalKey] || 60 * 60 * 1000;
     var groups = [];
@@ -1776,7 +1776,7 @@
     }
   }
 
-  // 小组块标题：1d 显示 "2025/8/1"，更细粒度显示 "2025/8/1 10:00"（需求 8 组内按小时）
+  // 小组块标题：1d 显示 "2025/8/1"，更细粒度显示 "2025/8/1 10:00"（需求 8 组内按小时） // small block title: 1d shows "2025/8/1", finer granularity shows "2025/8/1 10:00" (requirement 8, hourly within a group)
   function fmtInterval(ts, intervalMs) {
     var d = new Date(ts);
     var p = function (n) { return (n < 10 ? "0" : "") + n; };
@@ -1791,7 +1791,7 @@
     sec.className = "immich-month";
     var count = bucket.count != null ? bucket.count : "";
     sec._bucket = bucket;
-    sec._mk = monthExpandKey(tb); // 展开态记忆 key（"2026-8"）
+    sec._mk = monthExpandKey(tb); // 展开态记忆 key（"2026-8"） // expanded-state memory key ("2026-8")
 
     sec.innerHTML =
       '<div class="immich-month-head">' +
@@ -1815,9 +1815,9 @@
     sec._expanded = true;
     var arrow = sec.querySelector('[data-role="arrow"]');
     if (arrow) arrow.textContent = "▼";
-    setMonthExpanded(sec._mk, true); // 往期月份展开态记忆
+    setMonthExpanded(sec._mk, true); // 往期月份展开态记忆 // expanded-state memory for past months
 
-    // 已加载过 → 直接显示（同步完成）
+    // 已加载过 → 直接显示（同步完成） // already loaded → show directly (finishes synchronously)
     if (sec._assets) {
       showMonthAssets(sec, sec._assets);
       return Promise.resolve();
@@ -1828,10 +1828,10 @@
     sec.appendChild(grid);
 
     var tb = sec._bucket && sec._bucket.timeBucket;
-    // 返回 Promise：renderTimeline 等所有异步展开完成后再还原滚动位置（代码审查 P2-1 2026-08-16，
-    // 否则内容未撑开时 scrollTop 被 clamp 到旧高度，fetch 完成内容变高后回不到记忆位置）
+    // 返回 Promise：renderTimeline 等所有异步展开完成后再还原滚动位置（代码审查 P2-1 2026-08-16， // Returns a Promise: renderTimeline restores the scroll position only after all async expansions finish (code review P2-1 2026-08-16,
+    // 否则内容未撑开时 scrollTop 被 clamp 到旧高度，fetch 完成内容变高后回不到记忆位置） // otherwise scrollTop is clamped to the old height while the content has not grown, and cannot return to the remembered position once the fetch grows it)
     return api("GET", "/bucket?timeBucket=" + encodeURIComponent(tb) + "&order=desc").then(function (assets) {
-      // P1-1a（代码审查）：加载期间用户已收起 → 不渲染，避免"箭头 ▶ 但内容弹回"
+      // P1-1a（代码审查）：加载期间用户已收起 → 不渲染，避免"箭头 ▶ 但内容弹回" // P1-1a (code review): the user collapsed it during loading → skip rendering, avoiding "arrow ▶ but content pops back"
       if (!sec._expanded) return;
       sec._assets = assets;
       showMonthAssets(sec, assets);
@@ -1846,14 +1846,14 @@
     sec._expanded = false;
     var arrow = sec.querySelector('[data-role="arrow"]');
     if (arrow) arrow.textContent = "▶";
-    setMonthExpanded(sec._mk, false); // 往期月份折叠态记忆
-    // 移除整个月内主体（含所有天分组/空提示），不能只删第一个 .immich-grid
-    // P1-1b/1c（代码审查）：统一清 body + 加载占位 + empty，防止竞态残留
+    setMonthExpanded(sec._mk, false); // 往期月份折叠态记忆 // collapsed-state memory for past months
+    // 移除整个月内主体（含所有天分组/空提示），不能只删第一个 .immich-grid // Remove the whole month body (all day groups / empty hint), not just the first .immich-grid
+    // P1-1b/1c（代码审查）：统一清 body + 加载占位 + empty，防止竞态残留 // P1-1b/1c (code review): clear body + loading placeholder + empty uniformly, preventing race leftovers
     var body = sec.querySelector(".immich-month-body");
     if (body) body.remove();
     var empty = sec.querySelector(".immich-empty");
     if (empty) empty.remove();
-    // 兜底：加载中的占位 grid（直接挂在 month 下，尚未包进 body）
+    // 兜底：加载中的占位 grid（直接挂在 month 下，尚未包进 body） // fallback: the loading placeholder grid (attached directly to month, not yet wrapped in body)
     var grid = sec.querySelector(":scope > .immich-grid");
     if (grid) grid.remove();
     var countEl = sec.querySelector('[data-role="count"]');
@@ -1862,11 +1862,11 @@
     }
   }
 
-  // 往期月份展开：第一层=年月（月份折叠头），第二层=天（月内按天分组，固定间隔，
-  // 不跟随面板 timeline_interval 参数——需求 2.4）。天分组只显示标题，不额外加框。
+  // 往期月份展开：第一层=年月（月份折叠头），第二层=天（月内按天分组，固定间隔， // Past-month expansion: level 1 = year-month (month collapse header), level 2 = days (grouped by day inside the month, fixed interval,
+  // 不跟随面板 timeline_interval 参数——需求 2.4）。天分组只显示标题，不额外加框。 // does not follow the panel's timeline_interval setting — requirement 2.4). Day groups show only a title, no extra frame.
   function showMonthAssets(sec, assets) {
-    // 移除旧内容：body（天分组）/ 加载占位 grid / empty（P1-1b 代码审查：
-    // 竞态残留时旧 body 必须整体清掉，不能只删第一个 .immich-grid）
+    // 移除旧内容：body（天分组）/ 加载占位 grid / empty（P1-1b 代码审查： // Remove old content: body (day groups) / loading placeholder grid / empty (P1-1b code review:
+    // 竞态残留时旧 body 必须整体清掉，不能只删第一个 .immich-grid） // under race leftovers the old body must be removed entirely, not just the first .immich-grid)
     var oldBody = sec.querySelector(".immich-month-body");
     if (oldBody) oldBody.remove();
     var oldEmpty = sec.querySelector(".immich-empty");
@@ -1884,8 +1884,8 @@
       sec.appendChild(empty);
       return;
     }
-    // 按天分组（本地日界线）：同日资产放一块，标题 "2026/8/3"。
-    // 统一包在 .immich-month-body 里，折叠时整个移除（修复点月标题收起的是天的 bug）
+    // 按天分组（本地日界线）：同日资产放一块，标题 "2026/8/3"。 // Group by day (local day boundary): assets of the same day go together, title "2026/8/3".
+    // 统一包在 .immich-month-body 里，折叠时整个移除（修复点月标题收起的是天的 bug） // Wrapped uniformly in .immich-month-body so collapsing removes it all (fixes the bug where the month title collapsed the days)
     var body = document.createElement("div");
     body.className = "immich-month-body";
     var byDay = {};
@@ -1915,11 +1915,11 @@
     sec.appendChild(body);
   }
 
-  // 视频判断：isImage 是 Immich 权威信号（false=视频，含 3gp/mts 等非白名单格式），
-  // ext 白名单/duration 只在 isImage 缺失时兜底。
+  // 视频判断：isImage 是 Immich 权威信号（false=视频，含 3gp/mts 等非白名单格式）， // Video detection: isImage is Immich's authoritative signal (false = video, including 3gp/mts and other non-whitelisted formats),
+  // ext 白名单/duration 只在 isImage 缺失时兜底。 // ext whitelist/duration are only a fallback when isImage is missing.
   function isVideoAsset(asset) {
     if (!asset) return false;
-    if (asset.type === "VIDEO") return true;   // Immich 的 search 结果直接带 type
+    if (asset.type === "VIDEO") return true;   // Immich 的 search 结果直接带 type // Immich's search results carry type directly
     if (asset.isImage === false) return true;
     var e = String(asset.ext || "").toLowerCase();
     if (e) return e === "mp4" || e === "mov" || e === "webm" || e === "mkv" || e === "m4v" || e === "avi";
@@ -1927,7 +1927,7 @@
     return false;
   }
 
-  // 格式角标文案：ext 优先，fallback 大类
+  // 格式角标文案：ext 优先，fallback 大类 // Format badge text: ext first, fall back to the broad category
   function assetBadge(asset) {
     if (!asset) return "";
     if (asset.ext) return String(asset.ext).toUpperCase();
@@ -1939,9 +1939,9 @@
     var isVideo = isVideoAsset(asset);
     cell.className = "immich-cell" + (asset.isFavorite ? " fav" : "") + (isVideo ? " is-video" : "");
     cell.setAttribute("data-cell-id", asset.id || "");
-    // 资产索引（详情状态还原：restoreDetailState 按记忆 id 找回完整对象）
+    // 资产索引（详情状态还原：restoreDetailState 按记忆 id 找回完整对象） // Asset index (detail restore: restoreDetailState finds the full object by remembered id)
     if (asset.id) state.assetsById[asset.id] = asset;
-    // 渲染时恢复选中态（刷新/折叠重渲染后不丢）：选择模式勾选 或 普通模式详情当前资产
+    // 渲染时恢复选中态（刷新/折叠重渲染后不丢）：选择模式勾选 或 普通模式详情当前资产 // Restore the selected state when rendering (survives refresh/collapse re-render): ticked in select mode, or the detail's current asset in normal mode
     if (state.selectMode) {
       if (state.selectedIds[asset.id]) cell.classList.add("selected");
     } else if (state.pickMode && state.pickSelected === asset.id) {
@@ -1956,17 +1956,17 @@
       '<button class="immich-cell-fav" title="' + (asset.isFavorite ? t("fav.title.remove") : t("fav.title.add")) + '">' + heartIcon(asset.isFavorite) + "</button>" +
       '<span class="immich-cell-badge">' + esc(assetBadge(asset)) + "</span>" +
       '<div class="immich-cell-date">' + fmtDate(asset.fileCreatedAt || asset.createdAt) + "</div>";
-    // v0.6：选择模式下点击缩略图 = 切换勾选（不进详情）；普通模式 = 打开详情
-    // v0.6 用户需求 2026-08-16：shift 范围多选（普通模式自动进入选择状态）
-    // 资源管理器直觉（代码审查 P2-2 2026-08-16）：普通模式先点 A 再看 C 之前 shift 点 C
-    // → 范围起点 = 进入选择模式前最后普通点击的 cell（A），即 [A..C]
-    // 用户 2026-08-16：去掉 ctrl/meta 多选（ctrl+点选不再进入选择模式）
+    // v0.6：选择模式下点击缩略图 = 切换勾选（不进详情）；普通模式 = 打开详情 // v0.6: clicking a thumbnail in select mode = toggle the tick (no detail); in normal mode = open the detail
+    // v0.6 用户需求 2026-08-16：shift 范围多选（普通模式自动进入选择状态） // v0.6 user request 2026-08-16: shift range multi-select (normal mode enters select state automatically)
+    // 资源管理器直觉（代码审查 P2-2 2026-08-16）：普通模式先点 A 再看 C 之前 shift 点 C // Explorer intuition (code review P2-2 2026-08-16): in normal mode click A, then shift-click C
+    // → 范围起点 = 进入选择模式前最后普通点击的 cell（A），即 [A..C] // → the range starts at the cell of the last normal click before entering select mode (A), i.e. [A..C]
+    // 用户 2026-08-16：去掉 ctrl/meta 多选（ctrl+点选不再进入选择模式） // user 2026-08-16: remove ctrl/meta multi-select (ctrl+click no longer enters select mode)
     cell.onclick = function (e) {
-      // 选择面板：选中 → 高亮 + 交回节点；是否顺带关闭由设置决定
+      // 选择面板：选中 → 高亮 + 交回节点；是否顺带关闭由设置决定 // pick mode: select → highlight + hand back to the node; whether to also close it is up to the setting
       if (state.pickMode) {
         state.pickSelected = asset.id;
         syncPickSelected(asset.id);
-        openDetail(asset);                      // 右侧大图预览（选择面板也要有）
+        openDetail(asset);                      // 右侧大图预览（选择面板也要有） // large preview on the right (pick mode needs it too)
         if (typeof state.onPick === "function") state.onPick(asset);
         if (pickCloseAfterSelect()) {
           if (typeof window.__immichPanel.exitPick === "function") window.__immichPanel.exitPick();
@@ -1975,29 +1975,29 @@
       }
       if (e.shiftKey) {
         if (!state.selectMode) {
-          var prevAnchor = state.shiftAnchorCell; // 进入选择模式前的普通点击锚
-          enterSelectMode(); // 内部清锚 + 快照详情
-          if (prevAnchor) state.shiftAnchorCell = prevAnchor; // 恢复为 shift 范围起点
+          var prevAnchor = state.shiftAnchorCell; // 进入选择模式前的普通点击锚 // the normal-click anchor from before entering select mode
+          enterSelectMode(); // 内部清锚 + 快照详情 // clears the anchor + snapshots the detail internally
+          if (prevAnchor) state.shiftAnchorCell = prevAnchor; // 恢复为 shift 范围起点 // restore it as the shift range start
         }
         shiftSelect(cell);
         return;
       }
       if (state.selectMode) {
         toggleSelect(asset.id);
-        state.shiftAnchorCell = cell; // 选择模式普通点击 = 切换勾选 + 更新 shift 锚
+        state.shiftAnchorCell = cell; // 选择模式普通点击 = 切换勾选 + 更新 shift 锚 // a plain click in select mode = toggle the tick + update the shift anchor
       } else {
         openDetail(asset);
-        state.shiftAnchorCell = cell; // 普通点击更新 shift 锚（下次 shift 从这开始）
+        state.shiftAnchorCell = cell; // 普通点击更新 shift 锚（下次 shift 从这开始） // a plain click updates the shift anchor (the next shift starts here)
       }
     };
     cell.querySelector(".immich-cell-check").onclick = function (e) {
       e.stopPropagation();
       toggleSelect(asset.id);
     };
-    // 需求 2.5：缩略图右上角爱心，点击收藏（stopPropagation 防止触发 cell 打开详情）
+    // 需求 2.5：缩略图右上角爱心，点击收藏（stopPropagation 防止触发 cell 打开详情） // Requirement 2.5: heart in the top-right of the thumbnail, click to favorite (stopPropagation so it does not open the detail)
     cell.querySelector(".immich-cell-fav").onclick = function (e) {
       e.stopPropagation();
-      if (state.selectMode) return; // 选择模式下爱心不响应，专注勾选
+      if (state.selectMode) return; // 选择模式下爱心不响应，专注勾选 // the heart does nothing in select mode; focus on ticking
       var next = !asset.isFavorite;
       api("PUT", "/assets/" + encodeURIComponent(asset.id), { isFavorite: next }).then(function () {
         asset.isFavorite = next;
@@ -2007,7 +2007,7 @@
           heart.innerHTML = heartIcon(next);
           heart.title = next ? t("fav.title.remove") : t("fav.title.add");
         }
-        // 当前详情 pane 若正是该资产，同步按钮状态+颜色（用户 UI 一致性反馈）
+        // 当前详情 pane 若正是该资产，同步按钮状态+颜色（用户 UI 一致性反馈） // if the current detail pane is exactly this asset, sync the button state + colour (consistent UI feedback)
         if (state.currentAsset && state.currentAsset.id === asset.id) {
           var b = document.getElementById("immich-btn-fav");
           if (b) {
@@ -2015,7 +2015,7 @@
             b.classList.toggle("active", next);
           }
         }
-        // 仅显示收藏模式下取消收藏 → 从列表移除
+        // 仅显示收藏模式下取消收藏 → 从列表移除 // un-favoriting in favorites-only mode → remove it from the list
         if (state.favOnly && !next) refreshAll();
         showStatus(next ? t("status.fav.added") : t("status.fav.removed"), "ok");
       }).catch(function (err) {
@@ -2025,7 +2025,7 @@
     return cell;
   }
 
-  // 缩略图懒加载（size 跟随三挡：thumbnail / preview / original）
+  // 缩略图懒加载（size 跟随三挡：thumbnail / preview / original） // Thumbnail lazy loading (size follows the three levels: thumbnail / preview / original)
   function lazyLoad(grid) {
     var observer = new IntersectionObserver(function (entries) {
       entries.forEach(function (en) {
@@ -2041,14 +2041,14 @@
     grid.querySelectorAll("img[data-asset-id]").forEach(function (img) { observer.observe(img); });
   }
 
-  // ─────────────── 右侧固定详情（需求 11：不弹二级浮层） ───────────────
+  // ─────────────── 右侧固定详情（需求 11：不弹二级浮层） / Fixed detail pane on the right (requirement 11: no second-level overlay) ───────────────
 
   function openDetail(asset) {
     state.currentAsset = asset;
-    // 记忆详情状态：开着 + 选中资产 id（切换页面/重开面板后还原）
+    // 记忆详情状态：开着 + 选中资产 id（切换页面/重开面板后还原） // Remember the detail state: open + selected asset id (restored after switching pages / reopening the panel)
     sessionStorage.setItem(LS_DETAIL_OPEN, "1");
     sessionStorage.setItem(LS_DETAIL_ASSET, asset.id || "");
-    syncCellSelectedState(); // 时间轴该 cell 显示选中态黄框（需求 2026-08-16）
+    syncCellSelectedState(); // 时间轴该 cell 显示选中态黄框（需求 2026-08-16） // the timeline cell shows the selected yellow border (requirement 2026-08-16)
     var isVideo = isVideoAsset(asset);
     var pane = document.getElementById("immich-detail-pane");
     pane.style.display = "flex";
@@ -2082,7 +2082,7 @@
       "  </div>" +
       "</div>";
 
-    // 打开 Immich 网页里这张资产的详情（Immich 前端路由是 /photos/<id>）
+    // 打开 Immich 网页里这张资产的详情（Immich 前端路由是 /photos/<id>） // Open this asset's detail in the Immich web UI (Immich's frontend route is /photos/<id>)
     var openAssetBtn = document.getElementById("immich-btn-open-asset");
     if (openAssetBtn) {
       openAssetBtn.onclick = function () {
@@ -2091,7 +2091,7 @@
         });
       };
     }
-    // 下载原图：走带鉴权的 /assets/{id}/original，再用 blob 触发保存
+    // 下载原图：走带鉴权的 /assets/{id}/original，再用 blob 触发保存 // Download the original: hit the authenticated /assets/{id}/original, then trigger a save from the blob
     var impBtn = document.getElementById("immich-btn-import");
     if (impBtn) impBtn.onclick = function () { importAssetToCanvas(asset, impBtn); };
     var dlBtn = document.getElementById("immich-btn-download");
@@ -2119,26 +2119,26 @@
       };
     }
     document.getElementById("immich-btn-detail-close").onclick = userCloseDetail;
-    // 已收藏资产：详情收藏按钮加 active 高亮
+    // 已收藏资产：详情收藏按钮加 active 高亮 // Already-favorited assets: highlight the detail favorite button as active
     if (asset.isFavorite) {
       var favBtnEl = document.getElementById("immich-btn-fav");
       if (favBtnEl) favBtnEl.classList.add("active");
     }
-    // 需求 2.2/2.5：图片全屏预览按钮（右下角，播放器控制条样式）。
-    // 视频不显示（P2-4：视频原生 controls 自带全屏）
+    // 需求 2.2/2.5：图片全屏预览按钮（右下角，播放器控制条样式）。 // Requirements 2.2/2.5: image fullscreen button (bottom-right, player control-bar style).
+    // 视频不显示（P2-4：视频原生 controls 自带全屏） // not shown for videos (P2-4: native video controls already include fullscreen)
     var fsBtn = document.getElementById("immich-btn-detail-fullscreen");
     if (fsBtn) {
       fsBtn.onclick = function () {
         var el = document.getElementById("immich-detail-img");
         if (el) {
           if (document.fullscreenElement) document.exitFullscreen();
-          else el.requestFullscreen().catch(function () { /* 被浏览器拒绝（如 iframe 权限）时忽略 */ });
+          else el.requestFullscreen().catch(function () { /* 被浏览器拒绝（如 iframe 权限）时忽略 // ignore when the browser refuses (e.g. iframe permissions) */ });
         }
       };
     }
     if (isVideo) {
-      // 视频：fetch + blob（header 鉴权，token 不进 URL）→ 整读后播放，可拖动进度。
-      // AbortController：关闭详情时中止仍在下载的大视频，避免占用带宽/内存。
+      // 视频：fetch + blob（header 鉴权，token 不进 URL）→ 整读后播放，可拖动进度。 // Video: fetch + blob (header auth, token never in the URL) → play after a full read, so seeking works.
+      // AbortController：关闭详情时中止仍在下载的大视频，避免占用带宽/内存。 // AbortController: abort a still-downloading large video when the detail closes, saving bandwidth/memory.
       if (state.videoAbort) state.videoAbort.abort();
       state.videoAbort = new AbortController();
       var vid = document.getElementById("immich-detail-video");
@@ -2155,10 +2155,10 @@
           state.blobUrls.push(url);
           vid.src = url;
           vid.style.opacity = "1";
-          vid.play().catch(function () { /* 自动播放被浏览器拦截时用户手动点 */ });
+          vid.play().catch(function () { /* 自动播放被浏览器拦截时用户手动点 // if autoplay is blocked, the user clicks play manually */ });
         })
         .catch(function (e) {
-          // AbortError：用户主动关闭详情，不提示
+          // AbortError：用户主动关闭详情，不提示 // AbortError: the user closed the detail on purpose, no message
           if (e && e.name === "AbortError") return;
           var box = document.getElementById("immich-detail-img");
           if (box) box.innerHTML = '<div class="immich-empty">' + t("video.load.fail", { msg: esc(e.message === "AUTH_REQUIRED" ? t("error.token.needed") : e.message) }) + "</div>";
@@ -2167,26 +2167,26 @@
           if (state.videoAbort && state.videoAbort.signal.aborted) state.videoAbort = null;
         });
     } else {
-      // 大图走 fetch + blob（header 鉴权，token 不进 URL）
+      // 大图走 fetch + blob（header 鉴权，token 不进 URL） // Large images go through fetch + blob (header auth, token never in the URL)
       loadThumbInto(pane.querySelector("[data-detail-img]"), asset.id, "original");
     }
     document.getElementById("immich-btn-fav").onclick = function () {
       var next = !asset.isFavorite;
       api("PUT", "/assets/" + encodeURIComponent(asset.id), { isFavorite: next }).then(function () {
         asset.isFavorite = next;
-        // 详情按钮即时更新
+        // 详情按钮即时更新 // update the detail button immediately
         var b = document.getElementById("immich-btn-fav");
         if (b) {
           b.textContent = next ? t("detail.fav.remove") : t("detail.fav.add");
           b.classList.toggle("active", next);
         }
-        // 时间轴对应 cell 即时更新（爱心 + fav class）
+        // 时间轴对应 cell 即时更新（爱心 + fav class） // update the corresponding timeline cell immediately (heart + fav class)
         document.querySelectorAll('[data-cell-id="' + CSS.escape(asset.id) + '"]').forEach(function (c) {
           c.classList.toggle("fav", next);
           var heart = c.querySelector(".immich-cell-fav");
           if (heart) heart.innerHTML = heartIcon(next);
         });
-        // 仅显示收藏模式下取消收藏 → 该资产应从列表消失，刷新
+        // 仅显示收藏模式下取消收藏 → 该资产应从列表消失，刷新 // un-favoriting in favorites-only mode → the asset should disappear from the list, refresh
         if (state.favOnly && !next) refreshAll();
         showStatus(next ? t("status.fav.added") : t("status.fav.removed"), "ok");
       }).catch(function (e) {
@@ -2203,7 +2203,7 @@
       });
     };
     document.getElementById("immich-btn-del").onclick = function () {
-      // 同 bulkDelete：自定义确认弹窗（原生 confirm 的 Esc 冒泡会误关面板）
+      // 同 bulkDelete：自定义确认弹窗（原生 confirm 的 Esc 冒泡会误关面板） // same as bulkDelete: custom confirm dialog (native confirm's Esc bubbling closes the panel by mistake)
       confirmDialog(t("detail.delete.confirm"), t("detail.delete.btn")).then(function (confirmed) {
         if (!confirmed) return;
         api("DELETE", "/assets", { ids: [asset.id], force: false }).then(function () {
@@ -2217,8 +2217,8 @@
     };
   }
 
-  // 需求 2.1/2.3：详情 pane 打开面板/刷新时默认显示占位；
-  // 但用户点 ✕ 可真正关闭（隐藏 pane），不是"一直显示"（P2-3）。
+  // 需求 2.1/2.3：详情 pane 打开面板/刷新时默认显示占位； // Requirements 2.1/2.3: the detail pane shows the placeholder by default when the panel opens/refreshes;
+  // 但用户点 ✕ 可真正关闭（隐藏 pane），不是"一直显示"（P2-3）。 // but the user can really close it (hide the pane) with ✕, it is not "always visible" (P2-3).
   function showDetailPlaceholder() {
     var pane = document.getElementById("immich-detail-pane");
     if (!pane) return;
@@ -2226,7 +2226,7 @@
       state.videoAbort.abort();
       state.videoAbort = null;
     }
-    // 回收详情大图/视频 blob（时间轴缩略图由 renderTimeline 的 revokeBlobs 统一回收）
+    // 回收详情大图/视频 blob（时间轴缩略图由 renderTimeline 的 revokeBlobs 统一回收） // Release the detail's large image/video blob (timeline thumbnails are revoked together by renderTimeline's revokeBlobs)
     var img = pane.querySelector("[data-detail-img]");
     if (img && img.src && img.src.indexOf("blob:") === 0) URL.revokeObjectURL(img.src);
     var vid = pane.querySelector("#immich-detail-video");
@@ -2244,23 +2244,23 @@
       "</div>";
     document.getElementById("immich-btn-detail-close").onclick = userCloseDetail;
     state.currentAsset = null;
-    syncCellSelectedState(); // 占位（无选中资产）→ 取消时间轴选中态黄框（代码审查 P3 2026-08-16）
-    // 记忆详情状态：开着但未选中资产
+    syncCellSelectedState(); // 占位（无选中资产）→ 取消时间轴选中态黄框（代码审查 P3 2026-08-16） // placeholder (no selected asset) → clear the yellow selection border on the timeline (code review P3 2026-08-16)
+    // 记忆详情状态：开着但未选中资产 // Remember the detail state: open but no asset selected
     sessionStorage.setItem(LS_DETAIL_OPEN, "1");
     sessionStorage.removeItem(LS_DETAIL_ASSET);
   }
 
-  // 用户主动关闭详情（✕ 按钮）：真正隐藏 pane，并记忆"关闭"状态
+  // 用户主动关闭详情（✕ 按钮）：真正隐藏 pane，并记忆"关闭"状态 // The user closes the detail (✕ button): really hide the pane and remember "closed"
   function userCloseDetail() {
     closeDetail();
     sessionStorage.setItem(LS_DETAIL_OPEN, "0");
     sessionStorage.removeItem(LS_DETAIL_ASSET);
   }
 
-  // 还原详情状态（打开面板/切回时间线/刷新后）：
-  // 记忆为关闭 → 保持隐藏；记忆为开着且有选中资产 → 恢复资产详情（本期 assetsById
-  // 未命中时单查兜底，覆盖往期/溢出资产，P1 代码审查 2026-08-16）；
-  // 其他（开着但无/找不到资产，或首次无记忆）→ 显示占位（默认开启）
+  // 还原详情状态（打开面板/切回时间线/刷新后）： // Restore the detail state (after opening the panel / switching back to the timeline / refreshing):
+  // 记忆为关闭 → 保持隐藏；记忆为开着且有选中资产 → 恢复资产详情（本期 assetsById // remembered as closed → stay hidden; remembered as open with a selected asset → restore that asset (this period's assetsById
+  // 未命中时单查兜底，覆盖往期/溢出资产，P1 代码审查 2026-08-16）； // when assetsById misses, covering past/overflow assets, P1 code review 2026-08-16);
+  // 其他（开着但无/找不到资产，或首次无记忆）→ 显示占位（默认开启） // otherwise (open but no/found no asset, or no memory yet) → show the placeholder (on by default)
   function restoreDetailState() {
     var pane = document.getElementById("immich-detail-pane");
     if (!pane) return;
@@ -2278,10 +2278,10 @@
       showDetailPlaceholder();
       return;
     }
-    // 本期未渲染（往期折叠/溢出月份）：单资产端点兜底查询
+    // 本期未渲染（往期折叠/溢出月份）：单资产端点兜底查询 // not rendered in the current period (past/overflow month): fall back to the single-asset endpoint
     var token = viewToken;
     api("GET", "/assets/" + encodeURIComponent(id)).then(function (a) {
-      if (token !== viewToken) return; // 视图已切走，放弃
+      if (token !== viewToken) return; // 视图已切走，放弃 // the view already switched, give up
       if (a && a.id) {
         state.assetsById[a.id] = a;
         openDetail(a);
@@ -2290,14 +2290,14 @@
       }
     }).catch(function () {
       if (token !== viewToken) return;
-      showDetailPlaceholder(); // 资产已删除/不存在 → 占位
+      showDetailPlaceholder(); // 资产已删除/不存在 → 占位 // asset deleted/missing → placeholder
     });
   }
 
-  // ─────────────── 时间轴状态记忆（用户需求 2026-08-16） ───────────────
-  // 滚动位置 + 往期月份展开/折叠态，sessionStorage 持久化，重开面板/切页还原
+  // ─────────────── 时间轴状态记忆（用户需求 2026-08-16） / Timeline state memory (user request 2026-08-16) ───────────────
+  // 滚动位置 + 往期月份展开/折叠态，sessionStorage 持久化，重开面板/切页还原 // scroll position + past-month expanded/collapsed state, persisted in sessionStorage, restored on reopen/page switch
 
-  // 月份统一展开 key：tb "2026-08-01" / "2026-8-01" → "2026-8"（无前导零，10-12 月原样）
+  // 月份统一展开 key：tb "2026-08-01" / "2026-8-01" → "2026-8"（无前导零，10-12 月原样） // unified month expand key: tb "2026-08-01" / "2026-8-01" → "2026-8" (no leading zero, Oct-Dec kept as-is)
   function monthExpandKey(tbOrMk) {
     var m = String(tbOrMk || "").match(/^(\d{4})-0?(\d{1,2})/);
     return m ? m[1] + "-" + (+m[2]) : "";
@@ -2323,7 +2323,7 @@
     saveExpandedMonths(list);
   }
 
-  // 保存时间轴滚动位置（防抖：滚动停止 300ms 后落盘）
+  // 保存时间轴滚动位置（防抖：滚动停止 300ms 后落盘） // Save the timeline scroll position (debounced: written 300ms after scrolling stops)
   var _scrollTimer = null;
   function scheduleSaveTimelineScroll() {
     if (_scrollTimer) clearTimeout(_scrollTimer);
@@ -2333,7 +2333,7 @@
     }, 300);
   }
 
-  // 还原时间轴滚动位置（renderTimeline 数据加载完后调用；展开态在月份渲染处各自还原）
+  // 还原时间轴滚动位置（renderTimeline 数据加载完后调用；展开态在月份渲染处各自还原） // Restore the timeline scroll position (called after renderTimeline finishes loading; expanded state is restored where each month renders)
   function restoreTimelineState() {
     var tl = document.getElementById("immich-timeline");
     if (!tl) return;
@@ -2341,7 +2341,7 @@
     if (!isNaN(saved) && saved > 0) tl.scrollTop = saved;
   }
 
-  // 用户主动关闭详情（✕ 按钮）：真正隐藏 pane
+  // 用户主动关闭详情（✕ 按钮）：真正隐藏 pane // The user closes the detail (✕ button): really hide the pane
   function closeDetail() {
     var pane = document.getElementById("immich-detail-pane");
     if (pane) {
@@ -2360,10 +2360,10 @@
       pane.innerHTML = "";
     }
     state.currentAsset = null;
-    syncCellSelectedState(); // 关闭详情 → 取消时间轴该 cell 的选中态黄框
+    syncCellSelectedState(); // 关闭详情 → 取消时间轴该 cell 的选中态黄框 // closing the detail → clear the yellow selection border on that timeline cell
   }
 
-  // 刷新时间轴（重新拉桶列表 + 重置已加载）
+  // 刷新时间轴（重新拉桶列表 + 重置已加载） // Refresh the timeline (re-fetch the bucket list + reset what is loaded)
   function refreshAll() {
     state.buckets = [];
     closeDetail();
@@ -2372,25 +2372,25 @@
     renderTimeline();
   }
 
-  // ─────────────── 配置视图 ───────────────
+  // ─────────────── 配置视图 / Config view ───────────────
 
   function renderConfig() {
-    var token = ++viewToken; // 使进行中的 renderTimeline 旧链失效
+    var token = ++viewToken; // 使进行中的 renderTimeline 旧链失效 // invalidate the in-flight renderTimeline chain
     setViewMode("config");
     clearStatus();
     revokeBlobs();
     closeDetail();
-    exitSelectMode(); // v0.6：进配置页退出选择模式
+    exitSelectMode(); // v0.6：进配置页退出选择模式 // v0.6: leave select mode when entering the config page
     var body = document.getElementById("immich-timeline");
     body.innerHTML = '<div class="immich-loading">' + t("loading.config") + "</div>";
 
     api("GET", "/config").then(function (cfg) {
       if (token !== viewToken) return;
       state.config = cfg;
-      var pm = cfg.proxy_mode || "off"; // 代理模式（off/custom/env）
+      var pm = cfg.proxy_mode || "off"; // 代理模式（off/custom/env） // proxy mode (off/custom/env)
       body.innerHTML =
         '<div class="immich-config-grid">' +
-        // 🔗 连接配置
+        // 🔗 连接配置 // 🔗 Connection settings
         '  <div class="immich-group" style="grid-column:1/-1">' +
         '    <h3 class="immich-group-title">' + t("cfg.group.connection") + "</h3>" +
         '    <div class="immich-field">' +
@@ -2409,7 +2409,7 @@
         '      <input id="cfg-album" value="' + esc(cfg.default_album || "") + '" placeholder="' + t("cfg.album.placeholder") + '">' +
         "    </div>" +
         "  </div>" +
-        // 🌐 网络代理
+        // 🌐 网络代理 // 🌐 Network proxy
         '  <div class="immich-group" style="grid-column:1/-1">' +
         '    <h3 class="immich-group-title">' + t("cfg.group.network") + "</h3>" +
         '    <div class="immich-field">' +
@@ -2428,7 +2428,7 @@
         '      <input id="cfg-proxy-url" value="' + esc(cfg.proxy_url || "") + '" placeholder="http://127.0.0.1:7897">' +
         "    </div>" +
         "  </div>" +
-        // 📦 时间线配置
+        // 📦 时间线配置 // 📦 Timeline settings
         '  <div class="immich-group" style="grid-column:1/-1">' +
         '    <h3 class="immich-group-title">' + t("cfg.group.assets") + "</h3>" +
         '    <div class="immich-field">' +
@@ -2451,7 +2451,7 @@
         "      </select>" +
         "    </div>" +
         "  </div>" +
-        // 🔒 安全
+        // 🔒 安全 // 🔒 Security
         '  <div class="immich-group" style="grid-column:1/-1">' +
         '    <h3 class="immich-group-title">' + t("cfg.group.security") + "</h3>" +
         '    <div class="immich-field">' +
@@ -2461,7 +2461,7 @@
         '      <div class="immich-panel-token-row" id="cfg-panel-token-row"></div>' +
         "    </div>" +
         "  </div>" +
-        // ⚙️ 其他
+        // ⚙️ 其他 // ⚙️ Other
         '  <div class="immich-group" style="grid-column:1/-1">' +
         '    <h3 class="immich-group-title">' + t("cfg.group.other") + "</h3>" +
         '    <div class="immich-field">' +
@@ -2478,14 +2478,14 @@
         "  </div>" +
         "</div>";
 
-      // 语言切换：移除 overlay 重建整个面板（header/时间轴/配置页全部刷新文案）
+      // 语言切换：移除 overlay 重建整个面板（header/时间轴/设置相关文案全部刷新） // Language switch: remove the overlay and rebuild the whole panel (header/timeline/settings texts all refresh)
       var langSel = document.getElementById("cfg-lang");
       if (langSel) {
         langSel.onchange = function () {
-          // 有未保存的表单草稿时先确认（切语言会重建面板、丢弃草稿）
+          // 有未保存的表单草稿时先确认（切语言会重建面板、丢弃草稿） // confirm first if there are unsaved form drafts (a language switch rebuilds the panel and drops the draft)
           var apply = function () {
             setLang(langSel.value);
-            applyNodeLang(); // 节点悬停文本跟随新语言
+            applyNodeLang(); // 节点悬停文本跟随新语言 // node hover text follows the new language
             var old = document.getElementById("immich-panel-overlay");
             if (old) old.remove();
             openPanel();
@@ -2494,7 +2494,7 @@
             confirmDialog(t("lang.switch.confirm"), t("confirm.ok")).then(function (ok) {
               if (ok) apply();
               else {
-                // 取消：把下拉恢复为当前语言设置（含 auto）
+                // 取消：把下拉恢复为当前语言设置（含 auto） // cancel: restore the dropdown to the current language setting (including auto)
                 langSel.value = I18N.getLangSetting();
               }
             });
@@ -2503,15 +2503,15 @@
           }
         };
       }
-      // 默认相册：连接成功后可下拉选择 Immich 相册
+      // 默认相册：连接成功后可下拉选择 Immich 相册 // Default album: a dropdown of Immich albums once the connection succeeds
       fillAlbumSelect(cfg.default_album || "");
-      // 🔒 安全分组：面板令牌状态区（生成/显示/重新生成/清除）
+      // 🔒 安全分组：面板令牌状态区（生成/显示/重新生成/清除） // 🔒 Security group: panel token status area (generate/show/regenerate/clear)
       renderPanelTokenRow();
     }).catch(function (e) {
-      // 视图已切走：放弃，不覆盖当前视图
+      // 视图已切走：放弃，不覆盖当前视图 // the view already switched: give up rather than overwrite the current view
       if (token !== viewToken) return;
       if (e.message === "AUTH_REQUIRED") {
-        // 401 时仍允许打开配置页（但要带 token 才能保存）
+        // 401 时仍允许打开设置对话框（但要带 token 才能保存） // on 401 the settings dialog can still be opened (but a token is needed to save)
         body.innerHTML = '<div class="immich-empty">' + t("error.auth") + "</div>" +
           '<div class="immich-empty-sub">' + t("error.auth.hint") + "</div>" +
           '<div class="immich-config-grid">' +
@@ -2533,11 +2533,11 @@
           if (!v) { showStatus(t("cfg.token.empty"), "err"); return; }
           token = v;
           if (document.getElementById("immich-remember-token").checked) {
-            // 勾选记住 → 持久化 localStorage；同时清掉 sessionStorage 副本避免双份
+            // 勾选记住 → 持久化 localStorage；同时清掉 sessionStorage 副本避免双份 // ticked remember → persist to localStorage; also clear the sessionStorage copy to avoid two copies
             localStorage.setItem(LS_TOKEN, v);
             sessionStorage.removeItem(LS_TOKEN);
           } else {
-            // 默认会话级 → sessionStorage；若之前记住过则撤销持久化
+            // 默认会话级 → sessionStorage；若之前记住过则撤销持久化 // default session-scoped → sessionStorage; undo persistence if it was remembered before
             sessionStorage.setItem(LS_TOKEN, v);
             localStorage.removeItem(LS_TOKEN);
           }
@@ -2549,22 +2549,22 @@
     });
   }
 
-  // 表单是否有未保存的更改（用于测试连接前拦截）
+  // 表单是否有未保存的更改（用于测试连接前拦截） // Whether the form has unsaved changes (used to block before testing the connection)
   function hasUnsavedChanges() {
     var cfg = state.config || {};
     if (val("cfg-base-url") !== (cfg.base_url || "")) return true;
     if (val("cfg-album") !== (cfg.default_album || "")) return true;
     if (val("cfg-range") !== (cfg.timeline_range || "today")) return true;
     if (val("cfg-interval") !== (cfg.timeline_interval || "1h")) return true;
-    // 代理：模式 + 地址（地址框在所有模式下都可编辑，清空即"清除已存地址"）
+    // 代理：模式 + 地址（地址框在所有模式下都可编辑，清空即"清除已存地址"） // Proxy: mode + address (the address field is editable in every mode; clearing it means "clear the stored address")
     if (val("cfg-proxy-mode") !== (cfg.proxy_mode || "off")) return true;
     if (val("cfg-proxy-url").trim() !== (cfg.proxy_url || "")) return true;
-    // API Key 不回显明文，填了就算未保存；面板令牌走按钮即时生效（不算草稿）
+    // API Key 不回显明文，填了就算未保存；面板令牌走按钮即时生效（不算草稿） // API Key is not echoed in plain text; filling it counts as unsaved; the panel token takes effect via buttons (not counted as a draft)
     if (val("cfg-api-key")) return true;
     return false;
   }
 
-  // 默认相册：连接成功后替换为 Immich 相册下拉
+  // 默认相册：连接成功后替换为 Immich 相册下拉 // Default album: replaced by an Immich album dropdown once the connection succeeds
   function fillAlbumSelect(current) {
     api("GET", "/albums").then(function (albums) {
       if (!Array.isArray(albums)) return;
@@ -2584,14 +2584,14 @@
       sel.id = "cfg-album";
       sel.innerHTML = opts;
       wrap.replaceWith(sel);
-      // 说明保持用途文案不变（"这会决定节点将图片或视频保存到Immich的哪个相册里"）
+      // 说明保持用途文案不变（"这会决定节点将图片或视频保存到Immich的哪个相册里"） // keep the explanatory copy unchanged ("this decides which Immich album the node saves images or videos to")
     }).catch(function () {
-      // 连接未配置/失败：保持手输，不改动
+      // 连接未配置/失败：保持手输，不改动 // connection not configured/failed: keep manual input, do not change
     });
   }
 
   function testConnection() {
-    // 未保存的更改不允许测试：避免用旧配置测试新填写的地址
+    // 未保存的更改不允许测试：避免用旧配置测试新填写的地址 // no testing with unsaved changes: avoids testing a newly typed address against the old config
     if (hasUnsavedChanges()) {
       showStatus(t("cfg.test.unsaved"), "warn");
       return;
@@ -2604,8 +2604,8 @@
         var v = d.version ? " v" + d.version.major + "." + d.version.minor + "." + d.version.patch : "";
         showStatus(t("cfg.test.ok", { v: v, b: d.buckets_count || 0, n: d.assets_count || 0 }), "ok");
       } else {
-        // 按后端 stage 给具体提示：connect=地址不可达 / auth=API Key 无效
-        // connect 且带了 proxy_url（自定义代理）时，明确点出"经代理"，便于排查代理没启动
+        // 按后端 stage 给具体提示：connect=地址不可达 / auth=API Key 无效 // specific hints by backend stage: connect = address unreachable / auth = invalid API Key
+        // connect 且带了 proxy_url（自定义代理）时，明确点出"经代理"，便于排查代理没启动 // when connect fails with a proxy_url (custom proxy), say "via proxy" explicitly to help spot a proxy that is not running
         var key = d.stage === "connect" ? "cfg.test.fail.connect" : (d.stage === "auth" ? "cfg.test.fail.auth" : "cfg.test.fail");
         var params = { msg: d.error || "" };
         if (d.stage === "connect" && d.proxy_url) {
@@ -2629,8 +2629,8 @@
       timeline_range: val("cfg-range"),
       timeline_interval: val("cfg-interval"),
     };
-    // 🌐 网络代理：custom 必须带地址；地址留空 = 清除已存地址（后端语义，
-    // off/env 下清空输入框保存即清除休眠值——修代码审查发现的 P2-1 的"清不掉"死结）
+    // 🌐 网络代理：custom 必须带地址；地址留空 = 清除已存地址（后端语义， // 🌐 Network proxy: custom must have an address; an empty address = clear the stored address (backend semantics,
+    // off/env 下清空输入框保存即清除休眠值——修代码审查发现的 P2-1 的"清不掉"死结） // and clearing the field under off/env and saving clears the dormant value — fixing the P2-1 "cannot clear" deadlock found in code review)
     var proxyMode = val("cfg-proxy-mode") || "off";
     var proxyUrl = val("cfg-proxy-url").trim();
     if (proxyMode === "custom" && !proxyUrl) {
@@ -2646,18 +2646,18 @@
     btn.disabled = true;
     api("PUT", "/config", payload).then(function (cfg) {
       state.config = cfg;
-      // 连接配置好后后端自动生成了面板令牌（仅本次响应下发明文）。
-      // 不弹窗打扰：只给系统提醒，令牌可在配置页 🔒 安全分组「显示」查看
+      // 连接配置好后后端自动生成了面板令牌（仅本次响应下发明文）。 // Once the connection is set up the backend auto-generates a panel token (plaintext only in this response).
+      // 不弹窗打扰：只给系统提醒，令牌可在设置对话框 🔒 安全分组「检查状态」查看 // no dialog interruption: only a system notice; the token is viewable in the settings dialog's 🔒 security group under "Check status"
       if (cfg.panel_token_plain) {
         adoptToken(cfg.panel_token_plain);
         showStatus(t("cfg.panel_token.auto_generated"), "ok");
         renderPanelTokenRow();
       }
       showStatus(t("cfg.save.ok"), "ok");
-      // 清空密钥输入框：避免残留值被 hasUnsavedChanges 误判为未保存
+      // 清空密钥输入框：避免残留值被 hasUnsavedChanges 误判为未保存 // Clear the secret input: avoids leftover values making hasUnsavedChanges report unsaved changes
       var akEl = document.getElementById("cfg-api-key");
       if (akEl) akEl.value = "";
-      // 不跳转：留在配置页，用户可接着点「测试连接」验证
+      // 不跳转：留在设置对话框，用户可接着点「测试连接」验证 // no redirect: stay in the settings dialog so the user can hit "Test connection" next
     }).catch(function (e) {
       showStatus(t("cfg.save.fail", { msg: e.message }), "err");
     }).finally(function () {
@@ -2665,8 +2665,8 @@
     });
   }
 
-  // 🗑 清空配置：恢复出厂默认（清空 Immich 地址/API Key/面板令牌），带二次确认。
-  // 清空 panel_token 后回到本机信任模式；前端同时清掉本地 sessionStorage 令牌。
+  // 🗑 清空配置：恢复出厂默认（清空 Immich 地址/API Key/面板令牌），带二次确认。 // 🗑 Clear config: restore factory defaults (clears the Immich URL/API Key/panel token), with a second confirmation.
+  // 清空 panel_token 后回到本机信任模式；前端同时清掉本地 sessionStorage 令牌。 // clearing panel_token returns to local trust mode; the frontend also clears the local sessionStorage token.
   function resetConfig() {
     confirmDialog(t("cfg.reset.confirm"), t("cfg.reset.confirm_btn"), "danger-outline").then(function (ok) {
       if (!ok) return;
@@ -2676,14 +2676,14 @@
         sessionStorage.removeItem(LS_TOKEN);
         localStorage.removeItem(LS_TOKEN);
         showStatus(t("cfg.reset.done"), "ok");
-        renderConfig(); // 重新拉取默认配置并渲染表单
+        renderConfig(); // 重新拉取默认配置并渲染表单 // re-fetch the default config and re-render the form
       }).catch(function (e) {
         showStatus(t("cfg.save.fail", { msg: e.message }), "err");
       });
     });
   }
 
-  // 🔒 面板令牌状态区：按是否已配置渲染按钮组
+  // 🔒 面板令牌状态区：按是否已配置渲染按钮组 // 🔒 Panel token status area: render the button group depending on whether it is configured
   function renderPanelTokenRow() {
     var row = document.getElementById("cfg-panel-token-row");
     if (!row) return;
@@ -2736,9 +2736,9 @@
     };
   }
 
-  // 采纳新令牌：更新内存 token + sessionStorage（保证当前会话继续可用）。
-  // 若之前勾选过「记住令牌到本机」（localStorage 有值），同步更新为新令牌，
-  // 保持持久化选择连续有效（否则下次会话会读到已作废的旧令牌）。
+  // 采纳新令牌：更新内存 token + sessionStorage（保证当前会话继续可用）。 // Adopt the new token: update the in-memory token + sessionStorage (so the current session keeps working).
+  // 若之前勾选过「记住令牌到本机」（localStorage 有值），同步更新为新令牌， // if "Remember token on this machine" was ticked (localStorage has a value), update it to the new token too,
+  // 保持持久化选择连续有效（否则下次会话会读到已作废的旧令牌）。 // keeping the persistence choice valid (otherwise the next session reads a revoked old token).
   function adoptToken(tok) {
     token = tok;
     sessionStorage.setItem(LS_TOKEN, tok);
@@ -2747,7 +2747,7 @@
     }
   }
 
-  // 阅后即焚：弹窗展示令牌明文，关闭即销毁，不落任何存储
+  // 阅后即焚：弹窗展示令牌明文，关闭即销毁，不落任何存储 // Burn after reading: show the token in plaintext in a dialog, destroyed on close, never written to any storage
   function showTokenOnce(title, tok) {
     var overlay = document.createElement("div");
     overlay.className = "immich-confirm-overlay";
@@ -2770,13 +2770,13 @@
     }
     overlay.querySelector('[data-act="close"]').onclick = close;
     overlay.addEventListener("click", function (e) {
-      if (e.target === overlay) close(); // 点遮罩 = 关闭即焚
+      if (e.target === overlay) close(); // 点遮罩 = 关闭即焚 // click on the mask = close and destroy
     });
     state._confirming = true;
     document.body.appendChild(overlay);
   }
 
-  // 复制文本：优先 Clipboard API（安全上下文），http 局域网回退 execCommand
+  // 复制文本：优先 Clipboard API（安全上下文），http 局域网回退 execCommand // Copy text: prefer the Clipboard API (secure context), fall back to execCommand for plain-http LAN
   function copyText(text) {
     if (navigator.clipboard && window.isSecureContext) {
       return navigator.clipboard.writeText(text);
@@ -2797,24 +2797,24 @@
     return el ? el.value : "";
   }
 
-  // ─────────────── 节点 DESCRIPTION 语言跟随（用户 2026-08-16）───────────────
-  // 节点悬停文本跟随面板语言设置（localStorage "immich_lang"：auto/zh/en），
-  // 而不是 ComfyUI 自身的 Locale。
+  // ─────────────── 节点 DESCRIPTION 语言跟随（用户 2026-08-16） / Node DESCRIPTION language following (user 2026-08-16) ───────────────
+  // 节点悬停文本跟随面板语言设置（localStorage "immich_lang"：auto/zh/en）， // Node hover text follows the panel language setting (localStorage "immich_lang": auto/zh/en),
+  // 而不是 ComfyUI 自身的 Locale。 // not ComfyUI's own Locale.
   //
-  // ⚠️ HACK 标注（代码审查 2026-08-16 复审）：ComfyUI 0.30 Vue 前端 tooltip 显示
-  // 来源是 Pinia nodeDefStore 的 nodeDefsByName[type].description（GraphView
-  // onIdle: showTooltip(def?.description)），不再读 LiteGraph 类/节点实例。
-  // 当前无公开 API 可改 store（IIFE 的 window.app compat 层不暴露 nodeDefs），
-  // 只能经 Vue 3 / pinia 内部结构（__vue_app__ / _context.provides /
-  // piniaSymbol / pinia._s）访问：
-  //   1. 根 DOM #vue-app 的 __vue_app__ → Vue app 实例（Vue 3 mount 标准行为）；
-  //   2. app._context.provides 里找 pinia（pinia 用 Symbol('pinia') 作 provide
-  //      key，for...in 枚举不到，须加 Object.getOwnPropertySymbols 遍历）；
-  //   3. pinia._s（Map）按 id 'nodeDef' 找 store，改 nodeDefsByName[type].description。
-  //   长期解：官方暴露 useNodeDefStore()/公开 API 后，评估 TS extension 打包
-  //   替代本 hack（当前 IIFE window.app compat 层不暴露 nodeDefs）。
-  // 【升级回归检查项】Vue / pinia / ComfyUI 前端升级后，需回归验证节点悬停
-  // 文本是否仍跟随面板语言（失败会静默降级为后端默认中文，见 console.warn）。
+  // ⚠️ HACK 标注（代码审查 2026-08-16 复审）：ComfyUI 0.30 Vue 前端 tooltip 显示 // ⚠️ HACK note (code review 2026-08-16 recheck): in the ComfyUI 0.30 Vue frontend the tooltip
+  // 来源是 Pinia nodeDefStore 的 nodeDefsByName[type].description（GraphView // source is Pinia nodeDefStore's nodeDefsByName[type].description (GraphView
+  // onIdle: showTooltip(def?.description)），不再读 LiteGraph 类/节点实例。 // onIdle: showTooltip(def?.description)); it no longer reads the LiteGraph class/node instance.
+  // 当前无公开 API 可改 store（IIFE 的 window.app compat 层不暴露 nodeDefs）， // there is currently no public API to modify the store (the IIFE's window.app compat layer does not expose nodeDefs),
+  // 只能经 Vue 3 / pinia 内部结构（__vue_app__ / _context.provides / // so it can only be reached through Vue 3 / pinia internals (__vue_app__ / _context.provides /
+  // piniaSymbol / pinia._s）访问： // piniaSymbol / pinia._s):
+  //   1. 根 DOM #vue-app 的 __vue_app__ → Vue app 实例（Vue 3 mount 标准行为）； // 1. the root DOM #vue-app's __vue_app__ → the Vue app instance (standard Vue 3 mount behaviour);
+  //   2. app._context.provides 里找 pinia（pinia 用 Symbol('pinia') 作 provide // 2. find pinia in app._context.provides (pinia uses Symbol('pinia') as the provide
+  //      key，for...in 枚举不到，须加 Object.getOwnPropertySymbols 遍历）； // key, which for...in cannot enumerate, so iterate with Object.getOwnPropertySymbols);
+  //   3. pinia._s（Map）按 id 'nodeDef' 找 store，改 nodeDefsByName[type].description。 // 3. pinia._s (a Map) by id 'nodeDef' finds the store; change nodeDefsByName[type].description.
+  //   长期解：官方暴露 useNodeDefStore()/公开 API 后，评估 TS extension 打包 // long-term fix: once the official useNodeDefStore()/public API is exposed, consider a TS extension bundle
+  //   替代本 hack（当前 IIFE window.app compat 层不暴露 nodeDefs）。 // instead of this hack (currently the IIFE window.app compat layer does not expose nodeDefs).
+  // 【升级回归检查项】Vue / pinia / ComfyUI 前端升级后，需回归验证节点悬停 // [upgrade regression checklist] after upgrading Vue / pinia / the ComfyUI frontend, re-verify that node hover
+  // 文本是否仍跟随面板语言（失败会静默降级为后端默认中文，见 console.warn）。 // text still follows the panel language (on failure it degrades silently to the backend's Chinese default, see console.warn).
   var NODE_DESC_KEYS = {
     "ImmichSaveImage": "node.desc.image",
     "ImmichSaveVideo": "node.desc.video",
@@ -2822,7 +2822,7 @@
 
   function getNodeDefsMap() {
     try {
-      var rootEl = document.getElementById("vue-app")   // ComfyUI 0.30 Vue 挂载点
+      var rootEl = document.getElementById("vue-app")   // ComfyUI 0.30 Vue 挂载点 // ComfyUI 0.30 Vue mount point
         || document.getElementById("app")
         || document.getElementById("graph-canvas-container")
         || document.querySelector(".app");
@@ -2830,8 +2830,8 @@
       if (!vueApp) return null;
       var provides = vueApp._context && vueApp._context.provides;
       if (!provides) return null;
-      // pinia 以 Symbol 作为 provide key（pinia 源码 piniaSymbol），
-      // for...in 枚举不到 Symbol 属性，必须用 Object.getOwnPropertySymbols
+      // pinia 以 Symbol 作为 provide key（pinia 源码 piniaSymbol）， // pinia uses a Symbol as the provide key (piniaSymbol in pinia's source),
+      // for...in 枚举不到 Symbol 属性，必须用 Object.getOwnPropertySymbols // and for...in cannot enumerate Symbol properties, so Object.getOwnPropertySymbols is required
       var pinia = null;
       for (var k in provides) {
         var v = provides[k];
@@ -2846,9 +2846,9 @@
       }
       if (!pinia) return null;
       var stores = pinia._s;
-      var s = stores.get("nodeDef");           // 精确匹配优先（nodeDefStore.ts:326）
+      var s = stores.get("nodeDef");           // 精确匹配优先（nodeDefStore.ts:326） // exact match first (nodeDefStore.ts:326)
       if (!s || !s.nodeDefsByName) {
-        for (var id of stores.keys()) {        // 兜底：兼容未来改名
+        for (var id of stores.keys()) {        // 兜底：兼容未来改名 // fallback: tolerate a future rename
           if (/^nodeDefs?$/i.test(id)) {
             s = stores.get(id);
             if (s && s.nodeDefsByName) break;
@@ -2857,8 +2857,8 @@
       }
       return s && s.nodeDefsByName ? s.nodeDefsByName : null;
     } catch (e) {
-      // 前端/pinia 升级后此处可能静默失败 → tooltip 语言跟随失效（降级为后端
-      // 默认中文）。必须 warn 便于排查，且不要被误认为 LiteGraph 兜底有效。
+      // 前端/pinia 升级后此处可能静默失败 → tooltip 语言跟随失效（降级为后端 // After a frontend/pinia upgrade this can fail silently → tooltip language following stops working (degrades to the backend's
+      // 默认中文）。必须 warn 便于排查，且不要被误认为 LiteGraph 兜底有效。 // Chinese default). Must warn so it can be diagnosed, and must not be mistaken for a working LiteGraph fallback.
       if (typeof console !== "undefined" && console.warn) {
         console.warn("[ComfyUI-ImmichManager] nodeDefStore 访问失败，节点悬停文本将不跟随面板语言：", e && e.message);
       }
@@ -2871,7 +2871,7 @@
     Object.keys(NODE_DESC_KEYS).forEach(function (type) {
       txt[type] = t(NODE_DESC_KEYS[type]);
     });
-    // 1) Pinia nodeDef store：ComfyUI 0.30 tooltip 的实际数据源
+    // 1) Pinia nodeDef store：ComfyUI 0.30 tooltip 的实际数据源 // 1) Pinia nodeDef store: the actual data source of ComfyUI 0.30 tooltips
     var defs = getNodeDefsMap();
     if (defs) {
       Object.keys(txt).forEach(function (type) {
@@ -2879,15 +2879,15 @@
         if (def && typeof def === "object") def.description = txt[type];
       });
     }
-    // 2) LiteGraph 注册类：仅兼容老前端渲染/新拖出节点的默认描述
-    //    （新前端 0.30 tooltip 不读它，主路径是上面的 nodeDef store）
+    // 2) LiteGraph 注册类：仅兼容老前端渲染/新拖出节点的默认描述 // 2) LiteGraph registered classes: only for the old frontend rendering / default description of newly dragged nodes
+    //    （新前端 0.30 tooltip 不读它，主路径是上面的 nodeDef store） // (the new 0.30 frontend tooltip does not read it; the main path is the nodeDef store above)
     if (window.LiteGraph && LiteGraph.registered_node_types) {
       Object.keys(txt).forEach(function (type) {
         var nt = LiteGraph.registered_node_types[type];
         if (nt) nt.DESCRIPTION = txt[type];
       });
     }
-    // 3) 已存在节点实例：仅兼容老前端 tooltip 兜底（新前端读全局 store 不读实例）
+    // 3) 已存在节点实例：仅兼容老前端 tooltip 兜底（新前端读全局 store 不读实例） // 3) existing node instances: only survives as the old-frontend tooltip fallback (the new frontend reads the global store, not instances)
     var g = window.app && app.graph;
     if (g && g._nodes) {
       g._nodes.forEach(function (n) {
@@ -2896,26 +2896,26 @@
     }
   }
 
-  // ─────────────── 左侧栏入口 ───────────────
+  // ─────────────── 左侧栏入口 / Left sidebar entry ───────────────
   //
-  // ComfyUI 0.4x 的左侧图标栏（.side-toolbar-container）由 Vue 渲染，tab 必须是
-  // {type:"vue", component}，而前端没有把 Vue 暴露到 window，用户脚本造不出组件。
-  // （registerSidebarTab({type:"custom"}) 不报错但不渲染 —— 试过了。）
+  // ComfyUI 0.4x 的左侧图标栏（.side-toolbar-container）由 Vue 渲染，tab 必须是 // ComfyUI 0.4x's left icon rail (.side-toolbar-container) is rendered by Vue, and a tab must be
+  // {type:"vue", component}，而前端没有把 Vue 暴露到 window，用户脚本造不出组件。 // {type:"vue", component}, while the frontend does not expose Vue on window, so user scripts cannot build a component.
+  // （registerSidebarTab({type:"custom"}) 不报错但不渲染 —— 试过了。） // (registerSidebarTab({type:"custom"}) reports no error but renders nothing — tried it.)
   //
-  // 所以这里克隆官方 rail item 的 DOM：样式/结构/交互全部继承，只在它后面插一个
-  // 同款按钮。代价是 ComfyUI 改版会坏，收益是视觉上与原生一致。
-  // 入口方式：sidebar（左侧栏，默认）| toolbar（旧的顶部按钮）
+  // 所以这里克隆官方 rail item 的 DOM：样式/结构/交互全部继承，只在它后面插一个 // So we clone the official rail item's DOM here: styles/structure/interaction are all inherited, we only insert a
+  // 同款按钮。代价是 ComfyUI 改版会坏，收益是视觉上与原生一致。 // matching button after it. The cost is that a ComfyUI redesign breaks it, the benefit is a native look.
+  // 入口方式：sidebar（左侧栏，默认）| toolbar（旧的顶部按钮） // Entry mode: sidebar (left rail, default) | toolbar (the old top button)
   var ENTRY_MODE_DEFAULT = "sidebar";
 
   function currentEntryMode() {
     try {
       var v = window.localStorage.getItem("immich_entry_mode");
       if (v === "sidebar" || v === "toolbar") return v;
-    } catch (e) { /* localStorage 可能禁用 */ }
+    } catch (e) { /* localStorage 可能禁用 // localStorage may be disabled */ }
     return ENTRY_MODE_DEFAULT;
   }
 
-  // rail 按钮的可见标签不是文本节点，只有 aria-label —— 必须按 aria 找。
+  // rail 按钮的可见标签不是文本节点，只有 aria-label —— 必须按 aria 找。 // The rail button's visible label is not a text node, only aria-label — so it must be found by aria.
   var RAIL_LABELS = ["模板", "Templates", "テンプレート", "资产", "Assets", "アセット"];
   var _railObserver = null;
 
@@ -2923,8 +2923,8 @@
     return document.querySelector(".side-toolbar-container");
   }
 
-  // 插入锚点：优先放在「资产」上面。rail 按钮的可见标签只在 aria-label 里
-  // （textContent 为空），而且带快捷键提示，如 "资产（a）"，所以用前缀匹配。
+  // 插入锚点：优先放在「资产」上面。rail 按钮的可见标签只在 aria-label 里 // Insertion anchor: preferably above "Assets". The rail button's visible label lives only in aria-label
+  // （textContent 为空），而且带快捷键提示，如 "资产（a）"，所以用前缀匹配。 // (textContent is empty) and carries a shortcut hint such as "Assets (a)", so match by prefix.
   var ANCHOR_PREFIXES = ["资产", "Assets", "アセット"];
   var FALLBACK_LABELS = ["模板", "Templates", "テンプレート"];
 
@@ -2940,17 +2940,17 @@
     var group = rail.querySelector('[data-testid="sidebar-top-group"]');
     if (group) {
       var btns = group.querySelectorAll("button");
-      // 第一个是「菜单」，取第二个
+      // 第一个是「菜单」，取第二个 // the first one is "Menu", take the second
       if (btns.length > 1) return { el: btns[1], before: true };
       if (btns.length) return { el: btns[0], before: false };
     }
     return null;
   }
 
-  // 官方图标集是 Lucide（DOM 里是 icon-[lucide--…] 或内联 <svg>）。
-  // 这里直接用 Lucide 的 folder 轮廓内联，避免依赖 UnoCSS 是否生成了该 class，
-  // 同时保持相同的 24×24 / stroke-width 视觉规范。
-  // Lucide is ISC licensed.
+  // 官方图标集是 Lucide（DOM 里是 icon-[lucide--…] 或内联 <svg>）。 // The official icon set is Lucide (icon-[lucide--…] in the DOM, or an inline <svg>).
+  // 这里直接用 Lucide 的 folder 轮廓内联，避免依赖 UnoCSS 是否生成了该 class， // Here we inline Lucide's folder outline directly, avoiding a dependency on whether UnoCSS generated that class,
+  // 同时保持相同的 24×24 / stroke-width 视觉规范。 // while keeping the same 24×24 / stroke-width visual spec.
+  // Lucide is ISC licensed. // Lucide 采用 ISC 许可。
   function immichRailIcon() {
     var NS = "http://www.w3.org/2000/svg";
     var svg = document.createElementNS(NS, "svg");
@@ -2960,12 +2960,12 @@
     svg.setAttribute("stroke-width", "2");
     svg.setAttribute("stroke-linecap", "round");
     svg.setAttribute("stroke-linejoin", "round");
-    // 官方尺寸来自 .side-bar-button-icon{font-size:var(--sidebar-icon-size)}，
-    // 那是字号规则；svg 用 1em 就能继承同一个尺寸，不必写死像素。
+    // 官方尺寸来自 .side-bar-button-icon{font-size:var(--sidebar-icon-size)}， // the official size comes from .side-bar-button-icon{font-size:var(--sidebar-icon-size)},
+    // 那是字号规则；svg 用 1em 就能继承同一个尺寸，不必写死像素。 // which is a font-size rule; an svg with 1em inherits the same size, no hard-coded pixels needed.
     svg.setAttribute("class", "side-bar-button-icon");
     svg.setAttribute("width", "1em");
     svg.setAttribute("height", "1em");
-    // Lucide "flower"
+    // Lucide "flower" // Lucide「花」
     var paths = [
       "M12 16.5A4.5 4.5 0 1 1 7.5 12 4.5 4.5 0 1 1 12 7.5a4.5 4.5 0 1 1 4.5 4.5 4.5 4.5 0 1 1-4.5 4.5",
       "M12 7.5V9", "M7.5 12H9", "M16.5 12H15", "M12 16.5V15",
@@ -2983,8 +2983,8 @@
     return svg;
   }
 
-  // 把克隆节点里所有旧图标清掉：可能是 <svg>，也可能是
-  // <i class="icon-[lucide--…]">，两种都要处理，否则会同时出现两个图标。
+  // 把克隆节点里所有旧图标清掉：可能是 <svg>，也可能是 // Clear every old icon in the cloned node: it may be an <svg> or an
+  // <i class="icon-[lucide--…]">，两种都要处理，否则会同时出现两个图标。 // <i class="icon-[lucide--…]">; both must be handled, otherwise two icons show up at once.
   function stripIcons(node) {
     var svgs = node.querySelectorAll("svg");
     for (var i = 0; i < svgs.length; i++) svgs[i].parentNode.removeChild(svgs[i]);
@@ -2999,7 +2999,7 @@
 
   function setImmichLabel(node) {
     var NAME = "Immich";
-    // 可见标签可能来自 aria-label（CSS attr()）或 <span> 文本，两处都改
+    // 可见标签可能来自 aria-label（CSS attr()）或 <span> 文本，两处都改 // the visible label may come from aria-label (CSS attr()) or <span> text; change both
     node.setAttribute("aria-label", NAME);
     node.setAttribute("title", NAME);
     var spans = node.querySelectorAll("span");
@@ -3007,7 +3007,7 @@
       var t = (spans[i].textContent || "").trim();
       if (t && RAIL_LABELS.indexOf(t) >= 0) spans[i].textContent = NAME;
     }
-    // 文本节点直接命中
+    // 文本节点直接命中 // direct hit on a text node
     for (var j = 0; j < node.childNodes.length; j++) {
       var c = node.childNodes[j];
       if (c.nodeType === 3 && RAIL_LABELS.indexOf((c.textContent || "").trim()) >= 0) {
@@ -3032,8 +3032,8 @@
     btn.setAttribute("aria-label", t("title.panel"));
     btn.setAttribute("title", t("title.panel"));
 
-    // 官方结构：.side-bar-button-content > .sidebar-icon-wrapper > 图标，然后才是标签。
-    // 复用那个 wrapper 而不是在它前面插，否则会留下一个空的占位 div 把图标顶偏。
+    // 官方结构：.side-bar-button-content > .sidebar-icon-wrapper > 图标，然后才是标签。 // official structure: .side-bar-button-content > .sidebar-icon-wrapper > icon, then the label.
+    // 复用那个 wrapper 而不是在它前面插，否则会留下一个空的占位 div 把图标顶偏。 // reuse that wrapper instead of inserting before it, otherwise an empty placeholder div is left behind and pushes the icon off.
     var content = btn.querySelector(".side-bar-button-content") || btn;
     var wrapper = content.querySelector(".sidebar-icon-wrapper");
     stripIcons(btn);
@@ -3044,7 +3044,7 @@
     }
     setImmichLabel(btn);
 
-    // 清掉克隆带来的“选中”样式，点击只负责开面板
+    // 清掉克隆带来的“选中”样式，点击只负责开面板 // clear the "selected" style brought in by the clone; a click only needs to open the panel
     btn.classList.remove("active", "selected");
     var stop = function (e) { e.preventDefault(); e.stopPropagation(); togglePanel(); };
     btn.addEventListener("click", stop, true);
@@ -3060,7 +3060,7 @@
     if (_railObserver) return;
     var boot = function () {
       if (!addRailButton()) { setTimeout(boot, 400); return; }
-      // Vue 重绘左侧栏会把克隆节点冲掉，观察后补回
+      // Vue 重绘左侧栏会把克隆节点冲掉，观察后补回 // A Vue repaint of the left rail wipes the clone, so re-add it after observing
       _railObserver = new MutationObserver(function () {
         if (document.getElementById("immich-rail-btn")) return;
         clearTimeout(_railObserver._t);
@@ -3071,17 +3071,17 @@
     boot();
   }
 
-  // ─────────────── 官方设置菜单（app.ui.settings.addSetting）───────────────
-  // ⚠️ onChange 里绝不能调 location.reload()：设置 store 在注册/应用默认值时可能
-  // 触发回调，那会变成无限刷新，页面直接进不去（踩过）。改成只写 localStorage，
-  // 让用户自己刷新，并在 tooltip 里写明。
+  // ─────────────── 官方设置菜单（app.ui.settings.addSetting） / Official settings menu (app.ui.settings.addSetting) ───────────────
+  // ⚠️ onChange 里绝不能调 location.reload()：设置 store 在注册/应用默认值时可能 // ⚠️ Never call location.reload() in onChange: the settings store may
+  // 触发回调，那会变成无限刷新，页面直接进不去（踩过）。改成只写 localStorage， // fire the callback while registering/applying defaults, which turns into an infinite refresh and the page never loads (been there). Write only to localStorage instead,
+  // 让用户自己刷新，并在 tooltip 里写明。 // let the user refresh manually, and say so in the tooltip.
   var _immichSettingAdded = false;
 
-  // 把面板里的配置项搬到官方 Settings。PUT /config 是 sensitive 路由：
-  // 本机来源直接放行；从别的机器访问需要面板令牌（浏览器会自动带上 Authorization 吗？不会），
-  // 所以这里在非本机时会 403 —— 面板里那份配置入口仍然保留，作为兜底。
-  // 官方设置项默认控件很窄，宽度由我们自己渲染控制。
-  // color-scheme:dark 让原生 <select> 的弹层和滚动条用暗色，否则是一片白。
+  // 把面板里的配置项搬到官方 Settings。PUT /config 是 sensitive 路由： // Move the panel's config items into the official Settings. PUT /config is a sensitive route:
+  // 本机来源直接放行；从别的机器访问需要面板令牌（浏览器会自动带上 Authorization 吗？不会）， // local requests pass straight through; requests from another machine need the panel token (does the browser send Authorization automatically? No),
+  // 所以这里在非本机时会 403 —— 面板里那份配置入口仍然保留，作为兜底。 // so off-machine requests get a 403 here — the config entry inside the panel is kept as a fallback.
+  // 官方设置项默认控件很窄，宽度由我们自己渲染控制。 // official settings rows have very narrow default controls, so we control the width when rendering.
+  // color-scheme:dark 让原生 <select> 的弹层和滚动条用暗色，否则是一片白。 // color-scheme:dark makes native <select> popups and scrollbars dark, otherwise they are a sheet of white.
   var WIDE = "width:520px;max-width:66vw;padding:6px 10px;border-radius:6px;" +
              "border:1px solid #3a3f4a;background:transparent;color:inherit;font:inherit;" +
              "color-scheme:dark";
@@ -3089,9 +3089,9 @@
             "background:#252a33;color:inherit;font:inherit;cursor:pointer";
   var _statusEl = null;
 
-  // 反馈层统一：设置页也走面板自己的 toast（showStatus），不再各写一套。
-  // 保留 setStatus 的名字与签名，20 处调用点一行不用改。
-  // 通知统一走 ComfyUI 默认 toast（右上角，官方样式）；不可用时退回页内提示
+  // 反馈层统一：设置页也走面板自己的 toast（showStatus），不再各写一套。 // Unified feedback: the settings page also uses the panel's own toast (showStatus), no separate copy.
+  // 保留 setStatus 的名字与签名，20 处调用点一行不用改。 // keep the name and signature of setStatus; none of the 20 call sites need a change.
+  // 通知统一走 ComfyUI 默认 toast（右上角，官方样式）；不可用时退回页内提示 // notifications go through ComfyUI's default toast (top-right, official style); fall back to an in-page hint when unavailable
   function setStatus(msg, isErr) {
     var text = msg || "";
     try {
@@ -3112,13 +3112,13 @@
     return td;
   }
 
-  // 返回 <tr>：第一格是「小标题 + 感叹号」，第二格是控件。
-  // 这样悬停提示紧跟在标题后面（不是跑到最右边），也避开名称列重复。
+  // 返回 <tr>：第一格是「小标题 + 感叹号」，第二格是控件。 // Returns a <tr>: the first cell is "small title + exclamation mark", the second is the control.
+  // 这样悬停提示紧跟在标题后面（不是跑到最右边），也避开名称列重复。 // so the hover hint sits right after the title (instead of at the far right) and the name column is not duplicated.
   var HINT_CSS = "display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;" +
                  "margin-left:6px;border-radius:50%;border:1px solid currentColor;opacity:.55;" +
                  "font-size:10px;line-height:1;cursor:help;vertical-align:middle";
 
-  // 行内容纵向排列：标题 / 控件 / 提示（都在我们自己的元素里）
+  // 行内容纵向排列：标题 / 控件 / 提示（都在我们自己的元素里） // row content stacks vertically: title / control / hint (all inside our own elements)
   var HINT_TEXT = "max-width:520px;margin-top:6px;font-size:11px;line-height:1.5;" +
                   "color:#8a8f98;opacity:.9";
   var LABEL_CSS  = "display:block;margin-bottom:6px;font-size:15px;opacity:.9";
@@ -3126,7 +3126,7 @@
                    "border:1px solid #3a3f4a;background:#1b1e24;color:#e6e6e6;font:inherit;" +
                    "text-align:left;box-sizing:border-box";
 
-  // 自绘下拉：原生 select 的弹层是浏览器画的，无法可靠染色（Windows 上是白的）
+  // 自绘下拉：原生 select 的弹层是浏览器画的，无法可靠染色（Windows 上是白的） // self-drawn dropdown: a native select's popup is drawn by the browser and cannot be reliably coloured (white on Windows)
   function dropdown(options, value, setter, labels) {
     function labelOf(v) { return (labels && labels[v]) || v; }
     var box = document.createElement("div");
@@ -3174,7 +3174,7 @@
     box.appendChild(btn);
     box.appendChild(list);
 
-    // 供「刷新相册」调用：换掉选项列表，尽量保留当前选中值
+    // 供「刷新相册」调用：换掉选项列表，尽量保留当前选中值 // used by "Refresh albums": swap the option list while preserving the current selection as much as possible
     box.__refresh = function (next) {
       var keep = cur.textContent;
       list.innerHTML = "";
@@ -3196,7 +3196,7 @@
     return box;
   }
 
-  // 供其它前端模块复用同一套控件（选图窗口等）
+  // 供其它前端模块复用同一套控件（选图窗口等） // share the same set of controls with other frontend modules (the picker window etc.)
   try { window.__immichUI = Object.assign(window.__immichUI || {}, { dropdown: dropdown }); } catch (e) {}
 
   function wideRow(kind, label, setter, value, options, hint, labels) {
@@ -3288,8 +3288,8 @@
     return col;
   }
 
-  // 复用老面板那套请求封装（它带 Authorization 头与 401 处理），
-  // 这样设置页在远程访问时也能凭 token 调敏感接口，不必各写一份 fetch。
+  // 复用老面板那套请求封装（它带 Authorization 头与 401 处理）， // reuse the old panel's request wrapper (it adds the Authorization header and 401 handling),
+  // 这样设置页在远程访问时也能凭 token 调敏感接口，不必各写一份 fetch。 // so the settings page can call sensitive endpoints with a token over remote access without a second fetch implementation.
   function apiGet(path) {
     return api("GET", path).catch(function () { return null; });
   }
@@ -3309,8 +3309,8 @@
     }).catch(function () { setStatus("网络错误：" + key, true); });
   }
 
-  // 顺序对齐老配置页：连接 → 相册 → 网络 → 资源 → 安全 → 其他
-  // 注释文案（悬停在感叹号上显示）
+  // 顺序对齐老配置页：连接 → 相册 → 网络 → 资源 → 安全 → 其他 // same order as the old config page: connection → albums → network → assets → security → other
+  // 注释文案（悬停在感叹号上显示） // comment copy (shown when hovering the exclamation mark)
   var H_BASE     = t("h.base");
   var H_KEY      = t("h.key");
   var H_ALBUM    = t("h.album");
@@ -3320,9 +3320,9 @@
   var H_PAGE     = t("h.page");
   var H_LANG     = t("h.lang");
 
-  var _albumRefresh = null;   // 相册下拉的重建句柄
+  var _albumRefresh = null;   // 相册下拉的重建句柄 // rebuild handle for the album dropdown
 
-  // 上面这些 H_* 在模块加载时求值，此时 i18n 可能还没就绪 → 注册前重取
+  // 上面这些 H_* 在模块加载时求值，此时 i18n 可能还没就绪 → 注册前重取 // the H_* above are evaluated at module load, when i18n may not be ready → re-read before registering
   function refreshHints() {
     H_BASE = t("h.base"); H_KEY = t("h.key"); H_ALBUM = t("h.album");
     H_PROXY = t("h.proxy"); H_PAGE = t("h.page"); H_LANG = t("h.lang");
@@ -3372,8 +3372,8 @@
     }).catch(function () { setStatus("❌ " + t("set.clearFailed"), true); });
   }
 
-  // 只作用在含我们行标记的设置行：把「空的标题格」隐藏掉，内容回到左侧。
-  // 注意选择器是 >div>div:first-child（空标签格），不是 >div:first-child（那是整行）。
+  // 只作用在含我们行标记的设置行：把「空的标题格」隐藏掉，内容回到左侧。 // Only affects settings rows carrying our row marker: hide the "empty title cell" so the content returns to the left.
+  // 注意选择器是 >div>div:first-child（空标签格），不是 >div:first-child（那是整行）。 // note the selector is >div>div:first-child (the empty label cell), not >div:first-child (the whole row).
   (function immichRowStyle() {
     if (document.getElementById("immich-row-style")) return;
     var el = document.createElement("style");
@@ -3394,8 +3394,8 @@
     (document.head || document.documentElement).appendChild(el);
   })();
 
-  // 原生 select 的弹层由浏览器绘制，只能用 color-scheme 影响；
-  // 挂在对话框层级上（不是只在 select 上），有的版本只有这样才能吃进去。
+  // 原生 select 的弹层由浏览器绘制，只能用 color-scheme 影响； // a native select's popup is drawn by the browser and can only be influenced by color-scheme;
+  // 挂在对话框层级上（不是只在 select 上），有的版本只有这样才能吃进去。 // attach it at the dialog level (not only on the select); in some versions only that takes effect.
   (function immichColorScheme() {
     if (document.getElementById("immich-color-scheme")) return;
     var el = document.createElement("style");
@@ -3407,7 +3407,7 @@
     (document.head || document.documentElement).appendChild(el);
   })();
 
-  // 检查令牌状态：告诉用户当前防护是否生效
+  // 检查令牌状态：告诉用户当前防护是否生效 // Check the token status: tell the user whether protection is currently active
   function checkTokenStatus() {
     apiGet("/config").then(function (cfg) {
       if (!cfg) { setStatus(t("tok.stateFail"), true); return; }
@@ -3419,7 +3419,7 @@
     }).catch(function () { setStatus("无法读取配置状态", true); });
   }
 
-  // 复制令牌到剪贴板（拿明文需要本机或已带令牌，和「显示」同一条路径）
+  // 复制令牌到剪贴板（拿明文需要本机或已带令牌，和「显示」同一条路径） // Copy the token to the clipboard (plaintext requires local or an existing token, the same path as "Show")
   function copyToken() {
     apiGet("/panel-token").then(function (d) {
       var tok = d && (d.panel_token || d.token);
@@ -3456,12 +3456,12 @@
 
   function registerConfigSettings(st) {
     function build(cfg, albums) {
-      refreshHints();   // 模块加载时 i18n 可能还没就绪，这里重取一次提示文案
+      refreshHints();   // 模块加载时 i18n 可能还没就绪，这里重取一次提示文案 // i18n may not be ready at module load, so re-read the hint text here
       cfg = cfg || {};
 
       registerButtons();
 
-      // 对话框按注册顺序「倒序」显示 → 字段倒着注册，屏幕上才是正序
+      // 对话框按注册顺序「倒序」显示 → 字段倒着注册，屏幕上才是正序 // the dialog shows rows in "reverse" registration order → register fields backwards so the screen order is correct
       var _cfgs = configSettings();
       for (var i = _cfgs.length - 1; i >= 0; i--) {
         (function (def) {
@@ -3477,7 +3477,7 @@
             current = cfg[def.key];
             if (current === undefined || current === null) current = def.kind === "number" ? 100 : "";
           }
-          var _initValue = current;   // 注册时的值：对话框回填若与它相同，说明不是用户改动
+          var _initValue = current;   // 注册时的值：对话框回填若与它相同，说明不是用户改动 // value at registration: if the dialog's write-back equals it, this is not a user change
           st.addSetting({
             id: def.id, name: "", category: def.cat,
             type: function (name, setter, value) {
@@ -3490,12 +3490,12 @@
             },
             defaultValue: current,
             onChange: function (v) {
-              // 对话框在注册/回填时会调用 onChange，值没变就不是用户改的 → 不写、不弹提示
+              // 对话框在注册/回填时会调用 onChange，值没变就不是用户改的 → 不写、不弹提示 // the dialog calls onChange while registering/filling; if the value did not change it is not a user edit → do not write, no toast
               if (String(v ?? "") === String(_initValue ?? "")) return;
               _initValue = v;
               if (def.local) {
                 try { window.localStorage.setItem("immich_lang", v); } catch (e) {}
-                applyLanguageNow();          // 立即生效，不用刷新
+                applyLanguageNow();          // 立即生效，不用刷新 // takes effect immediately, no refresh needed
                 setStatus(t("tok.saved", { k: "lang" }), false);
                 return;
               }
@@ -3506,7 +3506,7 @@
         })(_cfgs[i]);
       }
 
-      // 按钮要显示在组内最后 → 必须先注册（显示是注册倒序）
+      // 按钮要显示在组内最后 → 必须先注册（显示是注册倒序） // the button must appear last within the group → register it first (display order is reverse registration)
       function registerButtons() {
       st.addSetting({
         id: "immich.test", name: "", category: ["Immich", t("set.group.conn"), t("set.sub.conn"), t("set.row.test")],
@@ -3514,7 +3514,7 @@
         defaultValue: "",
       });
 
-      // 选择面板：选中后是否立即关闭
+      // 选择面板：选中后是否立即关闭 // pick mode: whether picking closes the panel immediately
       st.addSetting({
         id: "immich.pickClose", name: "",
         category: ["Immich", t("set.group.ui"), t("set.sub.ui"), t("set.row.pickClose")],
@@ -3527,14 +3527,14 @@
         defaultValue: pickCloseAfterSelect(),
       });
 
-      // 相册：刷新按钮
+      // 相册：刷新按钮 // albums: refresh button
       st.addSetting({
         id: "immich.album.refresh", name: "", category: ["Immich", t("set.group.album"), t("set.sub.album"), t("set.row.refresh")],
         type: function () { return buttonRow("", [{ text: t("btn.refreshAlbums"), onClick: refreshAlbums }], H_ALBUM); },
         defaultValue: "",
       });
 
-      // 安全：令牌（显示 / 重新生成 / 清空）
+      // 安全：令牌（显示 / 重新生成 / 清空） // security: token (show / regenerate / clear)
       st.addSetting({
         id: "immich.token", name: "", category: ["Immich", t("set.group.sec"), t("set.sub.sec"), t("set.row.token")],
         type: function () {
@@ -3550,7 +3550,7 @@
       }
     }
 
-    // 相册列表用于下拉；拿不到就退化成只有空选项
+    // 相册列表用于下拉；拿不到就退化成只有空选项 // the album list feeds the dropdown; if unavailable, degrade to empty options only
     var albumsPromise = apiGet("/albums").catch(function () { return null; });
     var cfgPromise = fetch("/api/immich_plus/config").then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
     Promise.all([cfgPromise, albumsPromise]).then(function (res) { build(res[0], res[1]); });
@@ -3561,7 +3561,7 @@
     try {
       var st = window.app && window.app.ui && window.app.ui.settings;
       if (!st || typeof st.addSetting !== "function") return false;
-      // 和配置项同款渲染：纵向堆叠、左对齐、无感叹号、提示文字内联
+      // 和配置项同款渲染：纵向堆叠、左对齐、无感叹号、提示文字内联 // same rendering as config items: stacked vertically, left aligned, no exclamation mark, inline hint text
       st.addSetting({
         id: "immich.entryMode",
         name: "",
@@ -3579,8 +3579,8 @@
       });
       _immichSettingAdded = true;
       try { document.documentElement.setAttribute("data-immich-settings", "ok"); } catch (e) {}
-      // 其余配置项：先读一次现有配置，再按表格注册（读失败就用默认值）
-      try { registerConfigSettings(st); } catch (e) { /* 不影响 entryMode */ }
+      // 其余配置项：先读一次现有配置，再按表格注册（读失败就用默认值） // remaining config items: read the current config once, then register them as a table (use defaults if the read fails)
+      try { registerConfigSettings(st); } catch (e) { /* 不影响 entryMode // does not affect entryMode */ }
       return true;
     } catch (e) {
       try { document.documentElement.setAttribute("data-immich-settings", "err"); } catch (e2) {}
@@ -3611,7 +3611,7 @@
           if (key) nodeType.DESCRIPTION = t(key);
         },
       });
-    } catch (e) { /* app 未就绪时忽略，applyNodeLang() 兜底 */ }
+    } catch (e) { /* app 未就绪时忽略，applyNodeLang() 兜底 // ignore when app is not ready; applyNodeLang() is the fallback */ }
   }
 
   function esc(s) {
@@ -3620,19 +3620,19 @@
       .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 
-  // ─────────────── 启动 ───────────────
+  // ─────────────── 启动 / Startup ───────────────
 
   function init() {
     try { document.documentElement.setAttribute("data-immich-init", "1"); } catch (e) {}
-    // 设置项必须无条件注册：它控制的就是入口位置，如果只在 sidebar 分支里注册，
-    // 用户一旦切到 toolbar 就再也看不到这一项，等于把自己锁死。
-    waitForSettingsApi(60);   // 有界：最多 30s
-    // sidebar 模式在左侧图标栏插入入口；toolbar 模式保留旧的顶部按钮
+    // 设置项必须无条件注册：它控制的就是入口位置，如果只在 sidebar 分支里注册， // the setting must be registered unconditionally: it controls the entry position, and if it were registered only in the sidebar branch,
+    // 用户一旦切到 toolbar 就再也看不到这一项，等于把自己锁死。 // a user who switches to toolbar would never see the item again — locking themselves out.
+    waitForSettingsApi(60);   // 有界：最多 30s // bounded: at most 30s
+    // sidebar 模式在左侧图标栏插入入口；toolbar 模式保留旧的顶部按钮 // sidebar mode inserts the entry into the left icon rail; toolbar mode keeps the old top button
     if (currentEntryMode() === "toolbar") addToolbarButton();
     else registerSidebarEntry();
     applyNodeLang();
-    // graph / nodeDef store 可能尚未就绪（扩展 JS 加载时序不可控），
-    // 轮询重试直到两者都可用（或达到上限）
+    // graph / nodeDef store 可能尚未就绪（扩展 JS 加载时序不可控）， // graph / nodeDef store may not be ready yet (extension JS load order is not controllable),
+    // 轮询重试直到两者都可用（或达到上限） // poll and retry until both are available (or the limit is reached)
     var retries = 0;
     (function retryNodeLang() {
       if (window.app && app.graph && getNodeDefsMap()) {
@@ -3641,13 +3641,13 @@
       }
       if (++retries < 30) setTimeout(retryNodeLang, 500);
     })();
-    // 面板打开时 Esc 关闭；确认弹窗打开时 Esc 归弹窗（关闭弹窗，不关面板）
+    // 面板打开时 Esc 关闭；确认弹窗打开时 Esc 归弹窗（关闭弹窗，不关面板） // Esc closes the panel when it is open; when a confirm dialog is open, Esc belongs to the dialog (close the dialog, not the panel)
     document.addEventListener("keydown", function (e) {
       if (e.key !== "Escape") return;
       if (state._confirming) {
         var ov = document.querySelector(".immich-confirm-overlay");
         if (ov) {
-          // 复用 close(false)：找到按钮触发（事件处理器会 remove + 重置 flag）
+          // 复用 close(false)：找到按钮触发（事件处理器会 remove + 重置 flag） // reuse close(false): find the button and trigger it (the event handler removes it + resets the flag)
           var cancel = ov.querySelector('[data-act="cancel"]');
           if (cancel) cancel.click();
         }

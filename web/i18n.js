@@ -1,22 +1,29 @@
 // 🐾 ComfyUI-ImmichManager 轻量 i18n（v0.6 P3）
 // 用法：window.ImmichI18n.t("btn.select") → 当前语言文案；{n}/{msg} 为占位符，
 // 调用时传参数：t("bulk.count", { n: 5 })。
+// 🐾 ComfyUI-ImmichManager lightweight i18n (v0.6 P3)
+// Usage: window.ImmichI18n.t("btn.select") → text in the current language; {n}/{msg} are placeholders,
+// pass params at call time: t("bulk.count", { n: 5 }).
 // Language: localStorage("immich_lang") → "en" by default; "auto" follows navigator.language, but only when chosen explicitly.
 // A fresh install starts in English; "Follow system" is opt-in.
+// 语言：localStorage("immich_lang") → 默认 "en"；"auto" 跟随 navigator.language，但仅在显式选择时才生效。
+// 全新安装默认英文；「跟随系统」需要显式选择（opt-in）。
 // 节点名（🖼️ Immich Save Image / 🎬 ImmichSaveVideo）保持英文，不做翻译。
+// Node names (🖼️ Immich Save Image / 🎬 ImmichSaveVideo) stay in English; they are not translated.
 (function () {
   "use strict";
 
   var LANG_KEY = "immich_lang";
-  var AUTO = "auto"; // 跟随系统（自动）
+  var AUTO = "auto"; // 跟随系统（自动） // Follow the system language (auto)
 
   var dict = {
     en: {
       // 节点悬停文本（tooltip DESCRIPTION，语言跟随面板设置）
+      // Node tooltip text (tooltip DESCRIPTION; language follows the panel setting)
       "node.desc.image": "[ComfyUI-ImmichManager] Preview the image and upload it to Immich. Saves as PNG by default, with workflow metadata embedded. More settings in the config panel.",
       "node.desc.video": "[ComfyUI-ImmichManager] Preview the video and upload it to Immich. Saves as MP4 by default, with workflow metadata embedded. More settings in the config panel.",
 
-      // 工具栏/顶栏
+      // 工具栏/顶栏 // Toolbar / top bar
       "title.panel": "Immich Manager",
       "title.zoom": "Thumbnail resolution",
       "zoom.level.title": "{label} zoom",
@@ -38,7 +45,7 @@
       "btn.open.title": "Open Immich web",
       "btn.close.title": "Close",
 
-      // 批量操作栏
+      // 批量操作栏 // Bulk action bar
       "bulk.count": "{n} selected",
       "bulk.label": "Selection mode",
       "btn.bulk.all": "Select all",
@@ -62,7 +69,7 @@
       "bulk.del.done": "Deleted {n} asset(s) to trash",
       "bulk.del.fail": "Bulk delete failed: {msg}",
 
-      // 时间轴
+      // 时间轴 // Timeline
       "range.today": "Today",
       "range.3d": "Last 3 days",
       "range.7d": "Last 7 days",
@@ -86,7 +93,7 @@
       "error.token.needed": "Token required",
       "error.load.thumb": "Failed",
 
-      // 详情栏
+      // 详情栏 // Detail pane
       "detail.title": "Details",
       "detail.close.title": "Deselect",
       "detail.fullscreen.title": "Fullscreen",
@@ -104,7 +111,7 @@
       "detail.delete.confirm": "Delete this asset? It goes to Immich trash and can be restored.",
       "detail.delete.btn": "Delete",
 
-      // 收藏/状态
+      // 收藏/状态 // Favorites / status
       "fav.title.add": "Favorite",
       "fav.title.remove": "Unfavorite",
       "status.fav.added": "Favorited",
@@ -117,7 +124,7 @@
       "status.del.fail": "Delete failed: {msg}",
       "video.load.fail": "Video load failed: {msg}",
 
-      // 配置页
+      // 设置对话框 // Settings dialog
       "cfg.group.connection": "🔗 Connection",
       "cfg.group.assets": "📦 Timeline settings",
       "cfg.group.security": "🔒 Security",
@@ -340,10 +347,11 @@
 
     zh: {
       // 节点悬停文本（tooltip DESCRIPTION，语言跟随面板设置）
+      // Node tooltip text (tooltip DESCRIPTION; language follows the panel setting)
       "node.desc.image": "[ComfyUI-ImmichManager] 将图片预览并上传到 Immich。默认保存为PNG，内含工作流metadata。更多设置在配置面板。",
       "node.desc.video": "[ComfyUI-ImmichManager] 将视频预览并上传到 Immich。默认保存为MP4，内含工作流metadata。更多设置在配置面板。",
 
-      // 工具栏/顶栏
+      // 工具栏/顶栏 // Toolbar / top bar
       "title.panel": "Immich Manager",
       "title.zoom": "缩略图清晰度",
       "zoom.level.title": "{label}挡",
@@ -365,7 +373,7 @@
       "btn.open.title": "打开 Immich 网页",
       "btn.close.title": "关闭",
 
-      // 批量操作栏
+      // 批量操作栏 // Bulk action bar
       "bulk.count": "已选 {n} 项",
       "bulk.label": "选择模式",
       "btn.bulk.all": "全选",
@@ -389,7 +397,7 @@
       "bulk.del.done": "已删除 {n} 个资产（进回收站）",
       "bulk.del.fail": "批量删除失败: {msg}",
 
-      // 时间轴
+      // 时间轴 // Timeline
       "range.today": "今天",
       "range.3d": "近3天",
       "range.7d": "近7天",
@@ -413,7 +421,7 @@
       "error.token.needed": "需令牌",
       "error.load.thumb": "加载失败",
 
-      // 详情栏
+      // 详情栏 // Detail pane
       "detail.title": "详情",
       "detail.close.title": "取消选中",
       "detail.fullscreen.title": "全屏预览",
@@ -431,7 +439,7 @@
       "detail.delete.confirm": "确认删除该资产？删除进入 Immich 回收站，可在 Immich 网页恢复。",
       "detail.delete.btn": "删除",
 
-      // 收藏/状态
+      // 收藏/状态 // Favorites / status
       "fav.title.add": "收藏",
       "fav.title.remove": "取消收藏",
       "status.fav.added": "已收藏",
@@ -444,7 +452,7 @@
       "status.del.fail": "删除失败: {msg}",
       "video.load.fail": "视频加载失败: {msg}",
 
-      // 配置页
+      // 设置对话框 // Settings dialog
       "cfg.group.connection": "🔗 连接配置",
       "cfg.group.assets": "📦 时间线配置",
       "cfg.group.security": "🔒 安全",
@@ -672,16 +680,21 @@
     // is English. Following the system language is still available, but it is an
     // explicit choice ("auto"), never the default — the node registry and the
     // panel are read by an international audience.
+    // 返回 "auto" | "en" | "zh"。
+    // 无存储值 / 存储被禁用 / 值非法 -> "en"：全新安装
+    // 即英文。跟随系统语言仍然可用，但它是
+    // 显式选择（"auto"），从不是默认值 —— 节点注册表与
+    // 面板面向国际读者。
     try {
       var s = localStorage.getItem(LANG_KEY);
       if (s === AUTO || s === "en" || s === "zh") return s;
-    } catch (e) { /* localStorage may be unavailable */ }
+    } catch (e) { /* localStorage 可能不可用 —— localStorage may be unavailable */ }
     return "en";
   }
 
   function detectLang() {
     var s = getLangSetting();
-    if (s !== AUTO) return s; // 用户显式指定
+    if (s !== AUTO) return s; // 用户显式指定 // explicitly set by the user
     var nl = (navigator.language || "en").toLowerCase();
     if (nl.indexOf("zh") === 0) return "zh";
     return "en";
@@ -702,7 +715,7 @@
 
   function setLang(l) {
     if (l === AUTO || dict[l]) {
-      try { localStorage.setItem(LANG_KEY, l); } catch (e) { /* ignore */ }
+      try { localStorage.setItem(LANG_KEY, l); } catch (e) { /* 忽略 —— ignore */ }
       lang = detectLang();
     }
     return lang;

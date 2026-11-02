@@ -2,6 +2,9 @@
 
 设计：节点只持有 asset_id（字符串 widget），选图由前端按钮写回；
 执行时用服务端的 API Key 直连 Immich 取原图，解码成 IMAGE/MASK。
+*English translation:* pick an image from a chosen Immich album and output it as IMAGE for downstream nodes.
+* Design: the node only holds asset_id (a string widget), which the frontend button writes back;
+* on execution the server-side API Key is used to fetch the original from Immich and decode it into IMAGE/MASK.
 """
 from __future__ import annotations
 
@@ -19,7 +22,9 @@ log = logging.getLogger(__name__)
 
 
 class ImmichPickImage:
-    """读取 Immich 资产 → IMAGE / MASK。"""
+    """读取 Immich 资产 → IMAGE / MASK。
+    *English translation:* read an Immich asset → IMAGE / MASK.
+    """
 
     CATEGORY = "Immich"
     FUNCTION = "load"
@@ -27,7 +32,7 @@ class ImmichPickImage:
     RETURN_NAMES = ("image", "mask", "asset_id")
 
     @classmethod
-    def INPUT_TYPES(cls):  # noqa: N802 — ComfyUI 约定
+    def INPUT_TYPES(cls):  # noqa: N802 — ComfyUI 约定  # ComfyUI convention
         return {
             "required": {
                 "asset_id": ("STRING", {
@@ -53,6 +58,7 @@ class ImmichPickImage:
 
         img = Image.open(io.BytesIO(resp.content))
         # 手机照片常见 EXIF 旋转，不处理会歪
+        # Phone photos often carry an EXIF rotation; without handling it the image comes out sideways
         img = ImageOps.exif_transpose(img)
 
         alpha = None
@@ -63,6 +69,7 @@ class ImmichPickImage:
             img = img.convert("RGB")
 
         # 给 ComfyUI 画节点缩略图用（temp 目录 + ui.images，前端自动渲染）
+        # For ComfyUI to draw the node thumbnail (temp dir + ui.images, rendered automatically by the frontend)
         buf = io.BytesIO()
         img.save(buf, format="PNG")
         ui_entry = _save_temp_png(buf.getvalue(), "immich_pick", img.width, img.height, asset_id)
