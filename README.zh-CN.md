@@ -69,7 +69,7 @@
 
 ### 1. 方式 A：ComfyUI-Manager
 
-在 ComfyUI-Manager 中搜索 `ComfyUI-ImmichManager` 安装，然后重启 ComfyUI。
+在 ComfyUI-Manager 中搜索 `ComfyUI-ImmichManager` 安装，然后重启 ComfyUI。入口会出现在**左侧图标栏**，花朵图标 + `Immich` 文字（也可以在设置里改成显示在顶部工具栏）。
 
 ### 2. 方式 B：手动（git clone）
 
@@ -289,8 +289,8 @@ A：首次打开会按时间桶**全量拉取一遍资产元数据**（轻量字
 **Q：视频预览卡顿 / 超大视频打不开？**
 A：面板内视频用 fetch + blob 先整段下载到浏览器内存再播放（令牌不进 URL 的安全代价）。超大视频建议点「🌐 打开 Immich」在 Immich 网页里播放。
 
-**Q：上传的图片/视频能拖回 ComfyUI 恢复工作流吗？**
-A：可以。图片（PNG）与视频（MP4）都写入了当前工作流的 `prompt` / `workflow` metadata，从 Immich 下载后拖回 ComfyUI 画布即可恢复。
+**Q：上传的图片/视频能拿回来还原工作流吗？**
+A：可以，而且不用拖。PNG 与 MP4 都写入了当前的 `prompt` / `workflow` 元数据；在资产详情页点「导入 ComfyUI」即可。把下载的文件拖回画布也行。
 
 **Q：删除的资产还能找回吗？**
 A：删除操作总是进 Immich 回收站，可在 Immich 网页恢复。插件未提供「清空回收站」功能。
@@ -300,17 +300,38 @@ A：你的 ComfyUI 进程环境里带着代理变量（常见于启动脚本为 
 
 ## 开发
 
-```bash
-# 单元 / 路由测试（test_client.py 需真实 Immich + 测试 key）
-python3 tests/test_config.py
-python3 tests/test_routes.py
-python3 tests/test_upload_node.py
-python3 tests/test_extract.py
-python3 tests/test_client_bulk_offline.py
-IMMICH_TEST_KEY=xxx python3 tests/test_client.py
+```
+immich_client.py     Immich REST 客户端（资产 / 相册 / 搜索 / 回收站）
+upload_node.py       🖼️ Save Image into Immich / 🎬 Save Video into Immich
+picker_node.py       📥 Load Image from Immich
+server_routes.py     /api/immich_plus/* —— 鉴权、搜索、代理、面板状态
+config.py            config.json 读写、地址与密钥校验
+web/                 immich_panel.js（面板 + 设置）、immich_picker.js（节点接线）、
+                     i18n.js、immich_panel.css
+tests/               离线测试 + 基于 CDP 的界面检查
+docs/                设置对话框与重构的设计笔记
 ```
 
-架构与 API 契约见 `docs/PLAN.md`（历史设计文档——以本 README 为准）。
+跑和 CI 一样的那组测试：
+
+```bash
+for f in test_client_bulk_offline test_config test_extract test_proxy_offline test_routes; do
+  python3 tests/$f.py || break
+done
+```
+
+其余的需要额外环境 —— `test_client.py` 要连真实 Immich 并提供 `IMMICH_TEST_KEY`，
+`test_upload_node.py` 与 `test_video_integration.py` 要 ComfyUI 运行时，
+`tests/cdp/` 要驱动无头浏览器。
+
+对运行中的 ComfyUI 做界面检查（Chromium 开在 `:9222`）：
+
+```bash
+python3 tests/cdp/verify.py
+```
+
+设计笔记见 `docs/SETTINGS-DIALOG-NOTES.md`（设置项如何进入 ComfyUI 对话框）
+与 `docs/REFACTOR.md`；`THREAT_MODEL.md` 说明本插件防什么、不防什么。
 
 ## 贡献
 

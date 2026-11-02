@@ -78,7 +78,7 @@ cd ComfyUI/custom_nodes
 git clone https://github.com/oitsukiii/ComfyUI-ImmichManager.git ComfyUI-ImmichManager
 ```
 
-Restart ComfyUI. The panel button appears in the top toolbar (🖼️ Immich).
+Restart ComfyUI. The entry appears in the **left sidebar** as a flower icon labelled `Immich` — or in the top toolbar, if you switched **Where to show the plugin** in the settings.
 
 ### 3. Dependencies
 
@@ -287,8 +287,8 @@ A: The panel asks for one page of a hundred assets and draws it straight away; *
 **Q: Video preview stutters / very large videos won't play?**
 A: The panel downloads the video into browser memory (fetch + blob) before playing — the security cost of keeping the token out of URLs. For very large videos, use the 🌐 **Open Immich** button and play in the Immich web UI.
 
-**Q: Can uploaded images/videos be dragged back to restore the workflow?**
-A: Yes. Images (PNG) and videos (MP4) carry the current `prompt` / `workflow` metadata; download from Immich and drag into the ComfyUI canvas (tested).
+**Q: Can uploaded images/videos be brought back to restore the workflow?**
+A: Yes, and not by dragging. Images (PNG) and videos (MP4) both carry the current `prompt` / `workflow` metadata; open the asset's detail pane and press **Import to ComfyUI**. Dragging the downloaded file onto the canvas works as well.
 
 **Q: Can deleted assets be recovered?**
 A: Deletes always go to the Immich trash (tested on v2.x); restore from the Immich web UI. The plugin does not offer "empty trash".
@@ -298,17 +298,39 @@ A: Your ComfyUI process environment carries proxy variables (typically `HTTP_PRO
 
 ## Development
 
-```bash
-# Unit / route tests (test_client.py needs a real Immich + a test key)
-python3 tests/test_config.py
-python3 tests/test_routes.py
-python3 tests/test_upload_node.py
-python3 tests/test_extract.py
-python3 tests/test_client_bulk_offline.py
-IMMICH_TEST_KEY=xxx python3 tests/test_client.py
+```
+immich_client.py     Immich REST client (assets, albums, search, trash)
+upload_node.py       🖼️ Save Image into Immich / 🎬 Save Video into Immich
+picker_node.py       📥 Load Image from Immich
+server_routes.py     /api/immich_plus/* — auth, search, proxy, panel state
+config.py            config.json read/write, URL and key validation
+web/                 immich_panel.js (panel + settings), immich_picker.js (node
+                     wiring), i18n.js, immich_panel.css
+tests/               offline tests + CDP-based UI checks
+docs/                design notes for the settings dialog and the refactor
 ```
 
-Architecture & API contract: `docs/PLAN.md` (historical design document — this README is authoritative).
+Run the same tests the CI runs:
+
+```bash
+for f in test_client_bulk_offline test_config test_extract test_proxy_offline test_routes; do
+  python3 tests/$f.py || break
+done
+```
+
+The rest need more than a checkout — `test_client.py` wants a live Immich and
+`IMMICH_TEST_KEY`, `test_upload_node.py` and `test_video_integration.py` want
+ComfyUI's runtime, and `tests/cdp/` drives a headless browser.
+
+UI check against a running ComfyUI (Chromium on `:9222`):
+
+```bash
+python3 tests/cdp/verify.py
+```
+
+Design notes: `docs/SETTINGS-DIALOG-NOTES.md` (how settings get into ComfyUI's
+dialog) and `docs/REFACTOR.md`. `THREAT_MODEL.md` covers what the plugin does
+and does not defend against.
 
 ## Contributing
 
