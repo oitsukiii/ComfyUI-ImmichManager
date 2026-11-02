@@ -107,17 +107,18 @@ and restart ComfyUI. The `[ComfyUI-ImmichManager]` log prefix always reports the
 
 ## Usage
 
-Both nodes take their connection settings (base URL / API key / default album) from the panel config — no connection inputs on the node itself.
+All three nodes take their connection settings (base URL / API key / default album) from the Immich group in ComfyUI's Settings dialog — there are no connection inputs on the nodes themselves.
 
-### 1. 🖼️ Immich Save Image
+### 1. 🖼️ Save Image into Immich
 
 | Input | Type | Description |
 |---|---|---|
 | `images` | IMAGE (required) | ComfyUI image tensor; each image is uploaded individually |
 | `filename_prefix` | STRING | Filename prefix for uploads (default `ComfyUI`) |
 
-- Fixed **PNG** output: the current `prompt` / `workflow` JSON is written into the PNG metadata — download the image from Immich and **drag it back into ComfyUI to restore the workflow** (tested end-to-end).
-- The node has **no image output** (`OUTPUT_NODE`, a pure upload/save node) — keep other nodes' outputs if you need to continue processing.
+- Fixed **PNG** output: the current `prompt` / `workflow` JSON is written into the PNG metadata, so the file carries its own recipe.
+- **Restoring it** takes one click: open the asset in the panel and press **Import to ComfyUI**. Dragging the downloaded file back onto the canvas works too.
+- **Returns the image** (`IMAGE`), so you can keep chaining after it; the upload happens on execution.
 - A copy is kept in the ComfyUI temp folder for the node preview (ComfyUI **clears the `temp/` folder on every startup**; files stay during runtime for the frontend preview).
 - **Upload filenames carry a millisecond timestamp** (`ComfyUI_1755300000000_0.png`), so they never collide with existing library names.
 - **Content-level dedup is done by the Immich server**: each upload carries `x-immich-checksum` (SHA-1); if an asset with identical content already exists, the server returns `duplicate` and **does not create a duplicate file**.
@@ -129,7 +130,7 @@ The node itself — `filename_prefix` plus the images input:
 
 ![Immich Save Image node](images/node-save-image.png)
 
-### 2. 🎬 Immich Save Video
+### 2. 🎬 Save Video into Immich
 
 | Input | Type | Description |
 |---|---|---|
@@ -159,7 +160,7 @@ The node itself — `filename_prefix` plus the video input:
 | `mask` | MASK | Alpha channel when the asset has one, otherwise empty |
 | `asset_id` | STRING | Immich asset id, so later nodes can refer to the original |
 
-- The node's **Choose image** button opens the asset panel in pick mode: one click selects, the panel closes, and the thumbnail is drawn on the node itself.
+- The node's **Choose image** button opens the asset panel in pick mode: one click selects and the thumbnail is drawn on the node itself. Whether the panel closes after picking is a setting (**Close the picker after choosing**); with it off the panel stays put so you can compare several before deciding.
 - Grouping, filtering, sorting and zoom work exactly as in the main panel, but the pick panel keeps **its own state inside the node**, so it travels with the workflow JSON. The main panel keeps its state on the server.
 - Reopening the picker restores the last selection, the scroll position and the preview pane.
 
@@ -179,11 +180,15 @@ Open it from the toolbar's 🖼️ button, or from the node's picker.
 - **Thumbnails** — 64 / 112 / 200 px, lazy-loaded; the first page is 100 assets and **Load more** appends the rest instead of blocking on a long fetch.
 - **State** — filters, sorting, grouping and pinning survive a reload.
 
+![The panel with the detail pane open](images/panel-detail.png)
+
 ## Configuration
 
 Everything is configured in **ComfyUI's own Settings dialog**, under the `Immich` group — the panel's gear button takes you straight there. The values are stored in `<plugin>/config.json`, **auto-generated on first save**, **git-ignored** and written `0o600`, so your API key is never committed. The main panel's own state lives beside it in `panel_state.json`, which is git-ignored too.
 
 The old standalone config page is gone; its reset button went with it. Settings live in the dialog, and the panel remembers its own filters, sorting, grouping and pinning on the server.
+
+![The Immich group in ComfyUI's Settings dialog](images/settings-immich.png)
 
 | Field | Description |
 |---|---|
@@ -320,6 +325,7 @@ Please follow the existing code style (Chinese comments in code, module docstrin
 
 ## Acknowledgements
 
-- Developed with a **vibe coding** workflow — built with the assistance of **DeepSeek V4 Flash** and **DeepSeek V4 Pro** for design, implementation and code review.
+- Developed with a **vibe coding** workflow — designed, implemented and reviewed with **DeepSeek V4.1 Flash 1017** and **dsh**.
+- Thanks to [**ltdrdata**](https://github.com/ltdrdata), maintainer of [ComfyUI-Manager](https://github.com/Comfy-Org/ComfyUI-Manager), for a patient two-round audit — the SSRF guard, the localhost-only config routes and the English-by-default interface all came out of that review — and for including this project in the registry.
 - Thanks to [ComfyUI](https://github.com/comfyanonymous/ComfyUI) for its rich node ecosystem and stable extension mechanism, which make custom node development a pleasure.
 - Thanks to [Immich](https://github.com/immich-app/immich) for its comprehensive REST API — the album, timeline, trash and other capabilities of this plugin are built on its excellent design.

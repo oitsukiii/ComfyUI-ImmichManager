@@ -30,7 +30,7 @@
 
 ## 功能特性
 
-- **🖼️ `Immich Save Image` 节点** —— 把生成的图片（PNG）连同当前工作流一起上传；从 Immich 下载后拖回画布即可还原工作流。
+- **🖼️ `Save Image into Immich` 节点** —— 把生成的图片（PNG）连同当前工作流一起上传；在面板详情页点一下就把它导入回画布。
 - **🎬 `Immich Save Video` 节点** —— 接收官方 `VIDEO` 类型，编码为带工作流元数据的 MP4（H.264），节点内可直接预览。
 - **📥 `Load Image from Immich` 节点** —— 在工作流里直接翻整个 Immich 库，选中的资产变成 `IMAGE` + `MASK`，也可以只取 `asset_id`。
 - **🗂️ 资产面板** —— 一个面板，侧栏按钮和节点按钮都能打开；缩略图墙、详情栏、多选模式、筛选、排序、分组、置顶。
@@ -105,13 +105,13 @@ python -m pip install requests pillow aiohttp
 3. 填写 Immich 服务地址（默认 `http://127.0.0.1:2283/api`；局域网填 `http://192.168.x.x:2283/api`）和 API Key，点 **保存**。
 4. 点 **测试连接** 确认连通（可选操作，显示 Immich 版本号）。
 5. 点侧栏的花按钮打开资产面板浏览；保存用 `🖼️ Immich Save Image` / `🎬 Immich Save Video`，取图用 `📥 Load Image from Immich`。
-6. 在工作流里添加 `🖼️ Immich Save Image` / `🎬 Immich Save Video` 节点即可上传。
+6. 在工作流里添加 `🖼️ Save Image into Immich` / `🎬 Save Video into Immich` 即可上传，`📥 Load Image from Immich` 用来从库里取图。
 
 ## 使用说明
 
-两个上传节点的连接配置（地址 / API Key / 默认相册）统一走面板配置，节点上不再有连接类输入。
+三个节点的连接配置（地址 / API Key / 默认相册）统一在 ComfyUI 设置对话框的 `Immich` 分组里，节点上没有连接类输入。
 
-### 1. 🖼️ Immich Save Image
+### 1. 🖼️ Save Image into Immich
 
 | 输入 | 类型 | 说明 |
 |---|---|---|
@@ -120,7 +120,7 @@ python -m pip install requests pillow aiohttp
 
 - 上传格式：固定为 PNG 上传（保证工作流 metadata 可写回）。
 - 隐私提醒：当前`prompt` / `workflow` JSON 一并写入 PNG metadata；从 Immich 下载后**拖回 ComfyUI 画布即可恢复工作流**（已端到端实测）。
-- 节点**没有图像输出**（`OUTPUT_NODE` 纯上传/保存节点）——需要继续处理图像请保留上游节点输出。
+- **有图像输出**（`IMAGE`），可以继续往下接；上传在执行时发生。
 - 本地 temp 目录保存一份用于节点预览（ComfyUI **每次启动时清空 `temp/` 目录**；运行期间文件保留，供前端展示）。
 - **上传文件名自带毫秒时间戳**（`ComfyUI_1755300000000_0.png`），天然避免与库内资产重名。
 - **内容去重交给 Immich 服务端**：上传时携带 `x-immich-checksum`（SHA-1），若 Immich 中已有相同内容的资产，服务端返回 `duplicate` 且**不新建重复文件**。
@@ -132,7 +132,7 @@ python -m pip install requests pillow aiohttp
 
 ![Immich Save Image 节点](images/node-save-image.png)
 
-### 2. 🎬 Immich Save Video
+### 2. 🎬 Save Video into Immich
 
 | 输入                | 类型        | 说明                                                             |
 | ----------------- | --------- | -------------------------------------------------------------- |
@@ -144,7 +144,7 @@ python -m pip install requests pillow aiohttp
   - `Create Video` 输出 → PyAV H.264 编码（保持创建位深，8/10-bit）；
   - `Load Video` 引用（源 mp4 + H.264）→ **纯 copy 不重编码**（快、无损、保留音轨与标签）；
   - 其他来源 → 自动转码为 MP4（H.264）。
-- 隐私提醒：当前`prompt` / `workflow` JSON 一并写入 MP4 容器（官方 `use_metadata_tags` 机制），下载后拖回可恢复工作流（已用 PyAV 读回实测）。
+- **元数据**：当前 `prompt` / `workflow` JSON 一并写入 MP4 容器；在面板详情页点「导入 ComfyUI」即可恢复工作流，下载后拖回画布也行。
 - **支持音频**：`Create Video` 带 audio 时音轨随视频保留。
 - **节点视频预览**：与官方 `Save Video` 同机制（`ui.images` + `animated`）。
 - **流式上传**：分块 SHA-1 + multipart 流式上传——大视频不会整读进内存。
@@ -162,7 +162,7 @@ python -m pip install requests pillow aiohttp
 | `mask` | MASK | 有 alpha 时输出蒙版，否则为空 |
 | `asset_id` | STRING | Immich 资产 id，后续节点可引用原图 |
 
-- 节点上的 **选择图片** 按钮以「选择模式」打开资产面板：单击即选中、面板自动关闭，缩略图直接画在节点上。
+- 节点上的 **选择图片** 按钮以「选择模式」打开资产面板：单击即选中，缩略图直接画在节点上。**选完是否自动关闭面板是一个设置项**（「选中图片后立即关闭选择面板」）；关掉它会保留面板，方便多张比较后再定。
 - 分组、筛选、排序、缩放与主面板一致，但**选择面板的状态存在节点里**，跟着工作流 JSON 走；主面板的状态存在服务器上。
 - 再次打开选择面板会恢复上次选中的图片、滚动位置和预览。
 
@@ -182,11 +182,15 @@ python -m pip install requests pillow aiohttp
 - **缩略图** —— 64 / 112 / 200 px 三档，懒加载；首屏只取 100 条，底部「加载更多」按需追加。
 - **状态记忆** —— 筛选、排序、分组、置顶刷新后仍在。
 
+![资产面板与详情栏](images/panel-detail.png)
+
 ## 配置项
 
 配置保存在插件目录下的 `config.json`——**首次保存配置时自动生成**，不在仓库里、已被 `.gitignore` 排除（你的 API Key 绝不会被 `git` 提交进公开仓库）；文件权限 `0o600`（仅属主可读写）。请勿手动把它提交或分享。
 
 原来的独立配置页已经移除，那个清空按钮也一并去掉了。设置项在官方设置对话框里，面板自己的筛选/排序/分组/置顶存在服务器上。
+
+![ComfyUI 设置里的 Immich 分组](images/settings-immich.png)
 
 | 字段                  | 说明                                                                                     |
 | ------------------- | -------------------------------------------------------------------------------------- |
@@ -323,6 +327,7 @@ IMMICH_TEST_KEY=xxx python3 tests/test_client.py
 
 ## 致谢
 
-- 本项目采用 **vibe coding** 方式开发——由 **DeepSeek V4 Flash** 与 **DeepSeek V4 Pro** 辅助完成设计、实现与代码审查。
+- 本项目采用 **vibe coding** 方式开发——由 **DeepSeek V4.1 Flash 1017** 与 **dsh** 辅助完成设计、实现与代码审查。
+- 感谢 [**ltdrdata**](https://github.com/ltdrdata)（[ComfyUI-Manager](https://github.com/Comfy-Org/ComfyUI-Manager) 维护者）耐心的两轮审计 —— SSRF 防护、配置路由仅限本机、界面默认英文都源于那次评审 —— 以及把这项目收录进官方列表。
 - 感谢 [ComfyUI](https://github.com/comfyanonymous/ComfyUI) 官方提供的丰富节点生态与稳定的扩展机制，让自定义节点开发如此顺畅。
 - 感谢 [Immich](https://github.com/immich-app/immich) 官方提供功能全面的 REST API，本插件的相册、时间轴、回收站等能力都建立在它的优秀设计之上。
