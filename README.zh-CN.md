@@ -1,10 +1,10 @@
 # ComfyUI-ImmichManager 🐾
 
-**把 ComfyUI 生成的图片/视频直接上传到你的 Immich 相册，内置资产预览与管理面板。**
+**把 Immich 当作 ComfyUI 的资产库** —— 生成的图片和视频连工作流一起存进 Immich，也能把 Immich 里的任意资产取回画布当作 `IMAGE` 使用。
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 ![ComfyUI](https://img.shields.io/badge/ComfyUI-0.30%2B-orange)
-![Immich](https://img.shields.io/badge/Immich-v2.x-blue)
+![Immich](https://img.shields.io/badge/Immich-v3.x-blue)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-green)
 
 > [English](./README.md) | **简体中文**

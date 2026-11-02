@@ -1,10 +1,10 @@
 # ComfyUI-ImmichManager 🐾
 
-**Upload ComfyUI-generated images/videos directly to your Immich library, with a built-in asset preview & management panel.**
+**Use Immich as ComfyUI's asset library** — save generated images and videos into it with their workflow embedded, and pull any Immich asset back into a graph as an `IMAGE`.
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 ![ComfyUI](https://img.shields.io/badge/ComfyUI-0.30%2B-orange)
-![Immich](https://img.shields.io/badge/Immich-v2.x-blue)
+![Immich](https://img.shields.io/badge/Immich-v3.x-blue)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-green)
 
 > **English** | [简体中文](./README.zh-CN.md)
@@ -291,7 +291,7 @@ A: The panel downloads the video into browser memory (fetch + blob) before playi
 A: Yes, and not by dragging. Images (PNG) and videos (MP4) both carry the current `prompt` / `workflow` metadata; open the asset's detail pane and press **Import to ComfyUI**. Dragging the downloaded file onto the canvas works as well.
 
 **Q: Can deleted assets be recovered?**
-A: Deletes always go to the Immich trash (tested on v2.x); restore from the Immich web UI. The plugin does not offer "empty trash".
+A: Deletes always go to the Immich trash; restore from the Immich web UI. The plugin does not offer "empty trash".
 
 **Q: Upload fails with `ProxyError ... [WinError 10061] No connection could be made...` or cannot reach a LAN Immich?**
 A: Your ComfyUI process environment carries proxy variables (typically `HTTP_PROXY=http://127.0.0.1:7897`, set by your launch script for ComfyUI-Manager) while that proxy client is not running — so requests to a **LAN** Immich get pushed through it too. Set **🌐 Network proxy → No proxy** in the Settings dialog (the default; takes effect right after saving) to go direct. If you really reach Immich through a proxy, pick "Custom proxy" and fill in the address, or "Follow environment variables". The settings group shows the detected env var as a hint.
