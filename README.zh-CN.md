@@ -328,6 +328,6 @@ IMMICH_TEST_KEY=xxx python3 tests/test_client.py
 ## 致谢
 
 - 本项目采用 **vibe coding** 方式开发——由 **DeepSeek V4.1 Flash 1017** 与 **dsh** 辅助完成设计、实现与代码审查。
-- 感谢 [**ltdrdata**](https://github.com/ltdrdata)（[ComfyUI-Manager](https://github.com/Comfy-Org/ComfyUI-Manager) 维护者）耐心的两轮审计 —— SSRF 防护、配置路由仅限本机、界面默认英文都源于那次评审 —— 以及把这项目收录进官方列表。
+- 感谢 [@ltdrdata](https://github.com/ltdrdata) 对安全模型提出的评审意见，以及把本项目收录进 [ComfyUI-Manager](https://github.com/Comfy-Org/ComfyUI-Manager)。
 - 感谢 [ComfyUI](https://github.com/comfyanonymous/ComfyUI) 官方提供的丰富节点生态与稳定的扩展机制，让自定义节点开发如此顺畅。
 - 感谢 [Immich](https://github.com/immich-app/immich) 官方提供功能全面的 REST API，本插件的相册、时间轴、回收站等能力都建立在它的优秀设计之上。

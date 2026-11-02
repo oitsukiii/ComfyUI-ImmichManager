@@ -326,6 +326,6 @@ Please follow the existing code style (Chinese comments in code, module docstrin
 ## Acknowledgements
 
 - Developed with a **vibe coding** workflow — designed, implemented and reviewed with **DeepSeek V4.1 Flash 1017** and **dsh**.
-- Thanks to [**ltdrdata**](https://github.com/ltdrdata), maintainer of [ComfyUI-Manager](https://github.com/Comfy-Org/ComfyUI-Manager), for a patient two-round audit — the SSRF guard, the localhost-only config routes and the English-by-default interface all came out of that review — and for including this project in the registry.
+- Thanks to [@ltdrdata](https://github.com/ltdrdata) for the review that shaped the security model, and for listing this project in [ComfyUI-Manager](https://github.com/Comfy-Org/ComfyUI-Manager).
 - Thanks to [ComfyUI](https://github.com/comfyanonymous/ComfyUI) for its rich node ecosystem and stable extension mechanism, which make custom node development a pleasure.
 - Thanks to [Immich](https://github.com/immich-app/immich) for its comprehensive REST API — the album, timeline, trash and other capabilities of this plugin are built on its excellent design.
