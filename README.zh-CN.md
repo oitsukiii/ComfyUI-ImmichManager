@@ -31,7 +31,7 @@
 ## 功能特性
 
 - **🖼️ `Save Image into Immich` 节点** —— 把生成的图片（PNG）连同当前工作流一起上传；在面板详情页点一下就把它导入回画布。
-- **🎬 `Immich Save Video` 节点** —— 接收官方 `VIDEO` 类型，编码为带工作流元数据的 MP4（H.264），节点内可直接预览。
+- **🎬 `Save Video into Immich` 节点** —— 接收官方 `VIDEO` 类型，编码为带工作流元数据的 MP4（H.264），节点内可直接预览。
 - **📥 `Load Image from Immich` 节点** —— 在工作流里直接翻整个 Immich 库，选中的资产变成 `IMAGE` + `MASK`，也可以只取 `asset_id`。
 - **🗂️ 资产面板** —— 一个面板，侧栏按钮和节点按钮都能打开；缩略图墙、详情栏、多选模式、筛选、排序、分组、置顶。
 - **🔎 条件筛选** —— 相册 / 人脸 / 标签 / 类型 / 收藏 / 时间段 任意组合；有条件时漏斗图标变琥珀色。
@@ -104,7 +104,7 @@ python -m pip install requests pillow aiohttp
 2. 安装好本插件后重启 ComfyUI，点击工具栏 **🖼️ Immich** → **⚙️ 配置**。
 3. 填写 Immich 服务地址（默认 `http://127.0.0.1:2283/api`；局域网填 `http://192.168.x.x:2283/api`）和 API Key，点 **保存**。
 4. 点 **测试连接** 确认连通（可选操作，显示 Immich 版本号）。
-5. 点侧栏的花按钮打开资产面板浏览；保存用 `🖼️ Immich Save Image` / `🎬 Immich Save Video`，取图用 `📥 Load Image from Immich`。
+5. 点侧栏的花按钮打开资产面板浏览；保存用 `🖼️ Save Image into Immich` / `🎬 Save Video into Immich`，取图用 `📥 Load Image from Immich`。
 6. 在工作流里添加 `🖼️ Save Image into Immich` / `🎬 Save Video into Immich` 即可上传，`📥 Load Image from Immich` 用来从库里取图。
 
 ## 使用说明
@@ -130,7 +130,7 @@ python -m pip install requests pillow aiohttp
 
 节点本体 —— `filename_prefix` + images 输入：
 
-![Immich Save Image 节点](images/node-save-image.png)
+![Save Image into Immich 节点](images/node-save-image.png)
 
 ### 2. 🎬 Save Video into Immich
 
@@ -152,7 +152,7 @@ python -m pip install requests pillow aiohttp
 
 节点本体 —— `filename_prefix` + video 输入：
 
-![Immich Save Video 节点](images/node-save-video.png)
+![Save Video into Immich 节点](images/node-save-video.png)
 
 ### 3. 📥 Load Image from Immich
 

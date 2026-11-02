@@ -30,8 +30,8 @@
 
 ## Features
 
-- **🖼️ `Immich Save Image` node** — uploads generated images (PNG) with the current workflow embedded; drag the file back from Immich to restore the workflow.
-- **🎬 `Immich Save Video` node** — takes the official ComfyUI `VIDEO` type, encodes MP4 (H.264) with workflow metadata, and previews it in the node.
+- **🖼️ `Save Image into Immich` node** — uploads generated images (PNG) with the current workflow embedded; drag the file back from Immich to restore the workflow.
+- **🎬 `Save Video into Immich` node** — takes the official ComfyUI `VIDEO` type, encodes MP4 (H.264) with workflow metadata, and previews it in the node.
 - **📥 `Load Image from Immich` node** — browse your whole Immich library from inside a workflow and turn a picked asset into `IMAGE` + `MASK`, or just its `asset_id`.
 - **🗂️ Asset panel** — one panel with a toolbar button and a node button; thumbnail grid, detail pane, selection mode, filtering, sorting, grouping and pinning.
 - **🔎 Filter builder** — combine album / person / tag / type / favourite / date-range conditions; the funnel icon lights up while any are active.
@@ -103,7 +103,7 @@ and restart ComfyUI. The `[ComfyUI-ImmichManager]` log prefix always reports the
 2. Restart ComfyUI, click **🖼️ Immich** in the toolbar → **⚙️ Configure**.
 3. Fill in the Immich server URL (default `http://127.0.0.1:2283/api`; use `http://192.168.x.x:2283/api` for LAN) and the API key, then **Save**.
 4. Click **Test Connection** to verify (shows the Immich version).
-5. Open the panel from the sidebar's flower button to browse; add `🖼️ Immich Save Image` / `🎬 Immich Save Video` to your workflow to upload, or drag `📥 Load Image from Immich` in to pull assets back out.
+5. Open the panel from the sidebar's flower button to browse; add `🖼️ Save Image into Immich` / `🎬 Save Video into Immich` to your workflow to upload, or drag `📥 Load Image from Immich` in to pull assets back out.
 
 ## Usage
 
@@ -128,7 +128,7 @@ All three nodes take their connection settings (base URL / API key / default alb
 
 The node itself — `filename_prefix` plus the images input:
 
-![Immich Save Image node](images/node-save-image.png)
+![Save Image into Immich node](images/node-save-image.png)
 
 ### 2. 🎬 Save Video into Immich
 
@@ -150,7 +150,7 @@ The node itself — `filename_prefix` plus the images input:
 
 The node itself — `filename_prefix` plus the video input:
 
-![Immich Save Video node](images/node-save-video.png)
+![Save Video into Immich node](images/node-save-video.png)
 
 ### 3. 📥 Load Image from Immich
 
